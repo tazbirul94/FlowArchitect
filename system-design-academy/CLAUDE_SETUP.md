@@ -139,6 +139,19 @@ Project workspace configuration, context loading strategy, and agent isolation r
 │   ├── CHANGELOG.md
 │   └── concept-version-index.md
 │
+├── staging/                           # Intermediate agent outputs (per concept)
+│   └── [concept-slug]/
+│       ├── research-brief.md          ← Agent 2 output
+│       ├── core-sections.md           ← Agent 3 output (all 4 levels)
+│       ├── story.md                   ← Agent 4 output
+│       ├── enterprise.md              ← Agent 5 output
+│       ├── ui-spec.md                 ← Agent 6 output
+│       ├── diagrams.md                ← Agent 7 output
+│       ├── tutorials.md               ← Agent 8 output
+│       ├── interview.md               ← Agent 9 output
+│       ├── assembled.md               ← Agent 10 output (pre-review)
+│       └── assembled-final.md         ← post-fix-loop, pre-optimize
+│
 └── exports/                           # Output formats
     ├── markdown/
     ├── html/
