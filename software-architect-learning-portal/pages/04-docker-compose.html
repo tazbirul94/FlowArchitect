@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker Compose — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="04" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">DevArchitect</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">Docker → Docker Compose</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ============================================================
+         PAGE HEADER
+         ============================================================ -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="tag">⏱ 35 min read</span>
+        <span class="tag">Epic 3</span>
+      </div>
+      <h1 class="page-title">Docker Compose</h1>
+      <p class="page-subtitle">Define and run multi-container applications with a single YAML file. Go from zero to a full local development environment in minutes.</p>
+    </div>
+
+    <!-- Table of Contents (injected by app.js) -->
+    <div class="toc-placeholder"></div>
+
+    <!-- ============================================================
+         SECTION 1 — Story Card
+         ============================================================ -->
+    <div class="story-card">
+      <span class="story-card-label">Story</span>
+      <p>Running a modern application isn't just one container. It's an app server, a database, a cache, a message queue, maybe a search engine. Starting them all manually — <code>docker run</code> this, <code>docker run</code> that, remember the right network, the right environment variable, the right port mapping — is like building flat-pack furniture without the instruction sheet. Every time.</p>
+      <p>Docker Compose is the instruction sheet. One YAML file describes your entire application stack: all services, how they connect, what storage they use, what environment they need. One command — <code>docker compose up</code> — starts everything in the right order. <code>docker compose down</code> tears it all down cleanly. Share the file with a teammate and they have your entire environment in minutes.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2 — Beginner Explanation
+         ============================================================ -->
+    <h2 id="beginner-explanation" class="section-title">What is Docker Compose?</h2>
+
+    <div class="beginner-note">
+      <span class="beginner-note-label">Beginner</span>
+      <p>Think of Docker Compose like a recipe for your entire kitchen setup. The recipe (<code>docker-compose.yml</code>) says: "heat the oven to 180° (start the database), prepare the dough (start the app), preheat the pan (start Redis)". You don't do each step manually every time — you just say "make dinner" and it follows the recipe.</p>
+    </div>
+
+    <p>Docker Compose reads a single YAML file and manages the full lifecycle of a multi-container application. Services are defined declaratively — you describe the desired state and Compose figures out how to achieve it. It handles creating networks so services can talk to each other by name, creating volumes so data persists across restarts, and starting services in the right order when dependencies are declared.</p>
+
+    <p>Compose ships as part of the Docker CLI since Docker Desktop 3.4 and Docker Engine 20.10. You invoke it as <code>docker compose</code> (with a space, the modern V2 plugin) rather than the older <code>docker-compose</code> (hyphenated, the legacy standalone tool). The two are functionally equivalent for most use cases, but V2 is the maintained version.</p>
+
+    <!-- ============================================================
+         SECTION 3 — Full docker-compose.yml Anatomy
+         ============================================================ -->
+    <h2 id="compose-file-anatomy" class="section-title">Full docker-compose.yml Anatomy</h2>
+
+    <p>The following is a complete, production-informed <code>docker-compose.yml</code> for the <strong>TicketFlow</strong> platform — a realistic multi-service application. Every key is annotated so you can understand not just what it does, but why it's there.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml"># docker-compose.yml for TicketFlow Platform
+# Version is optional in modern Compose (v2+), but shown for clarity
+version: '3.9'
+
+services:
+
+  # ─────────────────────────────────────────────
+  # API Gateway (NGINX reverse proxy)
+  # ─────────────────────────────────────────────
+  api-gateway:
+    image: nginx:1.25-alpine
+    container_name: ticketflow-gateway
+    ports:
+      - "80:80"          # host:container port mapping
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   # bind mount, read-only
+    networks:
+      - frontend
+    depends_on:
+      user-service:
+        condition: service_healthy   # wait until healthy, not just started
+      ticket-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # User Service (Node.js)
+  # ─────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./user-service           # Dockerfile location
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    image: ticketflow/user-service:dev   # tag the built image
+    container_name: ticketflow-users
+    ports:
+      - "3001:3001"       # expose for local debugging
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ticketflow
+      - DB_USER=ticketflow
+      - DB_PASSWORD=devpassword123    # dev only — use secrets in prod
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev-jwt-secret-change-in-prod
+    env_file:
+      - .env.local          # override with local .env file
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    # Resource limits (Compose v2)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+
+  # ─────────────────────────────────────────────
+  # Ticket Service (Java Spring Boot)
+  # ─────────────────────────────────────────────
+  ticket-service:
+    build:
+      context: ./ticket-service
+      dockerfile: Dockerfile
+    container_name: ticketflow-tickets
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ticketflow
+      SPRING_DATASOURCE_USERNAME: ticketflow
+      SPRING_DATASOURCE_PASSWORD: devpassword123
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s     # Java apps take time to start
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketflow-db
+    ports:
+      - "5432:5432"       # expose for DB GUI tools (TablePlus, DBeaver)
+    environment:
+      POSTGRES_DB: ticketflow
+      POSTGRES_USER: ticketflow
+      POSTGRES_PASSWORD: devpassword123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # named volume — data persists
+      - ./db/init:/docker-entrypoint-initdb.d:ro  # SQL init scripts
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketflow -d ticketflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # Redis Cache
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ticketflow-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass devpassword123
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "devpassword123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # Kafka (Message Broker)
+  # ─────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: ticketflow-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - backend
+
+  # ─────────────────────────────────────────────
+  # Notification Service
+  # ─────────────────────────────────────────────
+  notification-service:
+    build: ./notification-service
+    container_name: ticketflow-notifications
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+    networks:
+      - backend
+    depends_on:
+      - kafka
+    restart: unless-stopped
+    profiles:
+      - full     # only start with: docker compose --profile full up
+
+  # ─────────────────────────────────────────────
+  # MailHog (dev email catcher)
+  # ─────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ticketflow-mail
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI at http://localhost:8025
+    networks:
+      - backend
+    profiles:
+      - full
+
+# ─────────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+
+# ─────────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────────
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true    # backend network has no external access</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 4 — Service Dependency Diagram
+         ============================================================ -->
+    <h2 id="service-dependency-diagram" class="section-title">Service Dependency Diagram</h2>
+
+    <p>The diagram below maps each service's dependencies and the ports exposed for local access. The API gateway is the only public-facing entry point. All backend services live on an internal network that cannot reach the internet directly.</p>
+
+    <div class="mermaid-wrapper">
+      <div class="mermaid">
+flowchart TD
+    GW["🌐 api-gateway\nnginx:1.25"] --> US["👤 user-service\nNode.js :3001"]
+    GW --> TS["🎫 ticket-service\nSpring Boot :8080"]
+    US --> PG["🐘 postgres\n:5432"]
+    US --> RD["⚡ redis\n:6379"]
+    TS --> PG
+    TS --> RD
+    TS --> KF["📨 kafka\n:9092"]
+    KF --> NS["🔔 notification-service\nNode.js"]
+    NS --> MH["📧 mailhog\n:8025"]
+
+    style GW fill:#3b82f6,color:#fff
+    style PG fill:#336791,color:#fff
+    style RD fill:#dc2626,color:#fff
+    style KF fill:#f59e0b,color:#fff
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 5 — Essential Compose Commands
+         ============================================================ -->
+    <h2 id="essential-commands" class="section-title">Essential Compose Commands</h2>
+
+    <p>All commands below assume you are in the directory that contains your <code>docker-compose.yml</code> file. Compose automatically discovers the file by walking up the directory tree.</p>
+
+    <div class="os-tabs" id="commands-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix-cmds">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="win-cmds">Windows (PowerShell)</button>
+      </div>
+
+      <div class="os-tab-panel active" id="unix-cmds">
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Start all services (builds images if needed)
+docker compose up
+
+# Start in background (detached mode)
+docker compose up -d
+
+# Build images and start
+docker compose up -d --build
+
+# Start specific services only
+docker compose up -d postgres redis
+
+# Start with a specific profile
+docker compose --profile full up -d
+
+# View running services and their status
+docker compose ps
+
+# Follow logs from all services
+docker compose logs -f
+
+# Follow logs from specific service
+docker compose logs -f user-service
+
+# Run a command in a service container
+docker compose exec user-service bash
+docker compose exec postgres psql -U ticketflow
+
+# Scale a service (run 3 instances)
+docker compose up -d --scale user-service=3
+
+# Stop all services (containers remain)
+docker compose stop
+
+# Stop and remove containers, networks
+docker compose down
+
+# Stop and remove + delete volumes (DATA LOSS!)
+docker compose down -v
+
+# Rebuild a specific service image
+docker compose build user-service
+
+# Pull latest images
+docker compose pull
+
+# View resource usage
+docker compose top
+
+# Validate compose file
+docker compose config
+
+# View environment variables for a service
+docker compose run --rm user-service env</code></pre>
+        </div>
+      </div>
+
+      <div class="os-tab-panel" id="win-cmds">
+        <div class="code-wrapper">
+          <pre><code class="language-powershell"># Start all services (builds images if needed)
+docker compose up
+
+# Start in background (detached mode)
+docker compose up -d
+
+# Build images and start
+docker compose up -d --build
+
+# Start specific services only
+docker compose up -d postgres redis
+
+# Start with a specific profile
+docker compose --profile full up -d
+
+# View running services and their status
+docker compose ps
+
+# Follow logs from all services
+docker compose logs -f
+
+# Follow logs from specific service
+docker compose logs -f user-service
+
+# Run a command in a service container (use cmd.exe shell on Windows)
+docker compose exec user-service sh
+docker compose exec postgres psql -U ticketflow
+
+# Scale a service (run 3 instances)
+docker compose up -d --scale user-service=3
+
+# Stop all services (containers remain)
+docker compose stop
+
+# Stop and remove containers, networks
+docker compose down
+
+# Stop and remove + delete volumes (DATA LOSS!)
+docker compose down -v
+
+# Rebuild a specific service image
+docker compose build user-service
+
+# Pull latest images
+docker compose pull
+
+# View resource usage
+docker compose top
+
+# Validate compose file
+docker compose config
+
+# View environment variables for a service
+docker compose run --rm user-service env</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 6 — Override Files
+         ============================================================ -->
+    <h2 id="override-files" class="section-title">Override Files</h2>
+
+    <p>Docker Compose supports a file layering pattern that keeps base configuration clean while allowing per-environment customizations. Compose merges multiple files together at startup — values in later files override values in earlier ones, and new keys are added.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-text">docker-compose.yml          ← base config (committed to git)
+docker-compose.override.yml ← local dev overrides (gitignored)
+docker-compose.staging.yml  ← staging config
+docker-compose.prod.yml     ← prod config</code></pre>
+    </div>
+
+    <p>When you run <code>docker compose up</code> with no <code>-f</code> flags, Compose automatically reads <code>docker-compose.yml</code> and then merges <code>docker-compose.override.yml</code> on top of it. This automatic merge only applies to these two specific filenames — all other environment files must be specified explicitly with <code>-f</code>.</p>
+
+    <p>A typical override file for local development adds hot-reload volume mounts, debug logging, and extra tooling without touching the base file that every team member shares:</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml"># docker-compose.override.yml
+# Automatically merged with docker-compose.yml
+# Add to .gitignore
+
+services:
+  user-service:
+    volumes:
+      - ./user-service/src:/app/src   # hot reload: mount source code
+    environment:
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    command: npm run dev              # override to use nodemon
+
+  ticket-service:
+    volumes:
+      - ./ticket-service/src:/app/src
+
+  postgres:
+    ports:
+      - "5432:5432"    # expose for local DB tools
+
+# Use: docker compose up -d (auto-merges override)
+# Use specific file: docker compose -f docker-compose.yml -f docker-compose.staging.yml up</code></pre>
+    </div>
+
+    <div class="production-tip">
+      <span class="production-tip-label">Production Tip</span>
+      <p>Commit a <code>docker-compose.override.yml.example</code> to your repository showing the shape of the override file with placeholder values. Developers copy it to <code>docker-compose.override.yml</code> and fill in their local paths. The actual override file goes in <code>.gitignore</code> — this way everyone has the file, no one's local paths or tool choices end up in git, and the team always knows what overrides are expected.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 7 — Health Checks Deep Dive
+         ============================================================ -->
+    <h2 id="healthchecks" class="section-title">Health Checks Deep Dive</h2>
+
+    <p>Health checks are the mechanism that tells Docker whether a container is actually functioning — not just running. A container can be started (the process launched) while the service inside is still initialising, loading data, warming up caches, or establishing database connections. Health checks distinguish between these states.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml">healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  # or: test: ["CMD-SHELL", "pg_isready -U myuser"]
+  interval: 30s      # how often to check
+  timeout: 10s       # max time to wait for response
+  retries: 3         # consecutive failures = unhealthy
+  start_period: 60s  # grace period (don't count failures)</code></pre>
+    </div>
+
+    <p>A container moves through three health states during its lifetime:</p>
+
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Meaning</th>
+            <th>When It Applies</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>starting</strong></td>
+            <td>Health check has not yet returned a result</td>
+            <td>Within <code>start_period</code> after container start, or before first check interval elapses</td>
+          </tr>
+          <tr>
+            <td><strong>healthy</strong></td>
+            <td>The most recent check exited 0 (success)</td>
+            <td>After at least one successful check passes</td>
+          </tr>
+          <tr>
+            <td><strong>unhealthy</strong></td>
+            <td><code>retries</code> consecutive checks have failed</td>
+            <td>After the retry threshold is exceeded outside the start period</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The <code>depends_on</code> directive can use these states to control startup ordering. With <code>condition: service_healthy</code>, Compose polls the dependent service's health status and only starts the dependent service once the dependency reaches <strong>healthy</strong>. Without a condition, Compose only waits for the container process to start — which is almost never what you want for databases or caches.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml"># depends_on with conditions
+depends_on:
+  postgres:
+    condition: service_healthy    # waits for healthy status
+  kafka:
+    condition: service_started    # only waits for process to start (weaker)
+  migrations:
+    condition: service_completed_successfully  # waits for exit code 0</code></pre>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p><code>depends_on</code> without <code>condition: service_healthy</code> only waits for the container to START — not for the service inside to be READY. A database container "starts" in 2 seconds but PostgreSQL takes 10 seconds to accept connections. Your app tries to connect and fails. Always use <code>condition: service_healthy</code> with a proper healthcheck on the database service. The extra three lines of YAML save hours of debugging intermittent startup failures.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 8 — Profiles
+         ============================================================ -->
+    <h2 id="profiles" class="section-title">Profiles</h2>
+
+    <p>Profiles let you mark certain services as optional — they only start when explicitly requested. Services without a <code>profiles:</code> key always start. Services with a profile key only start when that profile is activated with <code>--profile</code>.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml">services:
+  # Core services — always started (no profiles key)
+  user-service:
+    image: ticketflow/user-service:dev
+
+  postgres:
+    image: postgres:16-alpine
+
+  # Optional services — only started with --profile
+  notification-service:
+    build: ./notification-service
+    profiles:
+      - full        # only start with --profile full
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    profiles:
+      - full        # same profile as notification-service
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring  # only start with --profile monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - monitoring</code></pre>
+    </div>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Start only core services (no profiles)
+docker compose up -d
+
+# Start everything including monitoring
+docker compose --profile monitoring up -d
+
+# Start everything
+docker compose --profile full --profile monitoring up -d
+
+# Stop a specific profile
+docker compose --profile monitoring down</code></pre>
+    </div>
+
+    <p>Profiles shine in several scenarios: keeping a local environment lightweight by default (core database + app, no email catcher, no observability stack), enabling integration-test services only during CI, or activating a search engine only for developers working on search features. Each developer activates only the profiles they need for their current task.</p>
+
+    <!-- ============================================================
+         SECTION 9 — Behind the Scenes
+         ============================================================ -->
+    <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+    <details>
+      <summary>How does <code>depends_on</code> ordering work?</summary>
+      <div class="answer-content">
+        <p>When Compose parses your file, it builds a dependency graph from all <code>depends_on</code> declarations. It then performs a topological sort to determine the startup order. If service A depends on B and C, then B and C must start before A. If B also depends on D, then D starts first.</p>
+        <p>With <code>condition: service_healthy</code>, Compose polls the dependency's health check at the <code>interval</code> cadence specified in the healthcheck configuration. It blocks starting the dependent service until the health check exits 0. This polling happens in a tight loop with a short sleep between checks — Compose does not simply wait for one <code>interval</code> to pass.</p>
+        <p>Important limitation: <code>depends_on</code> only controls <em>startup</em> order, not <em>runtime</em> order. If PostgreSQL crashes and restarts while your app is running, Compose will restart Postgres but will not automatically restart your app even if it loses its database connection. You need retry logic in your application code for runtime resilience. Libraries like <code>pg-promise</code> (Node) and Spring Retry (Java) handle connection retry automatically.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do named volumes work internally?</summary>
+      <div class="answer-content">
+        <p>When Compose creates a named volume, it calls the Docker Engine API to create a volume using the specified driver (default: <code>local</code>). Docker stores the volume data in a directory on the host at <code>/var/lib/docker/volumes/&lt;project&gt;_&lt;volume-name&gt;/_data</code> on Linux, or within the Docker Desktop VM on macOS and Windows.</p>
+        <p>Compose prefixes the volume name with the project name. If your project directory is <code>ticketflow-local</code>, the volume declared as <code>postgres_data</code> becomes <code>ticketflow-local_postgres_data</code> in Docker. You can see this with <code>docker volume ls</code>. You can override the project name with <code>docker compose -p myproject up</code> or the <code>COMPOSE_PROJECT_NAME</code> environment variable.</p>
+        <p>Named volumes persist until explicitly deleted. <code>docker compose down</code> removes containers and networks but leaves volumes intact. <code>docker compose down -v</code> also removes volumes — this permanently deletes all data in those volumes. <code>docker volume inspect ticketflow-local_postgres_data</code> shows the exact host path where the data lives, which you can use to back it up.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is the Compose project and why does it matter?</summary>
+      <div class="answer-content">
+        <p>Every resource Compose creates — containers, networks, volumes — is tagged with a project name. The project name defaults to the name of the directory containing <code>docker-compose.yml</code>. All resource names are prefixed: a container named <code>postgres</code> in a project called <code>ticketflow</code> becomes the container <code>ticketflow-postgres-1</code>.</p>
+        <p>This prefix is what allows Compose to know which resources belong to a given project, so <code>docker compose down</code> only removes the resources for the current project — not containers from other projects. It also enables multiple isolated instances of the same compose file to coexist on one machine. If two developers share the same host, they can each run the same compose file under different project names: <code>docker compose -p alice-ticketflow up -d</code> and <code>docker compose -p bob-ticketflow up -d</code>.</p>
+        <p>You can also set the project name via the <code>COMPOSE_PROJECT_NAME</code> environment variable or with a <code>name:</code> top-level key in the compose file itself (Compose Spec, supported since Compose v2.3).</p>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         SECTION 10 — Common Mistakes
+         ============================================================ -->
+    <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 1 — Startup order race condition</span>
+      <p>Using <code>depends_on</code> without <code>condition: service_healthy</code>. The database container starts but the PostgreSQL process inside is still initialising. Your app service starts immediately after, tries to connect to the database, gets "connection refused", and crashes. Fix: add a <code>healthcheck</code> to the database service using <code>pg_isready</code>, and add <code>condition: service_healthy</code> to the dependent service's <code>depends_on</code>. Also implement application-level connection retry as a second line of defence.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 2 — Port conflicts with local services</span>
+      <p>If you already have PostgreSQL installed locally and running on port 5432, starting the postgres container with <code>ports: "5432:5432"</code> will fail with "port is already in use". Fix: map to a different host port — <code>"5433:5432"</code> exposes PostgreSQL on host port 5433 while the container still listens on 5432 internally. Services inside the Docker network still connect to <code>postgres:5432</code> by service name regardless of the host port mapping.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 3 — Committing override files with sensitive data</span>
+      <p><code>docker-compose.override.yml</code> typically contains developer-specific passwords, local paths, debug flags, and tool preferences. Committing it exposes secrets and creates merge conflicts. It should always be in <code>.gitignore</code>. Provide a <code>docker-compose.override.yml.example</code> in the repo instead, showing the expected structure with placeholder values. Each developer copies it and fills in their own values.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 4 — Losing database data with <code>down -v</code></span>
+      <p><code>docker compose down</code> removes containers and networks safely — named volumes survive. <code>docker compose down -v</code> also deletes all named volumes, permanently destroying any data in them. Developers sometimes run <code>down -v</code> to "fully reset" their environment and accidentally delete a database full of test data they needed. Understand the difference clearly: <code>down</code> is safe, <code>down -v</code> is destructive. When in doubt, run <code>docker volume ls</code> and back up volumes you care about before using <code>-v</code>.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 5 — Hard-coded secrets in docker-compose.yml</span>
+      <p>Writing <code>DB_PASSWORD=mysecret</code> directly in <code>docker-compose.yml</code> and committing the file to git exposes the secret in your version history forever — even if you change the value later, git history retains the original. Use an <code>env_file:</code> directive pointing to a <code>.env</code> or <code>.env.local</code> file. Add that file to <code>.gitignore</code>. Commit a <code>.env.example</code> with keys but no values so teammates know what variables are needed.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 11 — Architect Notes
+         ============================================================ -->
+    <h2 id="architect-notes" class="section-title">Architect Notes</h2>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Note</span>
+      <p>Docker Compose is for local development and simple single-host deployments — not for production scale-out. Key limitations to understand before reaching for Compose in production:</p>
+      <ul>
+        <li><strong>No cross-host networking.</strong> All containers must run on a single machine. You cannot span a Compose application across multiple servers.</li>
+        <li><strong>No automatic failover.</strong> <code>restart: unless-stopped</code> handles process crashes on a single host, but there is no mechanism to restart containers on a different host if the machine itself fails.</li>
+        <li><strong>No built-in load balancing across scaled containers.</strong> <code>--scale user-service=3</code> creates three containers but Compose does not load balance between them. You need an external proxy (NGINX, Traefik) configured to route across all instances.</li>
+        <li><strong>No rolling deployments.</strong> Updating a service image brings it down and back up — there is no zero-downtime rolling update mechanism.</li>
+      </ul>
+      <p>Compose is still the right tool for: local dev environments (every team should have one, and it should be the first thing a new hire runs), integration testing in CI (spin up a real database and Redis for your test suite instead of mocking), simple hobby projects and single-server deployments, and staging environments that mirror dev without Kubernetes complexity.</p>
+      <p>The mental model you build with Compose carries directly forward to Kubernetes. Services become Deployments. Networks become Services and NetworkPolicies. Named volumes become PersistentVolumeClaims. Healthchecks become readinessProbes and livenessProbes. Profiles become namespaces and Helm values. Compose teaches the right concepts — Kubernetes adds the scale, reliability, and operational sophistication that production demands.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 12 — Production Checklist
+         ============================================================ -->
+    <h2 id="production-checklist" class="section-title">Production Checklist</h2>
+
+    <p>Before sharing a compose file with the team or deploying to any environment, verify each of the following:</p>
+
+    <ul class="checklist">
+      <li><code>docker-compose.override.yml</code> is in <code>.gitignore</code></li>
+      <li><code>.env.example</code> is committed to git showing required variable names without values</li>
+      <li>All services have a <code>healthcheck</code> defined with an appropriate <code>start_period</code></li>
+      <li><code>depends_on</code> uses <code>condition: service_healthy</code> for all database-dependent services</li>
+      <li>Named volumes are used for all stateful services (postgres, redis, kafka)</li>
+      <li>Backend network is marked <code>internal: true</code> — no direct internet access from database tier</li>
+      <li>Resource limits are set via <code>deploy.resources.limits</code> to prevent runaway containers</li>
+      <li><code>restart: unless-stopped</code> is set on all long-running services</li>
+      <li>Secrets are NOT hardcoded in <code>docker-compose.yml</code> — use <code>env_file:</code> pointing to a gitignored <code>.env</code> file</li>
+      <li><code>docker compose config</code> runs without errors (validates the merged compose file before every commit)</li>
+    </ul>
+
+    <!-- ============================================================
+         SECTION 13 — Hands-On Lab
+         ============================================================ -->
+    <h2 id="hands-on-lab" class="section-title">Hands-On Lab</h2>
+
+    <div class="lab-box">
+      <span class="lab-box-label">Lab — TicketFlow Local Dev Environment</span>
+      <p>Build a minimal but realistic local environment from scratch. You will create a Node.js service, a PostgreSQL database, and a Compose file that wires them together with proper health checks and dependency ordering. Every step is designed to make the underlying Compose mechanics visible.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Step 1: Create project structure
+mkdir ticketflow-local && cd ticketflow-local
+mkdir -p user-service ticket-service db/init nginx
+
+# Step 2: Create minimal user-service
+cat > user-service/server.js << 'EOF'
+const http = require('http');
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.end(JSON.stringify({ status: 'healthy', service: 'user-service' }));
+  } else {
+    res.writeHead(200);
+    res.end('User Service OK');
+  }
+});
+server.listen(3001, () => console.log('User service on :3001'));
+EOF
+
+cat > user-service/package.json << 'EOF'
+{"name":"user-service","version":"1.0.0","main":"server.js"}
+EOF
+
+cat > user-service/Dockerfile << 'EOF'
+FROM node:18-alpine
+WORKDIR /app
+COPY package.json .
+COPY server.js .
+USER node
+EXPOSE 3001
+HEALTHCHECK --interval=10s CMD wget -q --spider http://localhost:3001/health || exit 1
+CMD ["node", "server.js"]
+EOF
+
+# Step 3: Create docker-compose.yml (minimal version)
+cat > docker-compose.yml << 'EOF'
+version: '3.9'
+services:
+  user-service:
+    build: ./user-service
+    ports: ["3001:3001"]
+    networks: [backend]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD","wget","--no-verbose","--tries=1","--spider","http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ticketflow
+      POSTGRES_USER: ticketflow
+      POSTGRES_PASSWORD: devpassword
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U ticketflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+networks:
+  backend:
+EOF
+
+# Step 4: Start and observe
+docker compose up -d --build
+
+# Step 5: Watch startup order — observe postgres becoming healthy before user-service starts
+docker compose logs -f
+
+# Step 6: Verify health — look for (healthy) in the STATUS column
+docker compose ps
+
+# Step 7: Test the service
+curl http://localhost:3001/health
+# Expected: {"status":"healthy","service":"user-service"}
+
+# Step 8: Enter postgres and list databases
+docker compose exec postgres psql -U ticketflow -c '\l'
+
+# Step 9: Scale user-service to 3 instances
+docker compose up -d --scale user-service=3
+docker compose ps
+
+# Step 10: Inspect volumes — note the project prefix in the volume name
+docker volume ls | grep ticketflow
+
+# Step 11: Clean up containers and networks (data survives in the named volume)
+docker compose down
+
+# Verify the volume still exists after down
+docker volume ls | grep ticketflow
+
+# Step 12: Only delete everything including the database volume when intentional
+docker compose down -v</code></pre>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 14 — Interview Questions
+         ============================================================ -->
+    <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary>Q1: What is the difference between <code>docker compose stop</code> and <code>docker compose down</code>?</summary>
+          <div class="answer-content">
+            <p><code>docker compose stop</code> sends a stop signal to the running containers and waits for them to halt gracefully. The containers continue to exist in a stopped state — their writable filesystem layer, assigned IP addresses, and configuration all persist. You can restart them with <code>docker compose start</code> and they pick up exactly where they left off. No data is lost. No networks are removed.</p>
+            <p><code>docker compose down</code> goes further: it stops the containers and then removes them, along with the networks Compose created. Your named volumes survive — data in postgres and redis is untouched. Use <code>down</code> when you want a full cleanup of containers and want a fresh start on the next <code>up</code>.</p>
+            <p><code>docker compose down -v</code> additionally removes named volumes — this permanently destroys all data stored in those volumes. Use it only when you explicitly want to wipe the database clean (e.g., to reset a dev environment to a known blank state). Never run <code>down -v</code> on a shared environment without communicating to the team first.</p>
+            <p>Rule of thumb: use <code>stop</code> when pausing work to resume later. Use <code>down</code> when cleaning up at end of day or switching branches. Use <code>down -v</code> only intentionally, never as a default "make it work again" habit.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q2: How does <code>depends_on</code> work and what are its limitations?</summary>
+          <div class="answer-content">
+            <p><code>depends_on</code> controls the startup order of services. Without a <code>condition:</code> key, it only waits for the dependent container's process to start — the container exits the "created" state and enters "running". This is almost never sufficient for databases, message brokers, or caches because the service inside the container needs additional time to initialise before accepting connections.</p>
+            <p>With <code>condition: service_healthy</code>, Compose polls the dependency's health check until it reports the healthy status. With <code>condition: service_completed_successfully</code>, it waits for a one-shot container (like a database migration job) to exit with code 0 before proceeding.</p>
+            <p>Critical limitation: <code>depends_on</code> only governs the <em>initial</em> startup sequence. Once all services are running, Compose does not monitor dependencies. If PostgreSQL crashes and Compose restarts it, your application service is not automatically restarted — even though it may have lost its database connection. Implement connection retry logic in your application (most good database libraries do this automatically) so the app reconnects when the database comes back, without human intervention.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q3: What is the purpose of Docker Compose networks and why use multiple?</summary>
+          <div class="answer-content">
+            <p>Networks in Compose provide isolation and service discovery. Services on the same network can reach each other by their service name (Compose registers each service as a DNS hostname on its networks). Services on different networks cannot communicate unless they share at least one network in common.</p>
+            <p>Using multiple networks is a security pattern. In the TicketFlow example: the <code>frontend</code> network connects the API gateway to the user service and ticket service. The <code>backend</code> network connects the application services to the database, Redis, and Kafka. The API gateway is on both networks — it is the only service that bridges them. PostgreSQL and Redis are only on <code>backend</code> — they cannot be reached from the frontend tier directly.</p>
+            <p>Marking the backend network as <code>internal: true</code> is an additional security layer: no container on that network can make outbound internet connections. A compromised database container cannot reach an external attacker's server or exfiltrate data. Frontend containers can still talk to the internet (for fetching external APIs, sending webhooks) because they are only on the non-internal frontend network.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q4: How do you handle secrets in Docker Compose for development vs. production?</summary>
+          <div class="answer-content">
+            <p>For development: use an <code>env_file:</code> directive pointing to a <code>.env</code> or <code>.env.local</code> file. This keeps secrets out of <code>docker-compose.yml</code> itself. Git-ignore the <code>.env</code> file. Commit a <code>.env.example</code> to the repo with all keys present but values blank or set to obvious placeholder strings, so teammates know exactly what variables to provide.</p>
+            <p>For production: the short answer is that Docker Compose is generally not the right tool for production workloads that require real secrets management. For true production, use Kubernetes Secrets (base64 encoded, optionally encrypted at rest via etcd encryption), HashiCorp Vault with dynamic secrets and short-lived leases, or cloud-native solutions like AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager with automatic rotation.</p>
+            <p>If you must use Compose in a simple single-server production deployment, Docker Swarm mode supports a <code>secrets:</code> top-level key — secrets are stored encrypted in the Raft log and exposed to containers as files under <code>/run/secrets/</code>. This is significantly more secure than environment variables because secrets never appear in <code>docker inspect</code> output. However, for anything beyond a hobbyist project, the right answer is a proper secrets manager, not Compose.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q5: What is the Compose override file pattern?</summary>
+          <div class="answer-content">
+            <p><code>docker-compose.yml</code> contains the base, environment-agnostic configuration. It defines all services, their images or build contexts, their network membership, and their default configuration. This file is committed to git and is the source of truth that every team member and every environment starts from.</p>
+            <p><code>docker-compose.override.yml</code> is automatically discovered and merged on top of the base file whenever <code>docker compose up</code> is run with no explicit <code>-f</code> flags. Merge rules: scalar values (strings, numbers) in the override replace base values; lists (ports, volumes, environment) are appended, not replaced; maps (environment as key-value) are merged with override values taking precedence.</p>
+            <p>The override file is typically gitignored because it contains developer-specific choices: hot-reload volume mounts (which depend on local paths), elevated log levels, dev-specific environment variables, and extra containers for local tooling. Each developer maintains their own copy. For staging and production, explicit <code>-f</code> flags are used: <code>docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d</code>. This makes the environment explicit and auditable — no surprise automatic merges.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q6: How do you wait for a database to be ready in Compose?</summary>
+          <div class="answer-content">
+            <p>The robust solution has three layers, each addressing a different failure mode.</p>
+            <p><strong>Layer 1 — Compose healthcheck:</strong> Add a <code>healthcheck</code> to the database service using a native readiness check. For PostgreSQL, use <code>pg_isready -U myuser</code> which tests whether the database is accepting connections on the specified user. For Redis, use <code>redis-cli ping</code>. Set a reasonable <code>start_period</code> so Compose does not mark the container unhealthy during the normal initialisation window (10–15 seconds for Postgres, 60+ seconds for a cold Kafka broker).</p>
+            <p><strong>Layer 2 — Compose depends_on condition:</strong> Use <code>depends_on: &lt;db&gt;: condition: service_healthy</code> on every service that connects to the database. This ensures Compose does not start the application service until the database reports healthy. This handles the happy-path startup case.</p>
+            <p><strong>Layer 3 — Application-level retry:</strong> Implement connection retry logic in your application. <code>depends_on: condition: service_healthy</code> only guarantees that the database was healthy at the moment your service started. After startup, the database can restart, network can hiccup, or connections can be lost. Good database client libraries (pg-promise for Node.js, HikariCP for Java, SQLAlchemy with connection pooling for Python) handle automatic reconnection. Configure retry policies with exponential backoff and a maximum retry count so the app recovers automatically without operator intervention.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+
+  </div><!-- end page-content -->
+</main>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1325 @@
+/* ============================================================
+   FlowArchitect — Software Architect Learning Portal
+   Custom stylesheet (Tailwind CDN companion)
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. CSS Custom Properties (Design Tokens)
+   ------------------------------------------------------------ */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --accent: #3b82f6;
+  --accent-dark: #1d4ed8;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #cbd5e1;
+  --sidebar-active: #3b82f6;
+  --sidebar-hover: #1e293b;
+  --code-bg: #1e293b;
+  --code-text: #e2e8f0;
+}
+
+html.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --border: #334155;
+  --accent: #60a5fa;
+  --accent-dark: #93c5fd;
+  --sidebar-bg: #020617;
+  --sidebar-text: #94a3b8;
+  --sidebar-active: #60a5fa;
+  --sidebar-hover: #0f172a;
+  --code-bg: #020617;
+  --code-text: #e2e8f0;
+}
+
+/* ------------------------------------------------------------
+   2. Base / Reset
+   ------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  transition: background 0.2s, color 0.2s;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+p {
+  line-height: 1.75;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+ul,
+ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+li {
+  margin-bottom: 0.375rem;
+  line-height: 1.6;
+}
+
+code {
+  background: var(--bg-tertiary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  color: var(--accent);
+}
+
+pre {
+  background: var(--code-bg);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: var(--code-text);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------
+   3. Scrollbar Styling (WebKit)
+   ------------------------------------------------------------ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ------------------------------------------------------------
+   4. Layout — Sidebar + Main
+   ------------------------------------------------------------ */
+
+#sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 280px;
+  background: var(--sidebar-bg);
+  overflow-y: auto;
+  z-index: 50;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+#sidebar .logo {
+  padding: 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+#search-input {
+  width: calc(100% - 2rem);
+  margin: 1rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  outline: none;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#search-input:focus {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+#search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+#nav-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
+.nav-group {
+  margin-top: 0.25rem;
+}
+
+.nav-group-title {
+  padding: 0.75rem 1rem 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-group-title::after {
+  content: "▾";
+  font-size: 0.65rem;
+  opacity: 0.6;
+  transition: transform 0.2s;
+}
+
+.nav-group.collapsed .nav-group-title::after {
+  transform: rotate(-90deg);
+}
+
+.nav-group-items {
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.nav-group.collapsed .nav-group-items {
+  display: none;
+}
+
+.nav-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--sidebar-text);
+  text-decoration: none;
+  border-radius: 0.25rem;
+  margin: 0 0.5rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-item:hover {
+  background: var(--sidebar-hover);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------
+   5. Main Content Area
+   ------------------------------------------------------------ */
+
+#main-content {
+  margin-left: 280px;
+  min-height: 100vh;
+}
+
+.page-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* ------------------------------------------------------------
+   6. Top Bar
+   ------------------------------------------------------------ */
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 30;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.breadcrumb {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.breadcrumb a {
+  color: var(--text-secondary);
+}
+
+.breadcrumb a:hover {
+  color: var(--accent);
+}
+
+.breadcrumb span {
+  margin: 0 0.375rem;
+  color: var(--text-muted);
+}
+
+#theme-toggle {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+#theme-toggle:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------
+   7. Mobile Header + Hamburger
+   ------------------------------------------------------------ */
+
+#mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 40;
+  background: var(--bg-primary);
+  padding: 1rem;
+  gap: 1rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+#hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 0.25rem;
+  flex-shrink: 0;
+}
+
+#hamburger svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Sidebar overlay for mobile */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 45;
+}
+
+/* ------------------------------------------------------------
+   8. Page Header
+   ------------------------------------------------------------ */
+
+.page-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.page-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
+}
+
+.page-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  line-height: 1.6;
+}
+
+.page-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+/* ------------------------------------------------------------
+   9. Section Headings
+   ------------------------------------------------------------ */
+
+h2.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 2rem 0 1rem;
+  padding-top: 1rem;
+  line-height: 1.3;
+}
+
+h3.subsection-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 1.25rem 0 0.75rem;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------
+   10. Callout Cards (story, note, tip, mistake)
+   ------------------------------------------------------------ */
+
+/* Shared card base */
+.story-card,
+.beginner-note,
+.architect-note,
+.production-tip,
+.common-mistake {
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.story-card-label,
+.beginner-note-label,
+.architect-note-label,
+.production-tip-label,
+.common-mistake-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Story Card — amber */
+.story-card {
+  border-left: 4px solid #f59e0b;
+  background: color-mix(in srgb, #f59e0b 8%, var(--bg-secondary));
+}
+
+.story-card-label {
+  color: #d97706;
+}
+
+html.dark .story-card-label {
+  color: #fbbf24;
+}
+
+/* Beginner Note — blue */
+.beginner-note {
+  border-left: 4px solid #3b82f6;
+  background: color-mix(in srgb, #3b82f6 8%, var(--bg-secondary));
+}
+
+.beginner-note-label {
+  color: #2563eb;
+}
+
+html.dark .beginner-note-label {
+  color: #60a5fa;
+}
+
+/* Architect Note — purple */
+.architect-note {
+  border-left: 4px solid #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 8%, var(--bg-secondary));
+}
+
+.architect-note-label {
+  color: #7c3aed;
+}
+
+html.dark .architect-note-label {
+  color: #a78bfa;
+}
+
+/* Production Tip — green */
+.production-tip {
+  border-left: 4px solid #10b981;
+  background: color-mix(in srgb, #10b981 8%, var(--bg-secondary));
+}
+
+.production-tip-label {
+  color: #059669;
+}
+
+html.dark .production-tip-label {
+  color: #34d399;
+}
+
+/* Common Mistake — red */
+.common-mistake {
+  border-left: 4px solid #ef4444;
+  background: color-mix(in srgb, #ef4444 8%, var(--bg-secondary));
+}
+
+.common-mistake-label {
+  color: #dc2626;
+}
+
+html.dark .common-mistake-label {
+  color: #f87171;
+}
+
+/* Shared card paragraph reset */
+.story-card p,
+.beginner-note p,
+.architect-note p,
+.production-tip p,
+.common-mistake p {
+  margin-bottom: 0.5rem;
+}
+
+.story-card p:last-child,
+.beginner-note p:last-child,
+.architect-note p:last-child,
+.production-tip p:last-child,
+.common-mistake p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------
+   11. Lab Box
+   ------------------------------------------------------------ */
+
+.lab-box {
+  border: 2px solid #06b6d4;
+  border-radius: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+  background: color-mix(in srgb, #06b6d4 6%, var(--bg-secondary));
+}
+
+.lab-box-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #0891b2;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+html.dark .lab-box-label {
+  color: #22d3ee;
+}
+
+.lab-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------
+   12. Code Wrapper + Copy Button
+   ------------------------------------------------------------ */
+
+.code-wrapper {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.code-wrapper pre {
+  margin: 0;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background 0.15s, opacity 0.15s;
+  opacity: 0.85;
+  z-index: 10;
+}
+
+.copy-btn:hover {
+  background: #2563eb;
+  opacity: 1;
+}
+
+.copy-btn.copied {
+  background: #10b981;
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------
+   13. OS Tabs
+   ------------------------------------------------------------ */
+
+.os-tabs {
+  margin: 1rem 0;
+}
+
+.os-tab-buttons {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.os-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: inherit;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.os-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.os-tab-btn.active {
+  border-bottom: 2px solid var(--accent);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.os-tab-panel {
+  display: none;
+}
+
+.os-tab-panel.active {
+  display: block;
+}
+
+/* ------------------------------------------------------------
+   14. Checklist
+   ------------------------------------------------------------ */
+
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin-left: 0;
+  margin-bottom: 1rem;
+}
+
+.checklist li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding-left: 1.75rem;
+  position: relative;
+}
+
+.checklist li:last-child {
+  border-bottom: none;
+}
+
+.checklist li::before {
+  content: "☐";
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------
+   15. Interview Section + Q&A (details/summary)
+   ------------------------------------------------------------ */
+
+.interview-section {
+  margin: 1.5rem 0;
+}
+
+.interview-q {
+  margin: 0.5rem 0;
+}
+
+.interview-q details {
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.interview-q details:hover {
+  border-color: var(--accent);
+}
+
+.interview-q summary {
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.interview-q summary::-webkit-details-marker {
+  display: none;
+}
+
+.interview-q summary::before {
+  content: "▶";
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  display: inline-block;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.interview-q details[open] summary {
+  background: var(--bg-tertiary);
+}
+
+.interview-q details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.answer-content {
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.answer-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------
+   16. Mermaid Wrapper
+   ------------------------------------------------------------ */
+
+.mermaid-wrapper {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-wrapper svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid dark mode overrides */
+html.dark .mermaid-wrapper .label {
+  color: var(--text-primary) !important;
+}
+
+html.dark .mermaid-wrapper .node rect,
+html.dark .mermaid-wrapper .node circle,
+html.dark .mermaid-wrapper .node ellipse,
+html.dark .mermaid-wrapper .node polygon,
+html.dark .mermaid-wrapper .node path {
+  fill: var(--bg-tertiary) !important;
+  stroke: var(--border) !important;
+}
+
+/* ------------------------------------------------------------
+   17. Decision Table
+   ------------------------------------------------------------ */
+
+.decision-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9375rem;
+}
+
+.decision-table th {
+  background: var(--bg-tertiary);
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border);
+}
+
+.decision-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+.decision-table tr:hover td {
+  background: var(--bg-tertiary);
+}
+
+.decision-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------
+   18. Level Badge
+   ------------------------------------------------------------ */
+
+.level-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.badge-beginner {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-intermediate {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.badge-advanced {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badge-expert {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+html.dark .badge-beginner {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+html.dark .badge-intermediate {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fde68a;
+}
+
+html.dark .badge-advanced {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+}
+
+html.dark .badge-expert {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+/* ------------------------------------------------------------
+   19. Utility Classes
+   ------------------------------------------------------------ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag {
+  display: inline-block;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------
+   20. Landing Page (index.html)
+   ------------------------------------------------------------ */
+
+.hero {
+  text-align: center;
+  padding: 5rem 2rem;
+  background: linear-gradient(
+    180deg,
+    var(--bg-primary) 0%,
+    var(--bg-secondary) 100%
+  );
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  margin-bottom: 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.level-card {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.level-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+html.dark .level-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.stat-card {
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.stat-card .stat-number {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  display: block;
+}
+
+.stat-card .stat-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+  display: block;
+}
+
+.cta-button {
+  display: inline-block;
+  background: var(--accent);
+  color: #ffffff;
+  padding: 0.875rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.cta-button:hover {
+  background: var(--accent-dark);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.cta-button:active {
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------
+   21. Mobile Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  #sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 50;
+  }
+
+  #sidebar.open {
+    transform: translateX(0);
+  }
+
+  #sidebar-overlay.visible,
+  #sidebar-overlay.active {
+    display: block;
+  }
+
+  #main-content {
+    margin-left: 0 !important;
+  }
+
+  #mobile-header {
+    display: flex;
+  }
+
+  #hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Push page content below fixed mobile header */
+  #main-content {
+    padding-top: 4rem;
+  }
+
+  .top-bar {
+    display: none;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero {
+    padding: 3rem 1.25rem;
+  }
+
+  .page-content {
+    padding: 1.5rem 1rem;
+  }
+
+  .page-title {
+    font-size: 1.75rem;
+  }
+
+  .decision-table {
+    font-size: 0.8125rem;
+  }
+
+  .decision-table th,
+  .decision-table td {
+    padding: 0.5rem 0.625rem;
+  }
+}
+
+/* ------------------------------------------------------------
+   22. Print Styles
+   ------------------------------------------------------------ */
+
+/* ============================================================
+   23. In-page Table of Contents (.toc-box)
+   ============================================================ */
+
+.toc-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 2rem 0;
+}
+
+.toc-box-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+.toc-list a {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.toc-list a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.toc-list a::before {
+  content: "→";
+  color: var(--accent);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Active TOC link (set by IntersectionObserver) */
+.toc-list a.toc-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ============================================================
+   24. Code block language labels
+   ============================================================ */
+
+.code-wrapper[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.5rem;
+  left: 1rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.code-wrapper[data-lang] pre {
+  padding-top: 2.25rem;
+}
+
+/* ============================================================
+   25. Back-to-top button
+   ============================================================ */
+
+#back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+#back-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#back-to-top:hover {
+  background: var(--accent-dark);
+}
+
+/* ============================================================
+   26. Callout card icons (via CSS pseudo-elements)
+   ============================================================ */
+
+.story-card-label::before       { content: "📖 "; }
+.beginner-note-label::before    { content: "🌱 "; }
+.architect-note-label::before   { content: "🏛️ "; }
+.production-tip-label::before   { content: "🚀 "; }
+.common-mistake-label::before   { content: "⚠️ "; }
+.lab-box-label::before          { content: "🔬 "; }
+
+/* ============================================================
+   27. Section anchor links
+   ============================================================ */
+
+.section-title .anchor-link {
+  opacity: 0;
+  margin-left: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.section-title:hover .anchor-link {
+  opacity: 1;
+}
+
+/* ============================================================
+   28. Nav item number badge + check indicator
+   ============================================================ */
+
+.nav-item-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  background: rgba(255,255,255,0.08);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.nav-item.active .nav-item-number {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.nav-item-check {
+  margin-left: auto;
+  color: #22c55e;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* ============================================================
+   29. Smooth section scroll offset (sticky top-bar clearance)
+   ============================================================ */
+
+.section-title {
+  scroll-margin-top: 5rem;
+}
+
+/* ============================================================
+   30. Mobile sidebar overlay
+   ============================================================ */
+
+/* Base rule lives in section 7 (line ~366). Only the activation class
+   is defined here; the responsive block also includes .visible for
+   backwards compatibility. */
+#sidebar-overlay.active {
+  display: block;
+}
+
+@media print {
+  #sidebar,
+  #mobile-header,
+  .top-bar,
+  .copy-btn {
+    display: none !important;
+  }
+
+  #main-content {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  a {
+    color: #000000;
+    text-decoration: underline;
+  }
+
+  pre,
+  .mermaid-wrapper,
+  .lab-box,
+  .story-card,
+  .beginner-note,
+  .architect-note,
+  .production-tip,
+  .common-mistake {
+    break-inside: avoid;
+  }
+}

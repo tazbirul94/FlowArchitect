@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker Volumes — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="06" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">&#9776;</button>
+  <span style="font-weight:700;">DevArchitect</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">Docker &rarr; Volumes &amp; Storage</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <div class="page-content">
+
+    <!-- ============================================================
+         PAGE HEADER
+         ============================================================ -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">&#9201; 25 min read</span>
+        <span class="tag">Epic 3</span>
+      </div>
+      <h1 class="page-title">Docker Volumes &amp; Storage</h1>
+      <p class="page-subtitle">Master container storage: named volumes, bind mounts, tmpfs, database persistence patterns, and backup/restore procedures.</p>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ============================================================
+         SECTION 1 — Story
+         ============================================================ -->
+    <div class="story-card">
+      <span class="story-card-label">Story</span>
+      <p>Containers are deliberately stateless — when you remove a container, everything inside it is gone. That's actually a feature, not a bug. It means containers are disposable, reproducible, and safe to replace.</p>
+      <p>But your database data? Your uploaded files? Your generated reports? Those cannot be disposable. You need a way to keep data alive even when the container that wrote it is long gone.</p>
+      <p>Think of it like a hotel room. You stay in the room (the container). When you leave, the room is cleaned and reset for the next guest. But your luggage stays at the bellhop desk (the volume) — safe, persistent, ready for your next stay or for a different room.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2 — Why Containers Are Stateless by Default
+         ============================================================ -->
+    <h2 id="stateless-by-default" class="section-title">Why Containers Are Stateless by Default</h2>
+
+    <p>Every container has a thin writable layer on top of its read-only image layers. All writes go to this writable layer. When the container is removed (<code>docker rm</code>), the writable layer is deleted. The image layers remain unchanged — this is why images can be shared across many running containers simultaneously.</p>
+
+    <p>This behavior is correct for application code and configs, but wrong for data that must outlive the container lifecycle: databases, user uploads, generated reports, and audit logs.</p>
+
+    <div class="beginner-note">
+      <span class="beginner-note-label">Beginner</span>
+      <p>A stopped container (<code>docker stop</code>) is <strong>not</strong> the same as a removed container (<code>docker rm</code>). Stopped containers keep their writable layer intact. <code>docker start</code> brings them back with all previously-written data still present. Data is only lost when you <code>docker rm</code> a container that has no volume attached.</p>
+      <p>Use volumes from the start — don't rely on the writable layer for anything you care about. The writable layer is scratch space, not storage.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 3 — Three Storage Types
+         ============================================================ -->
+    <h2 id="storage-types" class="section-title">Three Storage Types</h2>
+
+    <p>Docker gives you three distinct mechanisms for persisting or sharing data. Choosing the right one depends on who manages the data, where it lives, and whether it must survive a container restart.</p>
+
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Where data lives</th>
+            <th>Managed by</th>
+            <th>Use case</th>
+            <th>Survives <code>docker rm</code>?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Named Volume</strong></td>
+            <td>Docker's volume dir (<code>/var/lib/docker/volumes/</code>)</td>
+            <td>Docker</td>
+            <td>Databases, persistent app data</td>
+            <td>&#10003; Yes</td>
+          </tr>
+          <tr>
+            <td><strong>Bind Mount</strong></td>
+            <td>Any path on the host filesystem</td>
+            <td>Host OS</td>
+            <td>Dev hot-reload, config files</td>
+            <td>&#10003; Yes (it's on the host)</td>
+          </tr>
+          <tr>
+            <td><strong>tmpfs</strong></td>
+            <td>Host RAM (memory only)</td>
+            <td>Kernel</td>
+            <td>Temp secrets, sensitive data, performance</td>
+            <td>&#10007; No (RAM)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ============================================================
+         SECTION 4 — Named Volumes
+         ============================================================ -->
+    <h2 id="named-volumes" class="section-title">Named Volumes</h2>
+
+    <p>Named volumes are the recommended way to persist data. Docker creates and manages the storage directory, handles permissions across platforms, and the volume exists completely independently of any individual container. You can stop, delete, and recreate containers freely — the data in the volume is untouched.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Create a named volume explicitly
+docker volume create postgres_data
+
+# Use volume when running container
+docker run -d \
+  --name my-postgres \
+  -v postgres_data:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=secret \
+  postgres:16-alpine
+
+# The volume is created automatically if it doesn't exist
+# -v volume_name:container_path
+
+# List all volumes
+docker volume ls
+
+# Inspect volume (see actual path on host)
+docker volume inspect postgres_data
+# Output shows: "Mountpoint": "/var/lib/docker/volumes/postgres_data/_data"
+
+# ---------------------------------------------------------------
+# Proving data persistence across containers
+# ---------------------------------------------------------------
+
+# 1. Write some data to postgres
+# 2. Stop and remove the container
+docker stop my-postgres &amp;&amp; docker rm my-postgres
+
+# 3. Start a NEW container with the SAME volume
+docker run -d \
+  --name my-postgres-new \
+  -v postgres_data:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=secret \
+  postgres:16-alpine
+
+# 4. Data is still there — the volume survived the container deletion
+
+# ---------------------------------------------------------------
+# Volume cleanup
+# ---------------------------------------------------------------
+
+# Remove a specific volume (only when no container is using it)
+docker volume rm postgres_data
+
+# Remove all unused volumes (DANGER — data loss if you have important volumes)
+docker volume prune</code></pre>
+    </div>
+
+    <p>The diagram below shows the volume lifecycle across container generations. The key insight is that the volume exists independently of any container — it is a first-class Docker object, not a container artifact.</p>
+
+    <div class="mermaid-wrapper">
+      <div class="mermaid">
+flowchart TD
+    V["&#128230; Named Volume\npostgres_data\n/var/lib/docker/volumes/postgres_data/_data"]
+
+    C1["&#128994; Container v1\npostgres:15"] -->|"writes data"| V
+    C1 -->|"docker rm"| X1["&#10060; Container deleted\n(writable layer gone)"]
+    V -->|"data survives"| C2
+    C2["&#128994; Container v2\npostgres:16"] -->|"reads existing data"| V
+
+    BACKUP["&#128190; Backup\n(tar archive)"] -.->|"docker run --volumes-from"| V
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 5 — Bind Mounts
+         ============================================================ -->
+    <h2 id="bind-mounts" class="section-title">Bind Mounts</h2>
+
+    <p>Bind mounts map any directory or file on your host filesystem directly into the container. Unlike named volumes, you choose the exact host path. This makes bind mounts ideal for development workflows where you want changes on the host to be immediately visible inside the container (hot-reload), or for injecting config files without rebuilding an image.</p>
+
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows</button>
+      </div>
+
+      <div class="os-tab-panel active" data-tab="linux">
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Bind mount: map host directory into container
+# Syntax: -v /absolute/host/path:/container/path[:options]
+
+# Mount current directory's src/ as /app/src (dev hot-reload)
+docker run -d \
+  --name my-app \
+  -v $(pwd)/src:/app/src \
+  -p 3000:3000 \
+  node:18-alpine \
+  node --watch /app/src/server.js
+
+# Mount a config file read-only
+docker run -d \
+  --name my-nginx \
+  -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
+  -p 80:80 \
+  nginx:alpine
+
+# Mount a log directory (app writes, host collects)
+docker run -d \
+  --name my-app \
+  -v /var/log/myapp:/app/logs \
+  my-app:latest</code></pre>
+        </div>
+      </div>
+
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper">
+          <pre><code class="language-powershell"># Windows paths in PowerShell — use ${PWD} for current directory
+docker run -d `
+  --name my-app `
+  -v ${PWD}/src:/app/src `
+  -p 3000:3000 `
+  node:18-alpine `
+  node --watch /app/src/server.js
+
+# Using explicit Windows-style path
+docker run -d `
+  --name my-app `
+  -v C:\Users\me\project\src:/app/src `
+  node:18-alpine
+
+# Mount config file read-only
+docker run -d `
+  --name my-nginx `
+  -v ${PWD}/nginx.conf:/etc/nginx/nginx.conf:ro `
+  -p 80:80 `
+  nginx:alpine
+
+# NOTE: If using Windows-style paths (C:\...), ensure the drive
+# is shared in Docker Desktop Settings > Resources > File Sharing</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p>Bind mounts require an <strong>absolute path</strong> on the host. Using <code>./src</code> won't work — you must use <code>$(pwd)/src</code> on Linux/macOS or <code>${PWD}/src</code> in PowerShell. On Windows with Docker Desktop, make sure the drive is shared under Docker Desktop Settings &rarr; Resources &rarr; File Sharing, otherwise Docker cannot mount directories from that drive.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 6 — Volume Mount Options
+         ============================================================ -->
+    <h2 id="mount-options" class="section-title">Volume Mount Options</h2>
+
+    <p>Both named volumes and bind mounts accept colon-separated options after the container path. These control access mode, sync behavior, and SELinux labeling.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Read-only mount (container cannot write to this path)
+-v myconfig:/config:ro
+
+# Read-write (default — explicit form)
+-v mydata:/data:rw
+
+# ---------------------------------------------------------------
+# macOS consistency options (Docker Desktop only)
+# Control how quickly host and container filesystem views sync
+# ---------------------------------------------------------------
+-v $(pwd)/src:/app/src:consistent   # immediate sync both ways (slowest)
+-v $(pwd)/src:/app/src:cached       # host is authoritative, container reads may lag (faster)
+-v $(pwd)/src:/app/src:delegated    # container is authoritative, host reads may lag (fastest)
+
+# ---------------------------------------------------------------
+# SELinux labels — required on RHEL / Fedora / CentOS
+# Without these, SELinux will block the mount
+# ---------------------------------------------------------------
+-v /host/data:/container/data:z     # relabel content for sharing with multiple containers
+-v /host/data:/container/data:Z     # relabel content for exclusive use by THIS container only</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 7 — tmpfs Mounts
+         ============================================================ -->
+    <h2 id="tmpfs-mounts" class="section-title">tmpfs Mounts</h2>
+
+    <p>tmpfs mounts write data into the host's RAM. The data never touches disk, which makes it ideal for sensitive data that must not persist after the container stops — session tokens, decrypted secrets, or intermediate cryptographic material. It is also faster than any disk-backed storage for high-throughput temporary files.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Basic tmpfs mount — /tmp is RAM-backed, not written to disk
+docker run -d \
+  --name secure-app \
+  --tmpfs /tmp \
+  my-secure-app
+
+# tmpfs with explicit options
+docker run -d \
+  --name secure-app \
+  --tmpfs /run:rw,noexec,nosuid,size=100m \
+  my-secure-app
+
+# Options:
+#   rw       — read-write (default)
+#   noexec   — cannot execute binaries from this path
+#   nosuid   — setuid/setgid bits are ignored
+#   size=N   — maximum size in bytes (e.g. 100m, 512m)
+
+# Use cases:
+# - Temporary session files that must not persist to disk
+# - Processing sensitive data (encryption keys, tokens)
+# - High-speed scratch space (video frame processing, sort buffers)
+# - /tmp in containers that handle many small temp files</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 8 — Database Persistence Pattern
+         ============================================================ -->
+    <h2 id="database-persistence" class="section-title">Database Persistence Pattern</h2>
+
+    <p>The single most important practical application of Docker volumes is running databases in containers. Getting this wrong means data loss. The following Compose file demonstrates every element of a production-like PostgreSQL setup: named volume with explicit declaration, init scripts, healthcheck, localhost-only port binding, and restart policy.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml"># docker-compose.yml — proper database persistence
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketflow-db
+    environment:
+      POSTGRES_DB: ticketflow
+      POSTGRES_USER: ticketflow
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword}
+      # Tune PostgreSQL encoding for the container environment
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      # Main data volume — NEVER DELETE THIS
+      - postgres_data:/var/lib/postgresql/data
+      # SQL scripts in this directory run once on first start (volume empty)
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      # Custom postgresql.conf for memory/connection tuning
+      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    ports:
+      - "127.0.0.1:5432:5432"   # bind to localhost only — not exposed to network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketflow -d ticketflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+    # Uncomment to pin the data to a specific host path (e.g. fast SSD)
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /mnt/ssd/postgres-data
+
+networks:
+  backend:
+    driver: bridge</code></pre>
+    </div>
+
+    <p>Key decisions in this pattern: the <code>postgres_data</code> volume is declared at the top-level <code>volumes:</code> key, which makes it a named volume that persists across <code>docker compose down</code> runs. The port is bound to <code>127.0.0.1</code> only so the database is never exposed to the broader network. The healthcheck ensures dependent services wait until Postgres is actually ready to accept connections before starting.</p>
+
+    <!-- ============================================================
+         SECTION 9 — Backup and Restore
+         ============================================================ -->
+    <h2 id="backup-restore" class="section-title">Backup and Restore</h2>
+
+    <p>A volume with no backup strategy is not a persistence strategy — it's deferred data loss. The commands below cover filesystem-level backups using Alpine as a temporary container, and database-native dumps for PostgreSQL which produce consistent, point-in-time snapshots.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># ───────────────────────────────────────────
+# BACKUP A NAMED VOLUME
+# ───────────────────────────────────────────
+
+# Method 1: Run a temp Alpine container, archive the volume contents
+# --rm     = remove the helper container after it exits
+# :ro      = volume is read-only for safety during backup
+docker run --rm \
+  -v postgres_data:/source:ro \
+  -v $(pwd)/backups:/backup \
+  alpine \
+  tar czf /backup/postgres_backup_$(date +%Y%m%d_%H%M%S).tar.gz -C /source .
+
+# Method 2: pg_dump for PostgreSQL (preferred — consistent, point-in-time backup)
+# This does NOT require stopping the container
+docker exec my-postgres pg_dump \
+  -U ticketflow \
+  -d ticketflow \
+  --format=custom \
+  --compress=9 \
+  &gt; backups/ticketflow_$(date +%Y%m%d_%H%M%S).pgdump
+
+
+# ───────────────────────────────────────────
+# RESTORE A NAMED VOLUME
+# ───────────────────────────────────────────
+
+# Method 1: From tar archive
+# STOP the container first — never restore into a running database
+docker stop my-postgres
+
+# Create a fresh volume to restore into
+docker volume create postgres_data_restored
+
+# Extract the archive into the new volume
+docker run --rm \
+  -v postgres_data_restored:/target \
+  -v $(pwd)/backups:/backup:ro \
+  alpine \
+  tar xzf /backup/postgres_backup_20240115_103045.tar.gz -C /target
+
+# Start a container with the restored volume
+docker run -d \
+  --name my-postgres-restored \
+  -v postgres_data_restored:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=secret \
+  postgres:16-alpine
+
+# Method 2: pg_restore for PostgreSQL
+docker exec -i my-postgres pg_restore \
+  -U ticketflow \
+  -d ticketflow \
+  --clean \
+  &lt; backups/ticketflow_20240115_103045.pgdump
+
+
+# ───────────────────────────────────────────
+# MIGRATE VOLUME TO A NEW HOST
+# ───────────────────────────────────────────
+
+# On source host: stream the archive directly over SSH
+docker run --rm \
+  -v postgres_data:/source:ro \
+  alpine \
+  tar czf - -C /source . | ssh user@newhost "cat &gt; /tmp/postgres_data.tar.gz"
+
+# On destination host: create the volume and extract
+docker volume create postgres_data
+docker run --rm \
+  -v postgres_data:/target \
+  -v /tmp:/backup:ro \
+  alpine \
+  tar xzf /backup/postgres_data.tar.gz -C /target</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 10 — Shared Volumes in Compose
+         ============================================================ -->
+    <h2 id="shared-volumes" class="section-title">Volumes Shared Between Containers</h2>
+
+    <p>Multiple containers can mount the same named volume. A common pattern is a write-capable application container sharing an uploads directory with a read-only nginx container that serves those files.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-yaml"># Sharing a volume between containers
+services:
+  app:
+    image: myapp
+    volumes:
+      - shared_uploads:/app/uploads    # app writes uploaded files here
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - shared_uploads:/usr/share/nginx/html/uploads:ro  # nginx serves them read-only
+
+volumes:
+  shared_uploads:</code></pre>
+    </div>
+
+    <p><strong>When to share volumes:</strong> Single-writer / multiple-reader is safe — one service writes, others read with <code>:ro</code>. This covers upload directories, static asset generation, and report output.</p>
+
+    <p><strong>When not to share volumes:</strong> Multiple-writer scenarios require coordination. Two containers writing to the same files simultaneously without locking will produce corrupted data. If two services genuinely need to share mutable state, use a database, a message queue, or a network filesystem with proper locking semantics — not a raw Docker volume.</p>
+
+    <!-- ============================================================
+         SECTION 11 — Volume Management Commands
+         ============================================================ -->
+    <h2 id="volume-commands" class="section-title">Volume Management Commands</h2>
+
+    <p>The full volume CLI lets you create, inspect, filter, label, and clean up volumes. Knowing these commands prevents the two most common accidents: unintended data loss and runaway disk usage.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Full volume lifecycle
+docker volume create myvolume
+docker volume ls
+docker volume inspect myvolume
+docker volume rm myvolume
+docker volume prune          # removes all volumes not currently attached to a container
+
+# ---------------------------------------------------------------
+# Filtering
+# ---------------------------------------------------------------
+docker volume ls -f dangling=true    # volumes not attached to ANY container (safe to prune)
+docker volume ls -f name=postgres    # volumes whose name contains "postgres"
+
+# ---------------------------------------------------------------
+# Disk usage
+# ---------------------------------------------------------------
+docker system df -v          # show disk usage broken down by volumes, images, containers
+
+# ---------------------------------------------------------------
+# Labels for organization (use in multi-project environments)
+# ---------------------------------------------------------------
+docker volume create \
+  --label app=ticketflow \
+  --label env=development \
+  --label created=$(date +%Y%m%d) \
+  postgres_data
+
+# Filter volumes by label
+docker volume ls -f label=app=ticketflow
+docker volume ls -f label=env=development</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 12 — Behind the Scenes
+         ============================================================ -->
+    <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+    <details>
+      <summary>Where do named volumes physically live?</summary>
+      <div class="answer-content">
+        <p>On a Linux host running Docker Engine natively, named volumes live at <code>/var/lib/docker/volumes/&lt;volume-name&gt;/_data</code>. You can verify the exact path with <code>docker volume inspect &lt;name&gt;</code> — look for the <code>Mountpoint</code> field in the JSON output.</p>
+        <p>On <strong>macOS and Windows with Docker Desktop</strong>, Docker runs inside a hidden Linux virtual machine. The volume data lives inside that VM, not directly on your macOS or Windows filesystem. The <code>Mountpoint</code> path shown by <code>docker volume inspect</code> is a path inside the VM. To access it directly on macOS: <code>docker run --rm -it -v /var/lib/docker:/docker alpine ls /docker/volumes/</code> — this mounts the VM's Docker directory into a temporary Alpine container so you can browse it.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How does Docker mount volumes into containers?</summary>
+      <div class="answer-content">
+        <p>Docker uses Linux <strong>bind mounts</strong> (<code>mount --bind</code>) under the hood for both named volumes and bind mounts. The volume's directory on the host is bind-mounted into the container's filesystem namespace at the specified container path.</p>
+        <p>The full picture: the container's root filesystem is assembled using <strong>OverlayFS</strong>, which stacks the read-only image layers under a single writable container layer. Volume mounts sit outside the OverlayFS stack — they are separate bind mounts that overlay a specific path in the merged view. This means writes to a volume path bypass OverlayFS entirely and go directly to the volume's backing storage, which is why volume I/O is significantly faster than writing to the container's writable layer.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is a volume driver?</summary>
+      <div class="answer-content">
+        <p>By default, Docker uses the <code>local</code> volume driver, which stores volume data on the local host filesystem. Volume drivers are plugins that swap out the backing store for something else entirely.</p>
+        <p>Third-party drivers enable volumes backed by network and cloud storage: NFS, AWS EBS, Azure Disk, GlusterFS, Ceph, and others. The container application sees the same mount interface regardless of where the data actually lives.</p>
+        <p>In production Kubernetes, this concept maps directly to <strong>StorageClasses</strong> and <strong>PersistentVolumes</strong>. A StorageClass is the Kubernetes equivalent of a volume driver — it describes how to provision storage (e.g., AWS EBS with gp3 type, or an NFS provisioner). The same architecture: the pod sees a mounted path, and the storage layer handles where the bytes actually live.</p>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         SECTION 13 — Common Mistakes
+         ============================================================ -->
+    <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 1 — Running <code>docker compose down -v</code></span>
+      <p>The <code>-v</code> flag deletes <strong>all named volumes</strong> defined in the Compose file. A team member who thinks they're just cleaning up their local environment runs this command and deletes months of development database data. Add a prominent comment in your <code>docker-compose.yml</code>: <code># WARNING: never run 'docker compose down -v' without a backup</code>. Use <code>docker compose down</code> (without <code>-v</code>) as the standard cleanup command. The <code>-v</code> variant should only be used deliberately, after an explicit backup has been confirmed.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 2 — Running a database container without a volume</span>
+      <p>Starting a Postgres or MySQL container without a <code>-v</code> flag means all data goes into the container's writable layer. <code>docker rm postgres</code> — your entire database is gone. Always declare a named volume for every stateful container from the very first <code>docker run</code>. There is no way to recover writable-layer data after <code>docker rm</code>.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 3 — Bind mounting over <code>node_modules</code></span>
+      <p>A common development setup is <code>COPY . .</code> in the Dockerfile plus a bind mount of the project root at runtime: <code>-v $(pwd):/app</code>. This overwrites the container's <code>/app/node_modules</code> (installed from a clean lockfile on a Linux base) with the host's <code>node_modules</code> (potentially compiled for macOS, with native binaries that won't run on Linux). Fix: add an anonymous volume to shadow the <code>node_modules</code> directory: <code>-v /app/node_modules</code>. This tells Docker to use a fresh, anonymous volume at that path instead of the bind-mounted host directory.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 4 — Volume ownership mismatch</span>
+      <p>Container processes often run as non-root users (e.g., the <code>postgres</code> image runs as UID 999). If the named volume's directory was created or initialized by root, Postgres cannot write to it and fails with a <code>permission denied</code> error. Fix: run a one-time init container that <code>chown</code>s the volume: <code>docker run --rm -v myvolume:/data alpine chown -R 999:999 /data</code>. Alternatively, verify permissions with <code>docker run --rm -v myvolume:/data alpine ls -la /data</code>. Note that the official PostgreSQL image handles this automatically when the volume is completely empty — but not when it was pre-initialized by root.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 5 — Forgetting that stopped containers still count as volume users</span>
+      <p><code>docker volume prune</code> removes volumes that are not attached to any container — running <em>or stopped</em>. If your container is stopped (not removed), its volume is still considered "in use" and is safe. But <code>docker volume prune</code> runs aggressively across all projects on the host. If another project's container was stopped, its volumes will be pruned. Back up important volumes before running <code>prune</code>, and prefer <code>docker volume rm &lt;specific-name&gt;</code> over the blanket <code>prune</code> command.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 14 — Architect Notes
+         ============================================================ -->
+    <h2 id="architect-notes" class="section-title">Architect Notes</h2>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Note</span>
+      <p>Volume management is where Docker's "pets vs cattle" philosophy gets nuanced.</p>
+      <p><strong>Stateless containers (cattle):</strong> throw away any container, start a new one, same result. This works for app servers, API services, and workers. Kubernetes Deployments are designed for this class of workload — any pod replica is interchangeable.</p>
+      <p><strong>Stateful containers (pets):</strong> databases and other stateful services need persistent storage and often need stable identity. You can't simply throw them away. In Kubernetes, StatefulSets handle this — each instance gets a stable network identity and its own PersistentVolumeClaim that is never reassigned to another pod.</p>
+      <p><strong>In production</strong>, you generally don't run critical databases in containers on a single host. The patterns you'll encounter on real teams are:</p>
+      <ul>
+        <li><strong>Managed databases</strong> (AWS RDS, Google Cloud SQL, Azure Database) — no Docker at all; the cloud provider handles HA, failover, backups, and patching.</li>
+        <li><strong>Kubernetes StatefulSets with cloud storage</strong> — EBS, Azure Disk, or GCE Persistent Disk backing PersistentVolumeClaims. Kubernetes handles scheduling, but the storage is durable cloud-backed disk.</li>
+        <li><strong>Dedicated database clusters</strong> — CockroachDB, Vitess, TiDB, or MongoDB Atlas Operator for clustered deployments where the database manages its own replication and sharding on top of container orchestration.</li>
+      </ul>
+      <p>Docker volumes are the right tool for: local development databases, CI/CD test databases (name them with the build ID, reset between runs), and non-critical or easily-recoverable stateful services like a Redis cache that can be rebuilt from the source of truth.</p>
+      <p>The pattern for CI cleanup: name volumes with the build ID (<code>postgres_data_${BUILD_ID}</code>), use them for the test run, then delete them explicitly after. Never rely on <code>prune</code> in CI — it is too aggressive and can delete volumes from parallel builds running on the same agent.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 15 — Production Checklist
+         ============================================================ -->
+    <h2 id="production-checklist" class="section-title">Production Checklist</h2>
+
+    <ul class="checklist">
+      <li>All stateful services (databases, caches, file stores) use named volumes</li>
+      <li>Volume names are descriptive and include the service name (e.g. <code>ticketflow_postgres_data</code>)</li>
+      <li>Backup procedure is documented and has been tested end-to-end at least once</li>
+      <li><code>docker compose down</code> (without <code>-v</code>) is the default team cleanup command</li>
+      <li><code>docker compose down -v</code> requires an explicit decision and a confirmed backup first</li>
+      <li>Volume permissions match the container's running user (no root-owned directories for non-root processes)</li>
+      <li>In CI: volumes are named with the build or job ID and deleted explicitly after the pipeline completes</li>
+      <li>Database backup runs before any destructive migration or schema change</li>
+      <li>Restore procedure has been tested — a backup you have never restored from is an untested backup</li>
+      <li>Sensitive runtime data (session tokens, decryption keys) uses tmpfs, not a named volume</li>
+    </ul>
+
+    <!-- ============================================================
+         SECTION 16 — Hands-On Lab
+         ============================================================ -->
+    <h2 id="hands-on-lab" class="section-title">Hands-On Lab</h2>
+
+    <div class="lab-box">
+      <span class="lab-box-label">Lab — Prove Data Persistence with Volumes</span>
+      <p>This lab walks through the complete volume lifecycle: start a database, write data, destroy the container, start a new container on the same volume, and verify the data survived. Then back the volume up to disk.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Step 1: Start postgres WITH a named volume
+docker run -d \
+  --name lab-postgres \
+  -v lab_postgres_data:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=labpassword \
+  -e POSTGRES_DB=labdb \
+  postgres:16-alpine
+
+# Step 2: Wait for postgres to be ready
+sleep 5
+docker exec lab-postgres pg_isready -U postgres
+
+# Step 3: Create a table and insert data
+docker exec lab-postgres psql -U postgres -d labdb -c "
+  CREATE TABLE tickets (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  INSERT INTO tickets (title) VALUES
+    ('Rock Concert - Floor Ticket'),
+    ('Jazz Night - VIP Pass'),
+    ('Comedy Show - Balcony Seat');
+  SELECT * FROM tickets;
+"
+
+# Step 4: DESTROY the container (not the volume)
+docker stop lab-postgres
+docker rm lab-postgres
+
+# Step 5: Verify the volume still exists — the container is gone but data lives on
+docker volume ls | grep lab_postgres_data
+
+# Step 6: Start a BRAND NEW postgres container with the SAME volume
+docker run -d \
+  --name lab-postgres-v2 \
+  -v lab_postgres_data:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=labpassword \
+  postgres:16-alpine
+
+# Step 7: Wait and verify data persisted across the container deletion
+sleep 5
+docker exec lab-postgres-v2 psql -U postgres -d labdb -c "SELECT * FROM tickets;"
+# Expected output: your 3 ticket rows from Step 3
+
+# Step 8: Back up the volume to disk
+mkdir -p lab-backups
+docker run --rm \
+  -v lab_postgres_data:/source:ro \
+  -v $(pwd)/lab-backups:/backup \
+  alpine \
+  tar czf /backup/postgres_backup.tar.gz -C /source .
+
+ls -lh lab-backups/
+# Expected: postgres_backup.tar.gz with a non-zero file size
+
+# Step 9: Clean up everything
+docker stop lab-postgres-v2
+docker rm lab-postgres-v2
+docker volume rm lab_postgres_data</code></pre>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 17 — Interview Questions
+         ============================================================ -->
+    <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary>Q1: What is the difference between a Docker volume and a bind mount?</summary>
+          <div class="answer-content">
+            <p>Named volumes are fully managed by Docker — Docker creates and manages the directory (<code>/var/lib/docker/volumes/name/_data</code>), handles permissions, and the volume persists independently of all containers. You reference it by name, not by path. Bind mounts map any host filesystem path directly into a container — you choose the exact host directory, and Docker makes the connection. The host path must exist before the container starts.</p>
+            <p><strong>When to use named volumes:</strong> production data that must persist reliably across container restarts and host migrations (database files, application uploads). Named volumes work identically on any Docker host, are portable, and can be managed with Docker CLI commands.</p>
+            <p><strong>When to use bind mounts:</strong> development workflows where you need to edit source code on the host and have changes immediately visible inside the container (hot-reload). Also for injecting config files from the host, or for collecting logs into a specific host directory. Bind mounts are host-specific — a path valid on your laptop may not exist on a CI server.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q2: How do you back up and restore a Docker named volume?</summary>
+          <div class="answer-content">
+            <p>The canonical technique uses a temporary Alpine container mounted to both the target volume and a host backup directory. To back up: <code>docker run --rm -v myvolume:/source:ro -v $(pwd)/backups:/backup alpine tar czf /backup/backup.tar.gz -C /source .</code>. To restore: stop the container using the volume, then <code>docker run --rm -v myvolume:/target -v $(pwd)/backups:/backup:ro alpine tar xzf /backup/backup.tar.gz -C /target</code>.</p>
+            <p>For databases, prefer native dump tools over filesystem-level backup. <code>pg_dump</code> for PostgreSQL and <code>mysqldump</code> for MySQL produce consistent snapshots that capture a transactionally-coherent point in time, even on a live database. Filesystem-level backups can capture the database files mid-write, producing a backup that cannot be restored cleanly. For PostgreSQL: <code>docker exec my-postgres pg_dump -U user -d dbname --format=custom &gt; backup.pgdump</code>.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q3: A container starts successfully but the database says "permission denied" on its data directory. What is the issue?</summary>
+          <div class="answer-content">
+            <p>Volume ownership mismatch. The named volume's directory on the host was created or written by root (UID 0), but the database container runs as a non-root user — for example, the official <code>postgres</code> image runs as UID 999. When the volume is mounted, the directory is owned by root and the postgres process cannot write to it.</p>
+            <p>Diagnose it: <code>docker run --rm -v myvolume:/data alpine ls -la /data</code>. If the output shows <code>root root</code> ownership, that is the problem.</p>
+            <p>Fix it with a one-time init container: <code>docker run --rm -v myvolume:/data alpine chown -R 999:999 /data</code>. Alternatively, if the volume is empty, the official PostgreSQL image will initialize the data directory with correct ownership automatically — but it will not fix ownership on a pre-existing, non-empty volume.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q4: What happens to data when you run <code>docker stop</code> vs <code>docker rm</code>?</summary>
+          <div class="answer-content">
+            <p><code>docker stop</code> sends SIGTERM to PID 1 in the container, waits for a graceful shutdown (default 10 seconds), then sends SIGKILL if the process has not exited. The container's writable layer is <em>preserved</em> — all data written since the container started is still there. <code>docker start</code> brings the container back to exactly the same state.</p>
+            <p><code>docker rm</code> deletes the container record and its writable layer. All data written to the container's filesystem that is not backed by a volume is permanently gone. Named volumes are <em>not</em> deleted by <code>docker rm</code>. Only <code>docker rm -v</code> (with the explicit <code>-v</code> flag) also removes anonymous volumes that were created with the container. Named volumes are never deleted by <code>docker rm</code> regardless of flags — they require <code>docker volume rm</code> or <code>docker compose down -v</code>.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q5: When would you use tmpfs in production?</summary>
+          <div class="answer-content">
+            <p>tmpfs is RAM-backed — data never touches disk and is gone when the container stops. Production use cases:</p>
+            <ul>
+              <li><strong>Sensitive session data:</strong> GDPR and compliance requirements sometimes mandate that session tokens or PII must not be written to persistent storage. tmpfs satisfies this at the infrastructure level.</li>
+              <li><strong>Temporary processing of secrets:</strong> decrypted private keys, HMAC signing keys, or OAuth tokens that a process needs briefly but must not survive a restart.</li>
+              <li><strong>High-throughput temporary files:</strong> video processing pipelines that generate thousands of intermediate frame files, or sort operations that overflow RAM. tmpfs eliminates disk I/O bottleneck for scratch data.</li>
+              <li><strong>/tmp in containers with many small temp files:</strong> some applications generate many temporary files in <code>/tmp</code>. Keeping those in RAM avoids filling up the container's writable layer or a backing volume with garbage.</li>
+            </ul>
+            <p>Caveats: size is limited by available RAM. Data is unconditionally lost on container restart. Swapping reduces the in-memory guarantee. Never use tmpfs for anything that must survive a container restart or a node reboot.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+
+  </div><!-- /.page-content -->
+</main>
+
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

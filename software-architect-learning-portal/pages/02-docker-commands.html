@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker Commands — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="02" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">DevArchitect</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">Docker → Commands</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ============================================================
+         PAGE HEADER
+    ============================================================ -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="tag">⏱ 30 min read</span>
+        <span class="tag">Epic 1</span>
+      </div>
+      <h1 class="page-title">Docker Commands</h1>
+      <p class="page-subtitle">The complete Docker CLI reference — from pulling your first image to debugging running containers in production.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 1 — STORY CARD
+    ============================================================ -->
+    <div class="story-card">
+      <span class="story-card-label">Story</span>
+      <p>Learning Docker commands is like learning to drive. At first the dashboard is overwhelming — all those buttons and levers. But you only need a handful to get started: ignition, steering, accelerator, brake. The advanced controls (ABS, traction control, cruise) reveal themselves when you actually need them. This page covers your everyday commands first, then the advanced ones you'll eventually reach for.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2 — COMMAND QUICK REFERENCE TABLE
+    ============================================================ -->
+    <h2 class="section-title">Command Quick Reference</h2>
+    <p>Twenty commands cover 95% of what you'll do with Docker day-to-day. The table below gives you the what, when, and how for each one at a glance.</p>
+
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Command</th>
+            <th>What it does</th>
+            <th>When to use it</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>docker pull</code></td>
+            <td>Download image from registry</td>
+            <td>Before running an image you don't have locally</td>
+            <td><code>docker pull nginx:1.25</code></td>
+          </tr>
+          <tr>
+            <td><code>docker images</code></td>
+            <td>List local images</td>
+            <td>See what's cached locally</td>
+            <td><code>docker images</code></td>
+          </tr>
+          <tr>
+            <td><code>docker run</code></td>
+            <td>Create and start a container</td>
+            <td>Start a new container from an image</td>
+            <td><code>docker run -d -p 8080:80 nginx</code></td>
+          </tr>
+          <tr>
+            <td><code>docker ps</code></td>
+            <td>List running containers</td>
+            <td>See what's currently running</td>
+            <td><code>docker ps</code></td>
+          </tr>
+          <tr>
+            <td><code>docker ps -a</code></td>
+            <td>List all containers including stopped</td>
+            <td>Debug stopped or crashed containers</td>
+            <td><code>docker ps -a</code></td>
+          </tr>
+          <tr>
+            <td><code>docker stop</code></td>
+            <td>Gracefully stop container (SIGTERM)</td>
+            <td>Normal shutdown — lets app finish requests</td>
+            <td><code>docker stop my-app</code></td>
+          </tr>
+          <tr>
+            <td><code>docker kill</code></td>
+            <td>Force stop container (SIGKILL)</td>
+            <td>Container is frozen and won't stop</td>
+            <td><code>docker kill my-app</code></td>
+          </tr>
+          <tr>
+            <td><code>docker rm</code></td>
+            <td>Remove a stopped container</td>
+            <td>Cleanup after a container has been stopped</td>
+            <td><code>docker rm my-app</code></td>
+          </tr>
+          <tr>
+            <td><code>docker rmi</code></td>
+            <td>Remove an image</td>
+            <td>Free disk space, remove old versions</td>
+            <td><code>docker rmi nginx:1.25</code></td>
+          </tr>
+          <tr>
+            <td><code>docker exec</code></td>
+            <td>Run a command inside a running container</td>
+            <td>Debug, inspect filesystem, run one-off commands</td>
+            <td><code>docker exec -it my-app bash</code></td>
+          </tr>
+          <tr>
+            <td><code>docker logs</code></td>
+            <td>View container stdout/stderr</td>
+            <td>Debug application output and errors</td>
+            <td><code>docker logs -f my-app</code></td>
+          </tr>
+          <tr>
+            <td><code>docker inspect</code></td>
+            <td>Full container or image metadata as JSON</td>
+            <td>Deep debug — IP address, mounts, environment, config</td>
+            <td><code>docker inspect my-app</code></td>
+          </tr>
+          <tr>
+            <td><code>docker stats</code></td>
+            <td>Live CPU, memory, and network usage</td>
+            <td>Performance debug and resource monitoring</td>
+            <td><code>docker stats</code></td>
+          </tr>
+          <tr>
+            <td><code>docker cp</code></td>
+            <td>Copy files between host and container</td>
+            <td>Emergency file access — grab a log or config</td>
+            <td><code>docker cp my-app:/app/log.txt ./</code></td>
+          </tr>
+          <tr>
+            <td><code>docker build</code></td>
+            <td>Build image from Dockerfile</td>
+            <td>Build your own custom application image</td>
+            <td><code>docker build -t myapp:v1 .</code></td>
+          </tr>
+          <tr>
+            <td><code>docker push</code></td>
+            <td>Push image to a registry</td>
+            <td>Publish an image so others can pull it</td>
+            <td><code>docker push nexus:5000/myapp:v1</code></td>
+          </tr>
+          <tr>
+            <td><code>docker tag</code></td>
+            <td>Create an alias/tag for an image</td>
+            <td>Prepare an image for pushing to a specific registry</td>
+            <td><code>docker tag myapp:v1 nexus:5000/myapp:v1</code></td>
+          </tr>
+          <tr>
+            <td><code>docker system prune</code></td>
+            <td>Remove unused containers, images, networks</td>
+            <td>Free disk space on dev machines and CI servers</td>
+            <td><code>docker system prune -af</code></td>
+          </tr>
+          <tr>
+            <td><code>docker volume ls</code></td>
+            <td>List all named volumes</td>
+            <td>Storage management and audit</td>
+            <td><code>docker volume ls</code></td>
+          </tr>
+          <tr>
+            <td><code>docker network ls</code></td>
+            <td>List all Docker networks</td>
+            <td>Network debug — see what networks containers share</td>
+            <td><code>docker network ls</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ============================================================
+         SECTION 3 — OS TABS: CORE COMMANDS
+    ============================================================ -->
+    <h2 class="section-title">Core Commands by OS</h2>
+    <p>Docker's CLI is cross-platform, but path syntax and shell conventions differ between Linux/macOS and Windows. The examples below use the same Docker commands — only the shell syntax around them changes.</p>
+
+    <h3 class="subsection-title">Running a container with port mapping and a volume</h3>
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+      </div>
+      <div class="os-tab-panel active" data-tab="unix">
+        <div class="code-wrapper"><pre><code class="language-bash"># Run nginx, map host port 8080 to container port 80,
+# and bind-mount the current directory's "html" folder as the web root
+docker run -d \
+  --name my-nginx \
+  -p 8080:80 \
+  -v $(pwd)/html:/usr/share/nginx/html:ro \
+  nginx:1.25
+
+# Run a Node app with an environment variable and a named volume
+docker run -d \
+  --name my-node-app \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -v app-data:/app/data \
+  my-node-app:latest</code></pre></div>
+      </div>
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper"><pre><code class="language-powershell"># Run nginx, map host port 8080 to container port 80,
+# and bind-mount the current directory's "html" folder as the web root
+docker run -d `
+  --name my-nginx `
+  -p 8080:80 `
+  -v ${PWD}\html:/usr/share/nginx/html:ro `
+  nginx:1.25
+
+# Run a Node app with an environment variable and a named volume
+docker run -d `
+  --name my-node-app `
+  -p 3000:3000 `
+  -e NODE_ENV=production `
+  -v app-data:/app/data `
+  my-node-app:latest</code></pre></div>
+      </div>
+    </div>
+
+    <h3 class="subsection-title">Entering a running container</h3>
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+      </div>
+      <div class="os-tab-panel active" data-tab="unix">
+        <div class="code-wrapper"><pre><code class="language-bash"># Interactive bash shell (most images based on Debian/Ubuntu)
+docker exec -it my-nginx bash
+
+# Interactive sh shell (Alpine-based images — no bash installed)
+docker exec -it my-nginx sh
+
+# Enter as root even if the container runs as non-root
+docker exec -u root -it my-nginx bash</code></pre></div>
+      </div>
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper"><pre><code class="language-powershell"># Interactive bash shell (most images based on Debian/Ubuntu)
+docker exec -it my-nginx bash
+
+# Interactive sh shell (Alpine-based images — no bash installed)
+docker exec -it my-nginx sh
+
+# Enter as root even if the container runs as non-root
+docker exec -u root -it my-nginx bash
+
+# Note: -it works in PowerShell; if you see TTY errors use winpty:
+# winpty docker exec -it my-nginx bash</code></pre></div>
+      </div>
+    </div>
+
+    <h3 class="subsection-title">Viewing logs</h3>
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+      </div>
+      <div class="os-tab-panel active" data-tab="unix">
+        <div class="code-wrapper"><pre><code class="language-bash"># Follow logs in real time (like tail -f)
+docker logs -f my-nginx
+
+# Last 100 lines with timestamps
+docker logs --tail 100 -t my-nginx
+
+# Pipe to grep to filter for errors only
+docker logs my-nginx 2>&1 | grep -i error
+
+# Save all logs to a file
+docker logs my-nginx > app.log 2>&1</code></pre></div>
+      </div>
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper"><pre><code class="language-powershell"># Follow logs in real time
+docker logs -f my-nginx
+
+# Last 100 lines with timestamps
+docker logs --tail 100 -t my-nginx
+
+# Pipe to Select-String to filter for errors only
+docker logs my-nginx 2>&1 | Select-String -Pattern "error" -CaseSensitive:$false
+
+# Save all logs to a file
+docker logs my-nginx 2>&1 | Out-File -FilePath app.log</code></pre></div>
+      </div>
+    </div>
+
+    <h3 class="subsection-title">Copying files between host and container</h3>
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+      </div>
+      <div class="os-tab-panel active" data-tab="unix">
+        <div class="code-wrapper"><pre><code class="language-bash"># Copy a log file from container to current directory on host
+docker cp my-app:/app/logs/app.log ./app.log
+
+# Copy entire directory from container to host
+docker cp my-app:/app/logs ./logs-backup
+
+# Copy a config file from host into running container
+docker cp ./new-config.json my-app:/app/config.json</code></pre></div>
+      </div>
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper"><pre><code class="language-powershell"># Copy a log file from container to current directory on host
+docker cp my-app:/app/logs/app.log .\app.log
+
+# Copy entire directory from container to host
+docker cp my-app:/app/logs .\logs-backup
+
+# Copy a config file from host into running container
+docker cp .\new-config.json my-app:/app/config.json</code></pre></div>
+      </div>
+    </div>
+
+    <h3 class="subsection-title">System cleanup</h3>
+    <div class="os-tabs">
+      <div class="os-tab-buttons">
+        <button class="os-tab-btn active" data-tab="unix">Linux / macOS</button>
+        <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+      </div>
+      <div class="os-tab-panel active" data-tab="unix">
+        <div class="code-wrapper"><pre><code class="language-bash"># Check disk usage first
+docker system df
+
+# Remove stopped containers, dangling images, unused networks, build cache
+docker system prune
+
+# Also remove all unused images (not just dangling)
+docker system prune -a
+
+# Nuclear option — add --volumes to also delete named volumes
+# WARNING: permanent data loss — dev machines only
+docker system prune -a --volumes -f</code></pre></div>
+      </div>
+      <div class="os-tab-panel" data-tab="windows">
+        <div class="code-wrapper"><pre><code class="language-powershell"># Check disk usage first
+docker system df
+
+# Remove stopped containers, dangling images, unused networks, build cache
+docker system prune
+
+# Also remove all unused images (not just dangling)
+docker system prune -a
+
+# Nuclear option — add --volumes to also delete named volumes
+# WARNING: permanent data loss — dev machines only
+docker system prune -a --volumes -f</code></pre></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 4 — DOCKER RUN FLAGS REFERENCE
+    ============================================================ -->
+    <h2 class="section-title">docker run Flags Reference</h2>
+    <p>The <code>docker run</code> command is the most flag-rich command in Docker. Below is a complete annotated example followed by a reference table for each flag.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash">docker run \
+  -d \                            # detached mode (background)
+  -p 8080:80 \                    # host:container port mapping
+  -p 443:443 \                    # multiple ports — add one -p per port
+  -v myvolume:/data \             # named volume mount
+  -v $(pwd)/config:/etc/config \  # bind mount (host directory → container path)
+  -e DB_HOST=postgres \           # environment variable
+  -e DB_PORT=5432 \               # another environment variable
+  --name my-app \                 # assign a name (otherwise random)
+  --network mynetwork \           # attach to a custom bridge network
+  --restart unless-stopped \      # restart policy
+  --memory 512m \                 # hard memory limit — OOMKill if exceeded
+  --cpus 0.5 \                    # CPU limit (0.5 = half a CPU core)
+  --user 1001 \                   # run as non-root user (UID)
+  --read-only \                   # read-only root filesystem
+  --rm \                          # auto-remove container when it stops
+  nginx:1.25</code></pre></div>
+
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Flag</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Production recommended?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>-d</code></td>
+            <td>Boolean</td>
+            <td>Detached mode — runs container in the background. Without it the container attaches to your terminal and Ctrl+C kills it.</td>
+            <td>Yes — always</td>
+          </tr>
+          <tr>
+            <td><code>-p host:container</code></td>
+            <td>String</td>
+            <td>Publish a container port to the host. Format: <code>hostPort:containerPort</code>. Add multiple <code>-p</code> flags for multiple ports.</td>
+            <td>Yes — required for external access</td>
+          </tr>
+          <tr>
+            <td><code>-v name:/path</code></td>
+            <td>String</td>
+            <td>Named volume mount. Docker manages the storage. Survives container removal. Use for persistent data like databases.</td>
+            <td>Yes — for stateful services</td>
+          </tr>
+          <tr>
+            <td><code>-v /host:/container</code></td>
+            <td>String</td>
+            <td>Bind mount. Maps a host directory directly into the container. Good for dev (live code reload) but ties container to host filesystem.</td>
+            <td>Dev only — avoid in production</td>
+          </tr>
+          <tr>
+            <td><code>-e KEY=VALUE</code></td>
+            <td>String</td>
+            <td>Set an environment variable. Use for runtime config: DB host, ports, feature flags. Never put secrets in <code>-e</code> — they're visible in <code>docker inspect</code>.</td>
+            <td>Yes — for non-secret config</td>
+          </tr>
+          <tr>
+            <td><code>--name</code></td>
+            <td>String</td>
+            <td>Assign a human-readable name. Without this, Docker generates a random name. Named containers are addressable by name on custom networks.</td>
+            <td>Yes — makes debugging easier</td>
+          </tr>
+          <tr>
+            <td><code>--network</code></td>
+            <td>String</td>
+            <td>Attach to a Docker network. Containers on the same network can reach each other by name. Default is the <code>bridge</code> network.</td>
+            <td>Yes — for multi-container apps</td>
+          </tr>
+          <tr>
+            <td><code>--restart</code></td>
+            <td>String</td>
+            <td>Restart policy. Options: <code>no</code> (default), <code>always</code>, <code>unless-stopped</code>, <code>on-failure</code>. <code>unless-stopped</code> is safest for long-running services.</td>
+            <td>Yes — use <code>unless-stopped</code></td>
+          </tr>
+          <tr>
+            <td><code>--memory</code></td>
+            <td>String</td>
+            <td>Hard memory limit (e.g. <code>512m</code>, <code>2g</code>). If the container exceeds it, Linux OOM Killer kills the process (exit code 137). Maps to Kubernetes resource limit.</td>
+            <td>Yes — always set in production</td>
+          </tr>
+          <tr>
+            <td><code>--cpus</code></td>
+            <td>Float</td>
+            <td>CPU quota in CPU cores. <code>0.5</code> = 50% of one core, <code>2</code> = two full cores. Maps directly to Kubernetes CPU limit.</td>
+            <td>Yes — always set in production</td>
+          </tr>
+          <tr>
+            <td><code>--user</code></td>
+            <td>String</td>
+            <td>Run as a specific user (UID or username). Default is root inside container which is a security risk. Use non-root for production workloads.</td>
+            <td>Yes — security hardening</td>
+          </tr>
+          <tr>
+            <td><code>--read-only</code></td>
+            <td>Boolean</td>
+            <td>Mount the container's root filesystem as read-only. Forces explicit volume declarations for writable paths. Prevents malware from writing to the container.</td>
+            <td>Yes — security hardening</td>
+          </tr>
+          <tr>
+            <td><code>--rm</code></td>
+            <td>Boolean</td>
+            <td>Auto-remove the container when it exits. Great for one-off tasks and dev workflows. Do not combine with <code>--restart</code>.</td>
+            <td>Dev/CI only — not for services</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ============================================================
+         SECTION 5 — DOCKER LOGS DEEP DIVE
+    ============================================================ -->
+    <h2 class="section-title">docker logs Deep Dive</h2>
+    <p><code>docker logs</code> shows everything the container process wrote to stdout and stderr. It's almost always the first command you run when something goes wrong.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># Follow logs in real time (-f = follow, like tail -f)
+docker logs -f my-app
+
+# Show last 100 lines
+docker logs --tail 100 my-app
+
+# Show logs with timestamps
+docker logs -t my-app
+
+# Show logs since a specific time
+docker logs --since 2024-01-15T10:00:00 my-app
+
+# Show logs since 30 minutes ago
+docker logs --since 30m my-app
+
+# Show logs between two timestamps
+docker logs --since 2024-01-15T10:00:00 --until 2024-01-15T11:00:00 my-app
+
+# Follow logs with timestamps (most useful for debugging)
+docker logs -f -t my-app
+
+# Pipe to grep to filter for errors only
+docker logs my-app 2>&1 | grep ERROR
+
+# Save logs to a file for further analysis
+docker logs my-app > app.log 2>&1</code></pre></div>
+
+    <div class="beginner-note">
+      <span class="beginner-note-label">Beginner Note</span>
+      <p>The <code>2>&1</code> at the end of a command redirects stderr (file descriptor 2) to stdout (file descriptor 1). Docker logs shows both stdout and stderr mixed together in the terminal, but when you pipe or redirect, stderr goes to a different stream by default. Adding <code>2>&1</code> ensures you capture everything — both normal output and error messages — in your pipe or file. If you only see some errors but not others, make sure you're capturing both streams.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 6 — DOCKER EXEC DEEP DIVE
+    ============================================================ -->
+    <h2 class="section-title">docker exec Deep Dive</h2>
+    <p><code>docker exec</code> is your entry point into a running container. It creates a new process inside the container's existing namespaces without stopping or modifying the container.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># Get an interactive bash shell (Debian/Ubuntu-based images)
+docker exec -it my-app bash
+
+# Get sh (for Alpine-based images that don't have bash installed)
+docker exec -it my-app sh
+
+# Run a single non-interactive command
+docker exec my-app cat /etc/hosts
+
+# Run as root even if the container uses a non-root user
+docker exec -u root -it my-app bash
+
+# Check all environment variables set inside the container
+docker exec my-app env
+
+# List all running processes inside the container
+docker exec my-app ps aux
+
+# Check network connectivity from inside the container
+docker exec my-app curl -s http://other-service:8080/health
+
+# Check disk usage from inside the container
+docker exec my-app df -h
+
+# Tail an application log file that lives inside the container
+docker exec my-app tail -f /app/logs/app.log</code></pre></div>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Note</span>
+      <p>In production Kubernetes, <code>docker exec</code> has a direct equivalent: <code>kubectl exec -it &lt;pod-name&gt; -- bash</code>. Same concept — reach inside a running container without modifying it or redeploying it. This is a non-negotiable production debugging skill. Understanding <code>docker exec</code> first makes <code>kubectl exec</code> immediately intuitive when you reach Kubernetes. The <code>-it</code> flags mean the same thing in both tools: <code>-i</code> keeps stdin open, <code>-t</code> allocates a pseudo-TTY for an interactive session.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 7 — DOCKER INSPECT
+    ============================================================ -->
+    <h2 class="section-title">docker inspect</h2>
+    <p><code>docker inspect</code> returns the complete configuration and state of a container or image as a JSON object. It's the source of truth for everything Docker knows about a running container.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># Full JSON inspection of a container — outputs everything
+docker inspect my-app
+
+# Get just the container's IP address (using Go template syntax)
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' my-app
+
+# Get all environment variables set in the container
+docker inspect -f '{{range .Config.Env}}{{.}}{{"\n"}}{{end}}' my-app
+
+# Get mounted volumes formatted as pretty JSON
+docker inspect -f '{{json .Mounts}}' my-app | python3 -m json.tool
+
+# Get the container's restart policy
+docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' my-app
+
+# Inspect an image (not a container) — works the same way
+docker inspect nginx:1.25
+
+# Get image creation date and compressed size in bytes
+docker inspect -f 'Created: {{.Created}}, Size: {{.Size}}' nginx:1.25</code></pre></div>
+
+    <!-- ============================================================
+         SECTION 8 — DOCKER STATS
+    ============================================================ -->
+    <h2 class="section-title">docker stats</h2>
+    <p><code>docker stats</code> streams live resource usage — CPU, memory, network, and disk I/O — for running containers. It's Docker's built-in top command.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># Live stats for all running containers (streams until Ctrl+C)
+docker stats
+
+# Live stats for a specific container
+docker stats my-app
+
+# One-time snapshot — print stats once and exit (no streaming)
+docker stats --no-stream
+
+# Custom format — useful for scripting and CI dashboards
+docker stats --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"</code></pre></div>
+
+    <h3 class="subsection-title">What each column means</h3>
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>What it shows</th>
+            <th>What to look for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>CONTAINER ID</code></td>
+            <td>Shortened container ID</td>
+            <td>Cross-reference with <code>docker ps</code></td>
+          </tr>
+          <tr>
+            <td><code>NAME</code></td>
+            <td>Container name</td>
+            <td>Human-readable identifier</td>
+          </tr>
+          <tr>
+            <td><code>CPU %</code></td>
+            <td>Percentage of host CPU used</td>
+            <td>Sustained high % means app needs more CPU or has a runaway loop</td>
+          </tr>
+          <tr>
+            <td><code>MEM USAGE / LIMIT</code></td>
+            <td>Current memory used vs. the set limit</td>
+            <td>Approaching the limit means OOMKill is imminent</td>
+          </tr>
+          <tr>
+            <td><code>MEM %</code></td>
+            <td>Memory used as a percentage of the limit</td>
+            <td>Above 90% is a warning sign; 100% triggers OOMKill</td>
+          </tr>
+          <tr>
+            <td><code>NET I/O</code></td>
+            <td>Total network bytes sent/received</td>
+            <td>High values on a service with no expected traffic suggests a loop or DDoS</td>
+          </tr>
+          <tr>
+            <td><code>BLOCK I/O</code></td>
+            <td>Total disk bytes read/written</td>
+            <td>High write I/O on a database signals an I/O bottleneck</td>
+          </tr>
+          <tr>
+            <td><code>PIDS</code></td>
+            <td>Number of processes inside the container</td>
+            <td>Rapidly growing PID count suggests a fork bomb or process leak</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="production-tip">
+      <span class="production-tip-label">Production Tip</span>
+      <p>High MEM % approaching the limit means OOMKilled is coming — either raise the memory limit or investigate the memory leak before the container crashes. Sustained high CPU % means your application is CPU-bound: add more replicas (horizontal scaling) or increase the <code>--cpus</code> limit. If BLOCK I/O is consistently high on a database container, you're hitting an I/O bottleneck — consider using a faster storage driver, moving to an SSD-backed volume, or adding read replicas to distribute the load.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 9 — IMAGE MANAGEMENT COMMANDS
+    ============================================================ -->
+    <h2 class="section-title">Image Management</h2>
+    <p>Images are the blueprints for containers. Managing them well keeps your registry clean, your builds reproducible, and your disk usage under control.</p>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># List all local images with details
+docker images
+
+# List with custom formatted output — useful for scripting
+docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+
+# Pull a specific version (always use explicit tags — never rely on :latest in production)
+docker pull node:18-alpine
+
+# Pull by digest — immutable reference, guaranteed to always be the same image
+docker pull nginx@sha256:a4c4106dd4f8b66be4f8b28b7a4aeda3e4f12e2d1b0f6b6d4d7a9b83d9d1d2c4
+
+# Tag an image for a private registry
+docker tag myapp:v1.2.0 nexus.company.com:5000/myapp:v1.2.0
+docker tag myapp:v1.2.0 nexus.company.com:5000/myapp:latest  # only tag latest on release
+
+# Authenticate with a private registry, then push
+docker login nexus.company.com:5000
+docker push nexus.company.com:5000/myapp:v1.2.0
+
+# Remove a specific image (containers using it must be stopped first)
+docker rmi myapp:v1.2.0
+
+# Remove dangling images — untagged intermediate build layers
+docker image prune
+
+# Remove ALL unused images (not just dangling) — reclaims significant disk space
+docker image prune -a
+
+# See the full layer history of an image (what each Dockerfile instruction added)
+docker history nginx:1.25 --no-trunc</code></pre></div>
+
+    <!-- ============================================================
+         SECTION 10 — CLEANUP COMMANDS
+    ============================================================ -->
+    <h2 class="section-title">Cleanup Commands</h2>
+    <p>Docker accumulates disk usage fast — stopped containers, old image layers, build cache, and unused volumes. On CI servers this can fill a disk within days without a cleanup strategy.</p>
+
+    <div class="production-tip">
+      <span class="production-tip-label">Production Tip</span>
+      <p>Always run <code>docker system df</code> before any prune command to see exactly what's using space. On CI servers, add a post-build cleanup step to every pipeline. This prevents the "disk full at 3 AM" incident. A good CI cleanup strategy: remove the specific built image after pushing it, then run <code>docker image prune -f</code> to clear dangling layers. Reserve the nuclear options for manual maintenance windows.</p>
+    </div>
+
+    <div class="code-wrapper"><pre><code class="language-bash"># See disk usage before pruning — shows containers, images, volumes, build cache
+docker system df
+
+# Remove all stopped containers
+docker container prune
+
+# Remove dangling images (untagged, not referenced by any container)
+docker image prune
+
+# Remove ALL unused images (not just dangling — reclaims much more space)
+docker image prune -a
+
+# Remove all unused volumes
+# CAREFUL — this deletes data! Only run if you understand what's in the volumes.
+docker volume prune
+
+# Remove all unused networks
+docker network prune
+
+# Remove stopped containers, unused networks, dangling images, and build cache
+# Does NOT touch volumes by default
+docker system prune
+
+# Also removes all unused images (not just dangling)
+docker system prune -a
+
+# Nuclear option — also removes named volumes (PERMANENT DATA LOSS)
+docker system prune -a --volumes</code></pre></div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p>Running <code>docker system prune -a --volumes</code> on a production server deletes ALL container data including database volumes. Postgres data, Redis snapshots, uploaded files — gone permanently with no undo. Only run volume pruning on developer machines or CI build servers where you are certain no persistent data matters. Production servers should never need this command. If you find yourself considering it on a production host, stop and think about what data you're about to destroy.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 11 — BEHIND THE SCENES
+    ============================================================ -->
+    <h2 class="section-title">Behind the Scenes</h2>
+    <p>Understanding what happens under the hood helps you debug unexpected behaviour and reason about Docker's limitations.</p>
+
+    <details>
+      <summary>How does <code>docker exec</code> work?</summary>
+      <div class="answer-content">
+        <p>When you run <code>docker exec -it my-app bash</code>, Docker calls the <code>nsenter</code> system call on Linux to enter the existing namespaces of the running container process. The key namespaces it enters are the network namespace (so the new process shares the container's network interfaces and routing) and the mount namespace (so it sees the container's filesystem, including all its mounted volumes).</p>
+        <p>The new process gets its own separate PID — it does not share the container's process tree — but it shares everything else. This is why you can check network connectivity with <code>curl</code> inside an exec session, and why filesystem changes you make inside exec persist: you're genuinely inside the container's environment, not a simulation of it.</p>
+        <p>This also means exec sessions count against the container's resource limits. If the container has a 512 MB memory limit and your exec session starts a memory-heavy tool, it can push the container over the limit and trigger an OOMKill.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Where are Docker files stored on disk?</summary>
+      <div class="answer-content">
+        <p>On Linux, Docker stores everything under <code>/var/lib/docker</code>. The storage is layered using the <code>overlay2</code> storage driver (the default since Docker 1.13). Image layers live at <code>/var/lib/docker/overlay2</code> — each image layer is a directory containing just the filesystem diff for that layer. Containers add a thin writable layer on top.</p>
+        <p>Named volumes are stored at <code>/var/lib/docker/volumes</code>. Each named volume gets its own subdirectory. On Windows with WSL2, the equivalent path is inside the WSL2 virtual machine, accessible via <code>\\wsl$\docker-desktop-data\data\docker</code>.</p>
+        <p>This directory can fill up a disk on CI servers in days if builds are frequent and cleanup is absent. Use <code>docker system df</code> to see a breakdown of what's consuming space. The build cache alone can be tens of gigabytes on an active CI agent. Add <code>docker builder prune -af</code> to your CI cleanup scripts to reclaim build cache after each run.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is the difference between <code>docker stop</code> and <code>docker kill</code>?</summary>
+      <div class="answer-content">
+        <p><code>docker stop</code> sends SIGTERM to the container's main process (PID 1) first. SIGTERM is a polite request to shut down — the application can catch this signal and perform a graceful shutdown: finish handling in-flight HTTP requests, close database connections, flush write buffers to disk, deregister from service discovery. After a configurable timeout (10 seconds by default, changeable with <code>--time</code>), if the process has not exited, Docker escalates to SIGKILL.</p>
+        <p><code>docker kill</code> sends SIGKILL immediately, bypassing the grace period entirely. SIGKILL cannot be caught or ignored by the application — the kernel terminates the process immediately. In-flight requests are dropped, write buffers may not be flushed, and connection pools are torn down without cleanup.</p>
+        <p>Always prefer <code>docker stop</code> for normal operations. Use <code>docker kill</code> only when a container is genuinely frozen and not responding to SIGTERM, which usually indicates a bug in the application's signal handling. Well-written applications listen for SIGTERM and shut down cleanly within the 10-second window.</p>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         SECTION 12 — COMMON MISTAKES
+    ============================================================ -->
+    <h2 class="section-title">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 1 — Forgetting the <code>-d</code> flag</span>
+      <p>Running <code>docker run nginx</code> without <code>-d</code> attaches the container to your terminal. You'll see logs streaming, and the moment you press Ctrl+C, the container stops. New users often think the container is running in the background — it isn't. Always add <code>-d</code> for services you want running persistently: <code>docker run -d -p 8080:80 nginx</code>.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 2 — Port conflict</span>
+      <p>If you see <code>Error starting userland proxy: listen tcp4 0.0.0.0:8080: bind: address already in use</code>, another process is already using port 8080 on your host. To find it on Linux/macOS: <code>lsof -i :8080</code> or <code>ss -tlnp | grep 8080</code>. On Windows: <code>netstat -ano | findstr 8080</code>, then check Task Manager for the PID. Either stop the conflicting process, or map to a different host port: <code>-p 9090:80</code>.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 3 — Container exits immediately</span>
+      <p>You run <code>docker run -d myapp</code>, then <code>docker ps</code> shows nothing. The container started and stopped in milliseconds. This almost always means the main process in the container exited — either it crashed, or the Dockerfile CMD/ENTRYPOINT doesn't run a long-lived process. The fix: run <code>docker logs &lt;container-id&gt;</code> immediately (use <code>docker ps -a</code> to find the stopped container ID) to see the exit message. Common causes: missing environment variable the app required on startup, wrong file path in CMD, or an application error on boot.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 4 — Exec into the wrong container</span>
+      <p>When you have multiple containers with similar names (e.g. <code>my-app-1</code>, <code>my-app-2</code>, <code>my-app-staging</code>), it's easy to exec into the wrong one and spend 20 minutes confused why config changes aren't taking effect. Always run <code>docker ps</code> first to confirm container names and IDs before exec. Tab completion helps: most shells with Docker completion will autocomplete container names from <code>docker ps</code> output.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 5 — Cleaning containers but not images</span>
+      <p><code>docker rm</code> removes containers but leaves the images on disk. On CI servers that build dozens of images per day, this fills the disk quickly with old image layers. The symptom is a slow build server that eventually refuses to start new builds with "no space left on device". The fix: add image cleanup to every CI pipeline. At minimum, run <code>docker image prune -f</code> after each build. Better: use <code>docker system prune -af</code> in a scheduled cleanup job that runs nightly on CI agents.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 13 — HANDS-ON LAB
+    ============================================================ -->
+    <h2 class="section-title">Hands-On Lab</h2>
+
+    <div class="lab-box">
+      <span class="lab-box-label">Lab — Container Debugging Workflow</span>
+      <p><strong>Scenario:</strong> A container is misbehaving. Practice the full debugging sequence — the same sequence you'd use in production when someone pages you at 2 AM.</p>
+
+      <div class="code-wrapper"><pre><code class="language-bash"># Step 1: Start a "broken" nginx with a custom environment variable
+docker run -d --name debug-nginx \
+  -p 8090:80 \
+  -e NGINX_ENV=production \
+  nginx:1.25
+
+# Step 2: Confirm it's running
+docker ps
+
+# Step 3: Check the logs for any startup errors
+docker logs debug-nginx
+
+# Step 4: Enter the container and inspect its internals
+docker exec -it debug-nginx bash
+# Inside the container, run these one by one:
+cat /etc/nginx/nginx.conf
+ls -la /etc/nginx/conf.d/
+env | grep NGINX
+ps aux
+exit
+
+# Step 5: Inspect full container metadata (first 80 lines of JSON)
+docker inspect debug-nginx | python3 -m json.tool | head -80
+
+# Step 6: Check live resource usage — one-time snapshot
+docker stats debug-nginx --no-stream
+
+# Step 7: Copy the default nginx config out to your host for review
+docker cp debug-nginx:/etc/nginx/conf.d/default.conf ./nginx-default.conf
+cat ./nginx-default.conf
+
+# Step 8: Clean up after the lab
+docker stop debug-nginx
+docker rm debug-nginx
+
+# Verify the container is gone
+docker ps -a | grep debug-nginx</code></pre></div>
+
+      <p>After completing this lab you should be comfortable moving through the full debugging cycle: check if running → check logs → enter container → inspect metadata → review resource usage → extract files → clean up. This cycle is the same regardless of which application is inside the container.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 14 — INTERVIEW QUESTIONS
+    ============================================================ -->
+    <h2 class="section-title">Interview Questions</h2>
+    <p>These are the Docker CLI questions that come up repeatedly in DevOps and platform engineering interviews. Click each question to reveal the full answer.</p>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary>Q1: How do you debug a container that keeps crashing (the Docker equivalent of CrashLoopBackOff)?</summary>
+          <div class="answer-content">
+            <p>Start with <code>docker logs &lt;container-name&gt;</code> to see the last output before the exit. This usually tells you exactly what went wrong — a missing environment variable, a failed database connection, or an unhandled exception.</p>
+            <p>If the container exits so fast that it's gone before you can check logs, use <code>docker ps -a</code> to find its ID, then <code>docker logs &lt;container-id&gt;</code>. The container must still exist (not been <code>docker rm</code>'d) for logs to be accessible.</p>
+            <p>If the logs don't tell you enough and you need to poke around inside, override the entrypoint to prevent the app from starting: <code>docker run -it --entrypoint sh &lt;image-name&gt;</code>. This drops you into a shell where you can manually run the application and see exactly what fails.</p>
+            <p>Finally, check the exit code with <code>docker inspect &lt;container-id&gt; --format '{{.State.ExitCode}}'</code>. Exit code <strong>1</strong> means the application itself returned a non-zero exit status (application error). Exit code <strong>137</strong> means the process was killed with SIGKILL — almost always OOMKilled (out of memory). Exit code <strong>139</strong> means segmentation fault. Exit code <strong>126</strong> means the entrypoint command wasn't executable. Fix the root cause — don't just restart and hope.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q2: What is the difference between COPY/ADD in a Dockerfile and docker cp?</summary>
+          <div class="answer-content">
+            <p><code>COPY</code> and <code>ADD</code> are Dockerfile <strong>build-time</strong> instructions. They run when you execute <code>docker build</code> and copy files from your build context (the directory on your host containing the Dockerfile) into the image being constructed. The result is baked permanently into the image layer. Every container started from that image will have those files.</p>
+            <p><code>docker cp</code> is a <strong>runtime</strong> command. It copies files between your host filesystem and a running (or stopped) container without modifying the image. Changes made with <code>docker cp</code> live only in that specific container's writable layer — they disappear when the container is removed and are not reflected in any other containers started from the same image.</p>
+            <p>Use <code>docker cp</code> exclusively for debugging and emergency access — grabbing a log file, injecting a temporary config fix. Never build a deployment workflow around <code>docker cp</code>. The correct deployment workflow is: change the source code → rebuild the image → redeploy the container.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q3: How do you run a Docker container as a different user?</summary>
+          <div class="answer-content">
+            <p>There are three places where the user can be set, in order of precedence:</p>
+            <p><strong>Dockerfile (recommended for production):</strong> Add <code>USER 1001</code> or <code>USER appuser</code> near the end of your Dockerfile, after installing dependencies. Every container started from the image will use that user by default. This is the most robust approach because the intent is captured in the image definition.</p>
+            <p><strong>docker run flag (runtime override):</strong> Use <code>docker run --user 1001:1001 image</code> to override the user at container start. The format is <code>UID:GID</code>. This works but the override can be forgotten, making it less reliable than the Dockerfile approach.</p>
+            <p><strong>docker exec flag:</strong> Use <code>docker exec -u root -it my-app bash</code> to override the user for a specific exec session. This is useful for debugging — you can enter as root to inspect files that the application user can't read, without changing how the container itself runs.</p>
+            <p>Always prefer the Dockerfile <code>USER</code> instruction for production workloads. Running as root inside a container is a significant security risk — if an attacker escapes the container namespace, they may gain root on the host.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q4: What exactly does docker system prune remove, and what does it leave alone?</summary>
+          <div class="answer-content">
+            <p><code>docker system prune</code> (without flags) removes four categories of resources: <strong>stopped containers</strong> (any container not in the running state), <strong>dangling images</strong> (untagged images not referenced by any container — typically intermediate build layers), <strong>unused networks</strong> (networks not connected to any running container), and <strong>build cache</strong> (cached build layers from previous <code>docker build</code> runs).</p>
+            <p>It does <strong>not</strong> remove: running containers, named images that are tagged (even if no container is using them), or named volumes. This is intentional — removing volumes would delete persistent data.</p>
+            <p><code>docker system prune -a</code> additionally removes unused images that are tagged but not referenced by any running container — this reclaims significantly more space and is safe on CI servers where images are rebuilt regularly.</p>
+            <p>Adding <code>--volumes</code> to either form will also remove named volumes. This is permanent and irreversible — every database, every uploaded file, every stateful piece of data stored in volumes is gone. Only use <code>--volumes</code> on machines where you are absolutely certain no persistent data exists, such as a fresh CI runner being reset between jobs.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q5: How do you limit container memory and CPU, and how do these map to Kubernetes?</summary>
+          <div class="answer-content">
+            <p><strong>Memory:</strong> <code>--memory 512m</code> sets a hard memory limit. If the container's memory usage exceeds this, the Linux kernel's Out-of-Memory (OOM) Killer terminates a process inside the container — the container exits with code 137. <code>--memory-reservation 256m</code> sets a soft limit: Docker tries to keep memory usage below this under memory pressure, but it's not enforced strictly.</p>
+            <p><strong>CPU:</strong> <code>--cpus 0.5</code> limits the container to using at most 0.5 CPU cores (50% of one core). Internally, Docker translates this into a Linux CFS (Completely Fair Scheduler) quota. <code>--cpu-shares 512</code> is relative weighting (default 1024) — it only matters when the system is under CPU contention and does not set a hard cap.</p>
+            <p><strong>Kubernetes mapping:</strong> These flags map directly to the Kubernetes container resource spec. <code>--memory 512m</code> → <code>resources.limits.memory: 512Mi</code>. <code>--memory-reservation 256m</code> → <code>resources.requests.memory: 256Mi</code>. <code>--cpus 0.5</code> → <code>resources.limits.cpu: 500m</code> (millicores). Understanding the Docker flags first makes the Kubernetes resource model immediately intuitive because they implement the same underlying Linux kernel mechanisms.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+
+  </div><!-- /.page-content -->
+</main>
+
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

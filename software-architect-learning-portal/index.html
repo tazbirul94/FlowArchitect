@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevArchitect — Software Architect Learning Portal</title>
+
+  <!-- Theme flicker prevention — must be first -->
+  <script>
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Highlight.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- Mermaid.js -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="assets/style.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+
+    /* Dark mode base */
+    .dark body { background-color: #0f172a; color: #e2e8f0; }
+
+    /* Timeline connector line */
+    .timeline-line { position: absolute; left: 1.25rem; top: 2.5rem; bottom: -1rem; width: 2px; background: linear-gradient(to bottom, #3b82f6, #8b5cf6); }
+
+    /* Hero gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Hero background pattern */
+    .hero-bg {
+      background-color: #0f172a;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.25) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 60%, rgba(139,92,246,0.15) 0%, transparent 50%);
+    }
+
+    /* Card hover lift */
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .dark .card-hover:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+
+    /* Nav blur */
+    .nav-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+    /* Scrollbar thin */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 antialiased">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOP NAVIGATION BAR
+  ═══════════════════════════════════════════════════════════ -->
+  <nav class="fixed top-0 left-0 right-0 z-50 nav-blur bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+
+        <!-- Logo -->
+        <a href="index.html" class="flex flex-col leading-none">
+          <span class="text-xl font-extrabold text-brand-600 dark:text-brand-400 tracking-tight">DevArchitect</span>
+          <span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 tracking-widest uppercase">Beginner → Architect</span>
+        </a>
+
+        <!-- Center nav links -->
+        <div class="hidden md:flex items-center gap-1">
+          <a href="pages/00-roadmap.html" class="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Roadmap</a>
+          <a href="pages/01-docker-fundamentals.html" class="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Docker</a>
+          <a href="pages/09-kubernetes-fundamentals.html" class="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Kubernetes</a>
+          <a href="pages/16-helm.html" class="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Platform</a>
+          <a href="pages/21-architecture-thinking.html" class="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Architecture</a>
+        </div>
+
+        <!-- Right: CTA + theme toggle -->
+        <div class="flex items-center gap-3">
+          <a href="pages/00-roadmap.html"
+             class="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 rounded-lg transition-colors shadow-sm">
+            Start Learning <span aria-hidden="true">→</span>
+          </a>
+          <button id="theme-toggle"
+                  aria-label="Toggle dark mode"
+                  class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <!-- Sun icon (shown in dark mode) -->
+            <svg id="icon-sun" class="hidden dark:block w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <!-- Moon icon (shown in light mode) -->
+            <svg id="icon-moon" class="block dark:hidden w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       HERO SECTION
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="hero-bg pt-32 pb-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <!-- Decorative grid overlay -->
+    <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\' fill-rule=\'evenodd\'%3E%3Cpath d=\'M0 40L40 0H20L0 20M40 40V20L20 40\'/%3E%3C/g%3E%3C/svg%3E');" aria-hidden="true"></div>
+
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+      <!-- Badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 mb-6 rounded-full text-xs font-semibold tracking-wider uppercase bg-brand-900/50 text-brand-300 border border-brand-700/50">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse"></span>
+        Enterprise DevOps &amp; Architecture
+      </div>
+
+      <!-- Title -->
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight text-white mb-6">
+        From <code class="font-mono text-brand-400 bg-brand-900/60 px-2 py-1 rounded text-3xl sm:text-4xl lg:text-5xl">docker run</code><br class="hidden sm:block">
+        to Production Architect
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-10 leading-relaxed">
+        A complete, hands-on learning portal covering Docker, Kubernetes, Helm, Argo CD, CI/CD,
+        Observability, Security, and Software Architecture — built for developers who want to grow.
+      </p>
+
+      <!-- CTA buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+        <a href="pages/00-roadmap.html"
+           class="cta-button inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-900/40 transition-all hover:shadow-xl hover:shadow-brand-900/50 hover:-translate-y-0.5">
+          Start Learning
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+        <a href="pages/09-kubernetes-fundamentals.html"
+           class="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-slate-200 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-xl transition-all hover:-translate-y-0.5">
+          Jump to Kubernetes
+          <span class="text-lg">☸️</span>
+        </a>
+      </div>
+
+      <!-- Trust badges -->
+      <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          25 In-Depth Topics
+        </span>
+        <span class="text-slate-600">|</span>
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          100+ Interview Questions
+        </span>
+        <span class="text-slate-600">|</span>
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Real Enterprise Scenarios
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STATS ROW
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-200 dark:border-slate-700/50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+
+        <div class="story-card flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 card-hover">
+          <span class="text-4xl mb-3">📚</span>
+          <span class="text-3xl font-extrabold text-brand-600 dark:text-brand-400">25</span>
+          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Topics Covered</span>
+        </div>
+
+        <div class="story-card flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 card-hover">
+          <span class="text-4xl mb-3">⚡</span>
+          <span class="text-3xl font-extrabold text-purple-600 dark:text-purple-400">100+</span>
+          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Interview Questions</span>
+        </div>
+
+        <div class="story-card flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 card-hover">
+          <span class="text-4xl mb-3">🏗️</span>
+          <span class="text-3xl font-extrabold text-cyan-600 dark:text-cyan-400">13</span>
+          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Epics</span>
+        </div>
+
+        <div class="story-card flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 card-hover">
+          <span class="text-4xl mb-3">🚀</span>
+          <span class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">50+</span>
+          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Hands-On Labs</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       LEARNING LEVELS SECTION
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900">
+    <div class="max-w-6xl mx-auto">
+
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Built for Every Level</h2>
+        <p class="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Progress at your own pace through four learning levels</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        <!-- Beginner -->
+        <div class="story-card group relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm card-hover overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-emerald-500 rounded-t-2xl"></div>
+          <div class="mb-4">
+            <span class="level-badge inline-block px-2.5 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 mb-3">Beginner</span>
+            <div class="text-4xl mb-2">🐳</div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Container Basics</h3>
+          </div>
+          <ul class="space-y-1.5 text-sm text-slate-500 dark:text-slate-400 mb-5">
+            <li class="flex items-start gap-1.5"><span class="text-green-400 mt-0.5">•</span>Docker fundamentals</li>
+            <li class="flex items-start gap-1.5"><span class="text-green-400 mt-0.5">•</span>Images &amp; containers</li>
+            <li class="flex items-start gap-1.5"><span class="text-green-400 mt-0.5">•</span>CLI commands</li>
+            <li class="flex items-start gap-1.5"><span class="text-green-400 mt-0.5">•</span>Dockerfile</li>
+          </ul>
+          <p class="text-xs text-slate-400 dark:text-slate-500 italic border-t border-slate-100 dark:border-slate-700 pt-4">
+            Start here if: you've never used Docker
+          </p>
+        </div>
+
+        <!-- Intermediate -->
+        <div class="story-card group relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm card-hover overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-t-2xl"></div>
+          <div class="mb-4">
+            <span class="level-badge inline-block px-2.5 py-0.5 text-xs font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 mb-3">Intermediate</span>
+            <div class="text-4xl mb-2">⚙️</div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Kubernetes &amp; CI/CD</h3>
+          </div>
+          <ul class="space-y-1.5 text-sm text-slate-500 dark:text-slate-400 mb-5">
+            <li class="flex items-start gap-1.5"><span class="text-yellow-400 mt-0.5">•</span>K8s architecture</li>
+            <li class="flex items-start gap-1.5"><span class="text-yellow-400 mt-0.5">•</span>Workloads &amp; services</li>
+            <li class="flex items-start gap-1.5"><span class="text-yellow-400 mt-0.5">•</span>Networking</li>
+            <li class="flex items-start gap-1.5"><span class="text-yellow-400 mt-0.5">•</span>CI/CD pipelines</li>
+          </ul>
+          <p class="text-xs text-slate-400 dark:text-slate-500 italic border-t border-slate-100 dark:border-slate-700 pt-4">
+            Start here if: you can run Docker containers
+          </p>
+        </div>
+
+        <!-- Advanced -->
+        <div class="story-card group relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm card-hover overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-rose-500 rounded-t-2xl"></div>
+          <div class="mb-4">
+            <span class="level-badge inline-block px-2.5 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 mb-3">Advanced</span>
+            <div class="text-4xl mb-2">🔧</div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Platform Engineering</h3>
+          </div>
+          <ul class="space-y-1.5 text-sm text-slate-500 dark:text-slate-400 mb-5">
+            <li class="flex items-start gap-1.5"><span class="text-orange-400 mt-0.5">•</span>Helm &amp; Argo CD</li>
+            <li class="flex items-start gap-1.5"><span class="text-orange-400 mt-0.5">•</span>GitOps</li>
+            <li class="flex items-start gap-1.5"><span class="text-orange-400 mt-0.5">•</span>Autoscaling</li>
+            <li class="flex items-start gap-1.5"><span class="text-orange-400 mt-0.5">•</span>Observability &amp; security</li>
+          </ul>
+          <p class="text-xs text-slate-400 dark:text-slate-500 italic border-t border-slate-100 dark:border-slate-700 pt-4">
+            Start here if: you understand Kubernetes basics
+          </p>
+        </div>
+
+        <!-- Expert -->
+        <div class="story-card group relative bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm card-hover overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 to-pink-600 rounded-t-2xl"></div>
+          <div class="mb-4">
+            <span class="level-badge inline-block px-2.5 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 mb-3">Expert</span>
+            <div class="text-4xl mb-2">🏛️</div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Architecture Thinking</h3>
+          </div>
+          <ul class="space-y-1.5 text-sm text-slate-500 dark:text-slate-400 mb-5">
+            <li class="flex items-start gap-1.5"><span class="text-red-400 mt-0.5">•</span>System design</li>
+            <li class="flex items-start gap-1.5"><span class="text-red-400 mt-0.5">•</span>NFRs &amp; trade-offs</li>
+            <li class="flex items-start gap-1.5"><span class="text-red-400 mt-0.5">•</span>C4 model</li>
+            <li class="flex items-start gap-1.5"><span class="text-red-400 mt-0.5">•</span>Enterprise patterns</li>
+          </ul>
+          <p class="text-xs text-slate-400 dark:text-slate-500 italic border-t border-slate-100 dark:border-slate-700 pt-4">
+            Start here if: you want to think like a principal engineer
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       LEARNING PATH TIMELINE
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-800/30">
+    <div class="max-w-4xl mx-auto">
+
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Your Learning Journey</h2>
+        <p class="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">A structured path from container basics to enterprise architecture</p>
+      </div>
+
+      <div class="space-y-0">
+
+        <!-- Step 0 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-brand-600 shadow-lg shadow-brand-600/30 z-10 relative">0</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-brand-500 to-purple-500 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-brand-500 dark:text-brand-400">Level 0</span>
+              <span class="text-xs text-slate-400">Foundation</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Learning Roadmap</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Your complete, opinionated path from zero to production-ready architect.</p>
+          </div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-green-500 shadow-lg shadow-green-500/30 z-10 relative">1</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-green-500 to-emerald-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-green-500">Level 1</span>
+              <span class="text-xs text-slate-400">Containers</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Docker Fundamentals</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Docker Fundamentals → Commands &amp; CLI → Dockerfile authoring → Docker Compose for local environments</p>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-500/30 z-10 relative">2</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-emerald-400 to-cyan-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-emerald-500">Level 2</span>
+              <span class="text-xs text-slate-400">Container Deep Dives</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Docker Networking, Volumes &amp; Registries</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Networking (bridge, host, custom) → Persistent volumes &amp; backups → Container registries (Nexus, ECR, Harbor)</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-cyan-500 shadow-lg shadow-cyan-500/30 z-10 relative">3</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-cyan-400 to-blue-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-cyan-500">Level 3</span>
+              <span class="text-xs text-slate-400">Automation</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">CI/CD Pipelines</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">GitHub Actions, GitLab CI, Jenkins, Azure DevOps — from code commit to deployed container</p>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-blue-500 shadow-lg shadow-blue-500/30 z-10 relative">4</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-blue-400 to-indigo-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-blue-500">Level 4</span>
+              <span class="text-xs text-slate-400">Kubernetes Core</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Kubernetes Fundamentals &amp; Workloads</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Cluster architecture, control plane, worker nodes → Pods, Deployments, StatefulSets, Jobs, CronJobs</p>
+          </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-indigo-500 shadow-lg shadow-indigo-500/30 z-10 relative">5</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-indigo-400 to-violet-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-indigo-500">Level 5</span>
+              <span class="text-xs text-slate-400">Kubernetes Networking</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Services, Ingress &amp; Configuration</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Services &amp; load balancing → Ingress &amp; API Gateway → ConfigMaps, Secrets, and persistent storage</p>
+          </div>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-violet-500 shadow-lg shadow-violet-500/30 z-10 relative">6</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-violet-400 to-purple-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-violet-500">Level 6</span>
+              <span class="text-xs text-slate-400">Kubernetes Operations</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Autoscaling</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">HPA, VPA, Cluster Autoscaler, Pod Disruption Budgets, and zero-downtime scaling strategies</p>
+          </div>
+        </div>
+
+        <!-- Step 7 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-purple-500 shadow-lg shadow-purple-500/30 z-10 relative">7</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-purple-400 to-pink-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-purple-500">Level 7</span>
+              <span class="text-xs text-slate-400">Platform Engineering</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Helm &amp; Argo CD / GitOps</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Chart engineering, environment promotion → Declarative GitOps deployments with drift detection and auto-sync</p>
+          </div>
+        </div>
+
+        <!-- Step 8 -->
+        <div class="flex gap-6 relative pb-8">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-pink-500 shadow-lg shadow-pink-500/30 z-10 relative">8</div>
+            <div class="w-0.5 flex-1 bg-gradient-to-b from-pink-400 to-rose-400 mt-2 opacity-40"></div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-pink-500">Level 8</span>
+              <span class="text-xs text-slate-400">Production</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Observability, Security &amp; Deployment Patterns</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Prometheus, Grafana, Loki, OpenTelemetry → RBAC, network policies, image scanning → Blue-green, canary, rollback</p>
+          </div>
+        </div>
+
+        <!-- Step 9 -->
+        <div class="flex gap-6 relative">
+          <div class="flex-shrink-0 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white bg-rose-500 shadow-lg shadow-rose-500/30 z-10 relative">9</div>
+          </div>
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex-1 shadow-sm card-hover">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-rose-500">Level 9</span>
+              <span class="text-xs text-slate-400">Architecture</span>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">Architecture, System Design &amp; Interview Prep</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">NFRs, trade-offs, ADR, C4 model → Full enterprise system design → 100+ interview questions across all levels</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOPICS GRID
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900">
+    <div class="max-w-7xl mx-auto">
+
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">All 25 Topics</h2>
+        <p class="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Click any topic to start learning</p>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+
+        <!-- Topic card macro: number, icon, title, desc, level -->
+
+        <!-- 00 Foundation -->
+        <a href="pages/00-roadmap.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-brand-300 dark:hover:border-brand-600 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">00</span>
+          <span class="text-3xl mb-2">🗺️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Learning Roadmap</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Your complete path from beginner to architect</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Foundation</span>
+        </a>
+
+        <!-- 01 Beginner -->
+        <a href="pages/01-docker-fundamentals.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-green-300 dark:hover:border-green-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">01</span>
+          <span class="text-3xl mb-2">🐳</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Docker Fundamentals</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Why Docker exists and how containers work</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Beginner</span>
+        </a>
+
+        <!-- 02 -->
+        <a href="pages/02-docker-commands.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-green-300 dark:hover:border-green-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">02</span>
+          <span class="text-3xl mb-2">⌨️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Docker Commands</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Complete CLI reference with copy-paste examples</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Beginner</span>
+        </a>
+
+        <!-- 03 -->
+        <a href="pages/03-dockerfile.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-green-300 dark:hover:border-green-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">03</span>
+          <span class="text-3xl mb-2">📋</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Dockerfile</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Build efficient, secure, minimal container images</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Beginner</span>
+        </a>
+
+        <!-- 04 -->
+        <a href="pages/04-docker-compose.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-green-300 dark:hover:border-green-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">04</span>
+          <span class="text-3xl mb-2">🔧</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Docker Compose</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Orchestrate multi-service local environments</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Beginner</span>
+        </a>
+
+        <!-- 05 Intermediate -->
+        <a href="pages/05-docker-networking.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">05</span>
+          <span class="text-3xl mb-2">🌐</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Docker Networking</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Bridge, host, custom networks and DNS</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 06 -->
+        <a href="pages/06-docker-volumes.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">06</span>
+          <span class="text-3xl mb-2">💾</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Docker Volumes</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Persistent storage, backups, and database patterns</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 07 -->
+        <a href="pages/07-container-registries.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">07</span>
+          <span class="text-3xl mb-2">📦</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Container Registries</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Nexus, ECR, Harbor — image storage and promotion</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 08 -->
+        <a href="pages/08-cicd-pipelines.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">08</span>
+          <span class="text-3xl mb-2">🚀</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">CI/CD Pipelines</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">GitHub Actions, GitLab CI, Jenkins, Azure DevOps</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 09 -->
+        <a href="pages/09-kubernetes-fundamentals.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">09</span>
+          <span class="text-3xl mb-2">☸️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">K8s Fundamentals</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Cluster architecture, control plane, worker nodes</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 10 -->
+        <a href="pages/10-kubernetes-workloads.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">10</span>
+          <span class="text-3xl mb-2">📦</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">K8s Workloads</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Pods, Deployments, StatefulSets, Jobs, CronJobs</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400">Intermediate</span>
+        </a>
+
+        <!-- 11 Advanced -->
+        <a href="pages/11-services-load-balancing.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">11</span>
+          <span class="text-3xl mb-2">⚖️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Services &amp; Load Balancing</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">ClusterIP, NodePort, LoadBalancer, kube-proxy</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 12 -->
+        <a href="pages/12-ingress-api-gateway.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">12</span>
+          <span class="text-3xl mb-2">🚪</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Ingress &amp; API Gateway</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">TLS termination, routing, rate limiting</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 13 -->
+        <a href="pages/13-config-secrets.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">13</span>
+          <span class="text-3xl mb-2">🔐</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Config &amp; Secrets</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">ConfigMap, Secrets, External Secrets Operator</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 14 -->
+        <a href="pages/14-storage-pv-pvc.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">14</span>
+          <span class="text-3xl mb-2">🗄️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Storage (PV/PVC)</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Persistent volumes, StorageClass, dynamic provisioning</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 15 -->
+        <a href="pages/15-autoscaling.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">15</span>
+          <span class="text-3xl mb-2">📈</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Autoscaling</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">HPA, VPA, Cluster Autoscaler, PDB, zero-downtime</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 16 -->
+        <a href="pages/16-helm.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">16</span>
+          <span class="text-3xl mb-2">⛵</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Helm</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Chart engineering, environment promotion, Helm hooks</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 17 -->
+        <a href="pages/17-argocd-gitops.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-orange-300 dark:hover:border-orange-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">17</span>
+          <span class="text-3xl mb-2">🔄</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Argo CD &amp; GitOps</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Declarative deployments, drift detection, sync</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Advanced</span>
+        </a>
+
+        <!-- 18 Expert -->
+        <a href="pages/18-observability.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">18</span>
+          <span class="text-3xl mb-2">📊</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Observability</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Prometheus, Grafana, Loki, OpenTelemetry, SLOs</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 19 -->
+        <a href="pages/19-security.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">19</span>
+          <span class="text-3xl mb-2">🛡️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Security</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">RBAC, network policies, image scanning, SLSA</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 20 -->
+        <a href="pages/20-deployment-patterns.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">20</span>
+          <span class="text-3xl mb-2">🎯</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Deployment Patterns</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Blue-green, canary, rollback, disaster recovery</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 21 -->
+        <a href="pages/21-architecture-thinking.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">21</span>
+          <span class="text-3xl mb-2">🏛️</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Architecture Thinking</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">NFRs, trade-offs, ADR, C4 model, 12-factor</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 22 -->
+        <a href="pages/22-system-design.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">22</span>
+          <span class="text-3xl mb-2">🎨</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">System Design</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Full enterprise ticketing platform design</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 23 -->
+        <a href="pages/23-troubleshooting.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">23</span>
+          <span class="text-3xl mb-2">🔍</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Troubleshooting</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">Playbook for Pending pods, CrashLoopBackOff, 502s</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+        <!-- 24 -->
+        <a href="pages/24-interview-questions.html" class="story-card group flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm card-hover hover:border-red-300 dark:hover:border-red-700 transition-colors">
+          <span class="text-xs text-slate-400 dark:text-slate-500 font-mono mb-2">24</span>
+          <span class="text-3xl mb-2">❓</span>
+          <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight mb-1">Interview Questions</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-relaxed">100+ questions for Junior to Architect level</p>
+          <span class="level-badge mt-3 self-start inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">Expert</span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ENTERPRISE SCENARIO CALLOUT BOX
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="py-16 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-800/30">
+    <div class="max-w-4xl mx-auto">
+      <div class="relative overflow-hidden rounded-3xl p-8 sm:p-10"
+           style="background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 40%, #312e81 70%, #0f172a 100%);">
+        <!-- Decorative blobs -->
+        <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-10"
+             style="background: radial-gradient(circle, #60a5fa, transparent);" aria-hidden="true"></div>
+        <div class="absolute -bottom-8 -left-8 w-48 h-48 rounded-full opacity-10"
+             style="background: radial-gradient(circle, #a78bfa, transparent);" aria-hidden="true"></div>
+
+        <div class="relative z-10">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="text-3xl">🏢</span>
+            <span class="text-xs font-bold uppercase tracking-widest text-blue-300 border border-blue-700/50 px-3 py-1 rounded-full bg-blue-900/30">Reference Architecture</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">The Enterprise Ticketing Platform</h2>
+          <p class="text-base sm:text-lg text-blue-100/80 leading-relaxed mb-6 max-w-2xl">
+            Throughout this portal, every topic is explained using a real enterprise ticketing platform with
+            <strong class="text-white">User Service</strong>, <strong class="text-white">Ticket Service</strong>,
+            <strong class="text-white">Payment Service</strong>, <strong class="text-white">Order Service</strong>, and
+            <strong class="text-white">Notification Service</strong> running on Kubernetes with Nexus registry,
+            Argo CD deployments, and a full observability stack.
+          </p>
+          <a href="pages/22-system-design.html"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-white/15 hover:bg-white/25 border border-white/20 hover:border-white/30 transition-all backdrop-blur-sm">
+            See the full system design
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       CTA SECTION
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
+        Ready to become a <span class="gradient-text">Production Architect?</span>
+      </h2>
+      <p class="text-lg text-slate-500 dark:text-slate-400 mb-10">
+        Start with the learning roadmap, follow the structured path, and build the skills
+        that take you from writing code to designing systems at scale.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="pages/00-roadmap.html"
+           class="cta-button inline-flex items-center gap-2 px-8 py-4 text-base font-bold text-white bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 dark:hover:bg-brand-400 rounded-xl shadow-lg shadow-brand-600/30 transition-all hover:-translate-y-0.5">
+          Start the Roadmap
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+        <a href="pages/24-interview-questions.html"
+           class="inline-flex items-center gap-2 px-8 py-4 text-base font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all hover:-translate-y-0.5">
+          Practice Interview Questions
+          <span>❓</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════ -->
+  <footer class="bg-slate-900 dark:bg-slate-950 border-t border-slate-800 dark:border-slate-800 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
+
+        <!-- Left: Brand -->
+        <div>
+          <div class="flex flex-col mb-4">
+            <span class="text-xl font-extrabold text-white tracking-tight">DevArchitect</span>
+            <span class="text-xs font-medium text-slate-500 tracking-widest uppercase mt-0.5">Beginner → Architect</span>
+          </div>
+          <p class="text-sm text-slate-400 leading-relaxed max-w-xs">
+            Built for developers who want to grow from writing code to designing systems.
+          </p>
+        </div>
+
+        <!-- Middle: Quick links -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Quick Links</h4>
+          <ul class="space-y-2">
+            <li><a href="pages/00-roadmap.html" class="text-sm text-slate-400 hover:text-white transition-colors">Roadmap</a></li>
+            <li><a href="pages/01-docker-fundamentals.html" class="text-sm text-slate-400 hover:text-white transition-colors">Docker</a></li>
+            <li><a href="pages/09-kubernetes-fundamentals.html" class="text-sm text-slate-400 hover:text-white transition-colors">Kubernetes</a></li>
+            <li><a href="pages/16-helm.html" class="text-sm text-slate-400 hover:text-white transition-colors">Helm</a></li>
+            <li><a href="pages/21-architecture-thinking.html" class="text-sm text-slate-400 hover:text-white transition-colors">Architecture</a></li>
+          </ul>
+        </div>
+
+        <!-- Right: Learning Path -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Learning Path</h4>
+          <ul class="space-y-2">
+            <li>
+              <a href="pages/01-docker-fundamentals.html" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>Beginner
+              </a>
+            </li>
+            <li>
+              <a href="pages/05-docker-networking.html" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                <span class="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>Intermediate
+              </a>
+            </li>
+            <li>
+              <a href="pages/11-services-load-balancing.html" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                <span class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></span>Advanced
+              </a>
+            </li>
+            <li>
+              <a href="pages/18-observability.html" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                <span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></span>Expert
+              </a>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Copyright -->
+      <div class="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-xs text-slate-600">
+          DevArchitect Learning Portal — Static HTML, no backend required. Open index.html in any browser.
+        </p>
+        <p class="text-xs text-slate-700">
+          Built with Tailwind CSS, Highlight.js &amp; Mermaid.js
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- app.js -->
+  <script src="assets/app.js" defer></script>
+
+  <!-- Theme toggle inline (works even if app.js hasn't loaded yet) -->
+  <script>
+    (function () {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var html = document.documentElement;
+        if (html.classList.contains('dark')) {
+          html.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
+        } else {
+          html.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>

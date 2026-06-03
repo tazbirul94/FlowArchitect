@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dockerfile &amp; Image Engineering — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="03" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">DevArchitect</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">Docker → Dockerfile &amp; Images</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <div class="page-content">
+
+    <!-- ============================================================
+         PAGE HEADER
+         ============================================================ -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">⏱ 40 min read</span>
+        <span class="tag">Epic 2</span>
+      </div>
+      <h1 class="page-title">Dockerfile &amp; Image Engineering</h1>
+      <p class="page-subtitle">Master every Dockerfile instruction, understand layer caching, build multi-stage images, and engineer minimal, secure container images.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 1 — Story Card
+         ============================================================ -->
+    <div class="story-card">
+      <span class="story-card-label">Story</span>
+      <p>Building a Docker image is like packing a perfect go-bag for travel. You don't throw your entire house in a suitcase. You pick exactly what you need: your clothes (app code), your toiletries (dependencies), your charger (runtime). You don't bring your couch (full OS), your refrigerator (dev tools), or your neighbor's belongings (unrelated packages). The Dockerfile is your packing list. Written once, reproducible forever.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2 — What is a Dockerfile?
+         ============================================================ -->
+    <h2 class="section-title">What is a Dockerfile?</h2>
+
+    <div class="beginner-note">
+      <span class="beginner-note-label">Beginner</span>
+      <p>A Dockerfile is a text file with step-by-step instructions telling Docker how to build your image. Like a recipe. Each instruction creates a new layer on top of the previous one.</p>
+    </div>
+
+    <p>Docker reads the Dockerfile top to bottom. Each instruction creates a layer. Layers are cached. If a layer hasn't changed since the last build, Docker reuses the cached version — making subsequent builds much faster. The final image is all layers stacked together using <strong>OverlayFS</strong>: a Linux filesystem that overlays read-only image layers under a single writable container layer.</p>
+
+    <p>Every time you run <code>docker build</code>, Docker compares each instruction against its cache. If the instruction text and all inputs (file contents, parent layer hash) are identical to a previous build, it skips recomputing that layer and pulls from cache. The moment anything changes, the cache is invalidated from that instruction forward — which is why instruction <em>order</em> matters enormously.</p>
+
+    <!-- ============================================================
+         SECTION 3 — Every Dockerfile Instruction
+         ============================================================ -->
+    <h2 class="section-title">Every Dockerfile Instruction</h2>
+
+    <!-- FROM -->
+    <h3 class="subsection-title">FROM</h3>
+    <p><code>FROM</code> is always the first instruction in a Dockerfile (only an <code>ARG</code> may precede it). It sets the base layer that every subsequent instruction builds upon. Think of it as choosing what kind of soil you're planting in — everything else grows on top of this foundation.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Syntax
+FROM &lt;image&gt;[:&lt;tag&gt;] [AS &lt;name&gt;]
+
+# Examples
+FROM ubuntu:22.04
+FROM node:18-alpine
+FROM node:18-alpine AS builder   # for multi-stage builds
+FROM scratch                     # empty base — for Go static binaries</code></pre>
+    </div>
+    <ul>
+      <li>Always pin to a specific version tag — never use <code>:latest</code> in production. <code>:latest</code> is a moving target that breaks reproducibility.</li>
+      <li>Choose the smallest base that meets your needs. A 7 MB Alpine image has less attack surface than a 1.1 GB full Node image.</li>
+      <li>Use the <code>AS &lt;name&gt;</code> syntax to name stages in multi-stage builds so later stages can reference them with <code>COPY --from=&lt;name&gt;</code>.</li>
+      <li><code>FROM scratch</code> is a special empty base with zero OS packages — only viable for fully static binaries (Go, Rust with musl).</li>
+    </ul>
+
+    <!-- WORKDIR -->
+    <h3 class="subsection-title">WORKDIR</h3>
+    <p><code>WORKDIR</code> sets the working directory for all subsequent <code>RUN</code>, <code>COPY</code>, <code>CMD</code>, and <code>ENTRYPOINT</code> instructions. If the directory doesn't exist, Docker creates it. Using <code>WORKDIR</code> is cleaner and more explicit than chaining <code>RUN mkdir &amp;&amp; cd</code>.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile">WORKDIR /app
+
+# Creates directory if it doesn't exist
+# All subsequent RUN, COPY, CMD, ENTRYPOINT use this as the working directory
+# Prefer over: RUN mkdir /app &amp;&amp; cd /app</code></pre>
+    </div>
+    <p>You can use <code>WORKDIR</code> multiple times in a single Dockerfile. Each call changes the current directory for subsequent instructions. Relative paths build on the previous <code>WORKDIR</code>.</p>
+
+    <!-- COPY vs ADD -->
+    <h3 class="subsection-title">COPY vs ADD</h3>
+    <p><code>COPY</code> and <code>ADD</code> both transfer files from the build context (your local machine) into the image. They look similar, but the differences matter for security and predictability.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># COPY: simple, predictable, always preferred for file copying
+COPY package.json package-lock.json ./
+COPY src/ ./src/
+COPY . .
+
+# ADD: do NOT use for simple file copying
+# ADD has special powers: auto-extracts tarballs, supports URLs
+# These "powers" are surprising and can create security issues
+ADD app.tar.gz /app/     # extracts automatically into /app/
+ADD https://example.com/file.tar.gz /tmp/   # downloads from URL (avoid!)</code></pre>
+    </div>
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p>Using <code>ADD</code> instead of <code>COPY</code> is a common mistake from old tutorials. <code>COPY</code> is always preferred for simple file copying. <code>ADD</code>'s URL download feature doesn't verify checksums — use <code>RUN wget</code> or <code>RUN curl</code> with explicit hash verification instead. <code>ADD</code>'s auto-extract skips any security scanning you might have in your pipeline. Use <code>COPY</code>.</p>
+    </div>
+
+    <!-- RUN -->
+    <h3 class="subsection-title">RUN</h3>
+    <p><code>RUN</code> executes a shell command during the build, creating a new image layer with the result. Every <code>RUN</code> instruction creates one layer. Fewer layers means a smaller image — but the real constraint is that cleanup must happen in the <em>same</em> <code>RUN</code> instruction as the installation.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># BAD: three separate layers — cache in layer 1 still lives in the image
+RUN apt-get update
+RUN apt-get install -y curl
+RUN rm -rf /var/lib/apt/lists/*
+
+# GOOD: one layer with cleanup — apt cache never exists in the final image
+RUN apt-get update &amp;&amp; \
+    apt-get install -y --no-install-recommends curl wget &amp;&amp; \
+    rm -rf /var/lib/apt/lists/*
+
+# Shell form vs exec form
+RUN echo "Hello"           # shell form: /bin/sh -c "echo Hello"
+RUN ["echo", "Hello"]      # exec form: no shell invoked, direct exec</code></pre>
+    </div>
+    <div class="production-tip">
+      <span class="production-tip-label">Production Tip</span>
+      <p>Always clean up package manager caches in the <strong>same</strong> <code>RUN</code> instruction as the installation. If you clean in a separate <code>RUN</code> layer, the cache still exists in the previous layer — it's part of the image, just not accessible from the filesystem. Running <code>apt-get clean</code> in a separate <code>RUN</code> after <code>apt-get install</code> does nothing to reduce image size.</p>
+    </div>
+
+    <!-- CMD vs ENTRYPOINT -->
+    <h3 class="subsection-title">CMD vs ENTRYPOINT</h3>
+    <p><code>CMD</code> and <code>ENTRYPOINT</code> both specify what runs when a container starts. They serve different purposes and are most powerful when used together.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># CMD: default command, easily overridden at runtime
+CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
+
+# ENTRYPOINT: the fixed executable that always runs
+ENTRYPOINT ["java", "-jar"]
+CMD ["app.jar"]   # CMD becomes the default argument to ENTRYPOINT
+
+# docker run myapp               → java -jar app.jar
+# docker run myapp other.jar     → java -jar other.jar  (CMD overridden)
+# docker run --entrypoint sh myapp → sh  (ENTRYPOINT overridden)
+
+# ---------------------------------------------------------------
+# Shell form vs exec form — CRITICAL difference for signal handling
+# ---------------------------------------------------------------
+
+CMD node server.js          # shell form: wraps in /bin/sh -c
+                            # PID 1 = sh, Node gets PID 2
+                            # SIGTERM goes to sh, NOT to Node
+                            # Graceful shutdown BROKEN
+
+CMD ["node", "server.js"]   # exec form: Node is PID 1 directly
+                            # SIGTERM goes directly to Node
+                            # Graceful shutdown WORKS</code></pre>
+    </div>
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p>Using shell form for <code>CMD</code> or <code>ENTRYPOINT</code> breaks graceful shutdown. When Kubernetes sends <code>SIGTERM</code> to stop a pod, it goes to PID 1. If PID 1 is <code>/bin/sh</code> (shell form), it often doesn't forward the signal to your application. Your app never gets a chance to drain connections, flush buffers, or deregister from service discovery. Always use exec form — the JSON array syntax — for <code>CMD</code> and <code>ENTRYPOINT</code>.</p>
+    </div>
+
+    <!-- EXPOSE -->
+    <h3 class="subsection-title">EXPOSE</h3>
+    <p><code>EXPOSE</code> is documentation. It tells users and tooling what port your application listens on inside the container. It does <strong>not</strong> actually publish the port or make it accessible from outside the container.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile">EXPOSE 8080
+EXPOSE 8080/tcp
+EXPOSE 5353/udp</code></pre>
+    </div>
+    <p>Port publishing happens at runtime: <code>docker run -p 8080:8080</code> maps the host port to the container port. In Docker Compose, <code>ports:</code> does the mapping. In Kubernetes, the <code>Service</code> resource handles it. <code>EXPOSE</code> just records the intent — but it's still worth including for documentation and for tools like <code>docker-compose</code> that can use it with automatic port assignment.</p>
+
+    <!-- ENV vs ARG -->
+    <h3 class="subsection-title">ENV vs ARG</h3>
+    <p><code>ARG</code> and <code>ENV</code> both declare variables, but they have very different scopes and use cases.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># ARG: build-time variable only — NOT available in the running container
+ARG BUILD_VERSION=unknown
+ARG NODE_ENV=production
+
+# ENV: available both at build time AND at runtime inside the container
+ENV APP_PORT=8080
+ENV LOG_LEVEL=info
+ENV NODE_ENV=production
+
+# Using ARG to set ENV (common pattern for embedding build metadata)
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
+# Build with:
+docker build --build-arg APP_VERSION=1.2.0 .</code></pre>
+    </div>
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p><code>ARG</code> values are visible in <code>docker history</code> output. <code>ENV</code> values are visible in <code>docker inspect</code>. Neither should contain passwords, API keys, or secrets. Pass secrets at runtime via the <code>-e</code> flag, Docker Swarm secrets, or Kubernetes Secrets — never bake them into the image. Anyone who pulls your image can retrieve baked-in secrets.</p>
+    </div>
+
+    <!-- USER -->
+    <h3 class="subsection-title">USER</h3>
+    <p><code>USER</code> sets the user (and optionally the group) that all subsequent <code>RUN</code>, <code>CMD</code>, and <code>ENTRYPOINT</code> instructions run as. It also determines what user the container process runs as at startup.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Create a non-root user on Debian/Ubuntu
+RUN groupadd -r appuser &amp;&amp; useradd -r -g appuser appuser
+
+# Create a non-root user on Alpine (uses addgroup/adduser)
+RUN addgroup -S appuser &amp;&amp; adduser -S appuser -G appuser
+
+# Switch to non-root user
+USER appuser
+
+# All subsequent instructions and the container startup run as appuser</code></pre>
+    </div>
+    <div class="production-tip">
+      <span class="production-tip-label">Production Tip</span>
+      <p>Running as root in a container means that if your app has a code execution vulnerability, an attacker gets root inside the container — and potentially a path to the host via mounted sockets or kernel exploits. Always use <code>USER</code>. UID 1001 is a common convention for application users. Make sure all file permissions and directory ownership are set <em>before</em> the <code>USER</code> instruction, since after switching you lose root privileges.</p>
+    </div>
+
+    <!-- HEALTHCHECK -->
+    <h3 class="subsection-title">HEALTHCHECK</h3>
+    <p><code>HEALTHCHECK</code> tells Docker how to test whether the container is functioning correctly. Docker periodically runs the check and updates the container's health status to <code>healthy</code>, <code>unhealthy</code>, or <code>starting</code>. Orchestrators like Kubernetes and Docker Swarm use health status to route traffic and restart broken containers.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># HTTP health check using curl
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# HTTP health check using wget (Alpine-friendly — no curl by default)
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Disable health check (useful when the orchestrator handles health probes)
+HEALTHCHECK NONE</code></pre>
+    </div>
+    <ul>
+      <li><code>--interval</code>: how often to run the check (default 30s)</li>
+      <li><code>--timeout</code>: how long to wait for a response before considering it failed (default 30s)</li>
+      <li><code>--start-period</code>: grace period after container starts — failures during this window don't count toward the retry limit (default 0s)</li>
+      <li><code>--retries</code>: how many consecutive failures before the container is marked unhealthy (default 3)</li>
+    </ul>
+
+    <!-- VOLUME -->
+    <h3 class="subsection-title">VOLUME</h3>
+    <p><code>VOLUME</code> declares a mount point. At runtime, Docker creates an anonymous volume at the declared path if no volume is mounted there. It's primarily documentation — telling users which directories hold persistent or shared data.</p>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Declare mount points
+VOLUME ["/data", "/logs"]
+
+# Creates an anonymous volume at build time if nothing is mounted
+# Prefer named volumes via: docker run -v mydata:/data
+# Or in Docker Compose: volumes: - mydata:/data</code></pre>
+    </div>
+    <p>In practice, rely on named volumes defined in <code>docker-compose.yml</code> or Kubernetes <code>PersistentVolumeClaims</code> rather than the <code>VOLUME</code> instruction. The instruction's main value is as documentation for operators to know which paths need external storage.</p>
+
+    <!-- ============================================================
+         SECTION 4 — .dockerignore
+         ============================================================ -->
+    <h2 class="section-title">.dockerignore</h2>
+
+    <p>When you run <code>docker build</code>, Docker sends everything in your build directory to the Docker daemon as a "build context." Without a <code>.dockerignore</code> file, this includes your entire project — <code>node_modules</code>, <code>.git</code> history, test files, IDE configuration, everything. The build context travels over a network socket even on localhost, and large contexts slow every build.</p>
+
+    <p>The <code>.dockerignore</code> file tells Docker which files and directories to exclude from the build context. It uses the same glob syntax as <code>.gitignore</code>.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-text"># Version control
+.git
+.gitignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+Jenkinsfile
+
+# Development files
+.env
+.env.*
+*.local
+
+# Dependencies (let Docker install them fresh from package manifests)
+node_modules/
+vendor/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+target/
+*.jar
+*.war
+*.class
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Documentation (don't bloat the image)
+docs/
+README.md
+*.md
+
+# Test files
+tests/
+test/
+spec/
+coverage/
+*.test.js
+*.spec.ts
+
+# Logs
+*.log
+logs/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.swp</code></pre>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Common Mistake</span>
+      <p>Without <code>.dockerignore</code>, a <code>COPY . .</code> instruction sends <code>node_modules</code> (potentially 500 MB or more) to the Docker daemon and then copies your local — possibly incompatible — native binaries into the image. Builds become dramatically slower and images become huge. Your <code>.dockerignore</code> is as important as your <code>.gitignore</code>. Place it at the same level as your <code>Dockerfile</code>.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 5 — Layer Caching Deep Dive
+         ============================================================ -->
+    <h2 class="section-title">Layer Caching Deep Dive</h2>
+
+    <p>Understanding Docker's layer cache is the single most impactful optimization you can make to your build pipeline. When Docker builds an image, it checks each layer against the cache. A cache hit skips that layer entirely — including all the compute, network, and I/O involved. For a Java or Node project, this can mean the difference between a 3-minute build and a 12-second build.</p>
+
+    <p>Cache invalidation follows one simple rule: <strong>if a layer changes, every layer after it must also be rebuilt.</strong> This is why instruction order matters so much. The diagram below shows what happens when source code changes but <code>package.json</code> doesn't:</p>
+
+    <div class="mermaid-wrapper">
+      <div class="mermaid">
+flowchart TD
+    F["FROM node:18-alpine\n✅ Cache HIT (never changes)"] --> W
+    W["WORKDIR /app\n✅ Cache HIT"] --> CP1
+    CP1["COPY package*.json ./\n✅ Cache HIT (package.json unchanged)"] --> RUN
+    RUN["RUN npm install\n✅ Cache HIT (dependencies unchanged)"] --> CP2
+    CP2["COPY . .\n❌ Cache MISS (src code changed)"] --> BUILD
+    BUILD["RUN npm run build\n❌ Must rebuild"] --> CMD
+    CMD["CMD node server.js\n❌ Must rebuild"]
+
+    style F fill:#22c55e,color:#fff
+    style W fill:#22c55e,color:#fff
+    style CP1 fill:#22c55e,color:#fff
+    style RUN fill:#22c55e,color:#fff
+    style CP2 fill:#ef4444,color:#fff
+    style BUILD fill:#ef4444,color:#fff
+    style CMD fill:#ef4444,color:#fff
+      </div>
+    </div>
+
+    <p>The key insight: copy <code>package.json</code> <em>before</em> copying source code. The <code>npm install</code> layer is cached as long as <code>package.json</code> doesn't change. Source code changes — which happen on every commit — don't invalidate the dependency installation layer. This alone can save minutes per build in a CI pipeline.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># BAD: cache-busting approach
+FROM node:18-alpine
+WORKDIR /app
+COPY . .                  # copies everything including src files
+RUN npm install           # runs on EVERY code change — wasteful!
+CMD ["node", "server.js"]
+
+
+# GOOD: cache-friendly approach
+FROM node:18-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./  # only package files first
+RUN npm install                          # cached until package.json changes
+COPY . .                                 # source code after dependencies
+CMD ["node", "server.js"]</code></pre>
+    </div>
+
+    <p>The same principle applies to other ecosystems: copy <code>pom.xml</code> before source in Maven builds, copy <code>go.mod</code> and <code>go.sum</code> before Go source, copy <code>requirements.txt</code> before Python source. Copy the dependency manifest first, install dependencies, then copy the actual application code.</p>
+
+    <!-- ============================================================
+         SECTION 6 — Multi-Stage Builds
+         ============================================================ -->
+    <h2 class="section-title">Multi-Stage Builds</h2>
+
+    <p>A multi-stage build uses multiple <code>FROM</code> instructions in a single Dockerfile. Each <code>FROM</code> starts a new stage. A later stage can copy files from an earlier stage using <code>COPY --from=&lt;stage-name&gt;</code>. Only the final stage becomes the image you push and run.</p>
+
+    <p>This solves a fundamental tension: building software requires compilers, build tools, test runners, and development libraries that have no business being in a production container. A Maven installation weighs ~300 MB. A Node.js installation with all dev dependencies can weigh over 500 MB. Multi-stage builds let you use whatever you need at build time while producing a runtime image that contains only what's needed to execute.</p>
+
+    <h3 class="subsection-title">Example 1: Node.js React App</h3>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Stage 1: Build — full Node with dev dependencies
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production=false     # install all deps including devDeps
+COPY . .
+RUN npm run build                      # produces /app/dist
+
+# Stage 2: Serve — minimal nginx with only compiled static files
+FROM nginx:1.25-alpine AS runtime
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]</code></pre>
+    </div>
+    <p>Result: the <code>builder</code> stage is ~400 MB (Node + dev dependencies + source). The final <code>runtime</code> image is ~25 MB — nginx plus compiled static HTML, CSS, and JavaScript. No Node runtime, no npm, no TypeScript compiler, no source maps in production.</p>
+
+    <h3 class="subsection-title">Example 2: Java Spring Boot App</h3>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Stage 1: Build — Maven + full JDK
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:go-offline -B          # cache Maven deps as separate layer
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+# Stage 2: Runtime — only JRE, no JDK, no Maven
+FROM eclipse-temurin:17-jre-alpine AS runtime
+RUN addgroup -S appgroup &amp;&amp; adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /build/target/*.jar app.jar
+USER appuser
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+CMD ["java", "-jar", "app.jar"]</code></pre>
+    </div>
+    <p>Result: the <code>builder</code> stage is ~800 MB (JDK + Maven + source). The final <code>runtime</code> image is ~180 MB — just the JRE and the compiled JAR. No compiler, no build system, no source code.</p>
+
+    <h3 class="subsection-title">Example 3: Go Binary (Smallest Possible)</h3>
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># Stage 1: Build — full Go toolchain
+FROM golang:1.21-alpine AS builder
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download                                       # cache module downloads
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux \
+    go build -a -installsuffix cgo -o app .              # fully static binary
+
+# Stage 2: Minimal runtime — completely empty base image
+FROM scratch AS runtime
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /build/app /app
+EXPOSE 8080
+CMD ["/app"]</code></pre>
+    </div>
+    <p>Result: ~6 MB final image. A completely static Go binary in an entirely empty container. No OS, no shell, no utilities. The <code>scratch</code> base is zero bytes — the only contents are what you explicitly copy in. This is the minimum achievable attack surface.</p>
+
+    <!-- ============================================================
+         SECTION 7 — Base Image Comparison
+         ============================================================ -->
+    <h2 class="section-title">Base Image Comparison</h2>
+
+    <p>Choosing the right base image is the single biggest lever for reducing image size and attack surface. Here's a comparison of common base images:</p>
+
+    <div style="overflow-x:auto;">
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Base Image</th>
+            <th>Size</th>
+            <th>Shell</th>
+            <th>Package Manager</th>
+            <th>Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ubuntu:22.04</code></td>
+            <td>77 MB</td>
+            <td>bash</td>
+            <td>apt</td>
+            <td>General purpose, debugging-friendly</td>
+          </tr>
+          <tr>
+            <td><code>debian:bookworm-slim</code></td>
+            <td>74 MB</td>
+            <td>bash</td>
+            <td>apt</td>
+            <td>Java/Python apps needing glibc</td>
+          </tr>
+          <tr>
+            <td><code>alpine:3.19</code></td>
+            <td>7 MB</td>
+            <td>sh</td>
+            <td>apk</td>
+            <td>Go, static binaries, minimal footprint</td>
+          </tr>
+          <tr>
+            <td><code>node:18</code></td>
+            <td>1.1 GB</td>
+            <td>bash</td>
+            <td>apt</td>
+            <td>Node apps — use <code>node:18-alpine</code> instead</td>
+          </tr>
+          <tr>
+            <td><code>node:18-alpine</code></td>
+            <td>175 MB</td>
+            <td>sh</td>
+            <td>apk</td>
+            <td>Node apps — much smaller baseline</td>
+          </tr>
+          <tr>
+            <td><code>gcr.io/distroless/nodejs18</code></td>
+            <td>112 MB</td>
+            <td>none</td>
+            <td>none</td>
+            <td>Production Node — no shell, minimal attack surface</td>
+          </tr>
+          <tr>
+            <td><code>gcr.io/distroless/java17</code></td>
+            <td>220 MB</td>
+            <td>none</td>
+            <td>none</td>
+            <td>Production Java — no shell, glibc-compatible</td>
+          </tr>
+          <tr>
+            <td><code>scratch</code></td>
+            <td>0 MB</td>
+            <td>none</td>
+            <td>none</td>
+            <td>Go/Rust fully static binaries only</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Note</span>
+      <p>Alpine uses <strong>musl libc</strong> instead of glibc. Most apps work fine, but some native extensions — certain npm packages, Python C extensions, Ruby gems with native code — fail silently or crash with Alpine. Test thoroughly before adopting Alpine for apps with native dependencies.</p>
+      <p>Distroless is often the better production choice: it's based on Debian, so glibc-compatible, but stripped of shell, package manager, and debugging tools. If an attacker gets code execution in your distroless container, there's no <code>bash</code>, no <code>curl</code>, no <code>apt</code> to pivot with. Keep a debug-tagged variant (<code>:debug</code>) of distroless images — these include <code>busybox</code> for incident response — but never run debug images in production.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 8 — Complete Production Dockerfile Example
+         ============================================================ -->
+    <h2 class="section-title">Complete Production Dockerfile Example</h2>
+
+    <p>The following is a production-grade Dockerfile for the <strong>TicketFlow</strong> ticketing platform's <code>ticket-service</code>. It applies every technique covered in this page: multi-stage builds, Spring Boot layered jars for optimal caching, non-root user, OCI labels, health check, and proper signal handling.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># ==========================================
+# ticket-service Dockerfile
+# Spring Boot microservice
+# ==========================================
+
+# Stage 1: Dependencies — cached separately so code changes don't
+#           re-download Maven dependencies
+FROM maven:3.9-eclipse-temurin-17 AS deps
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:go-offline -B --no-transfer-progress
+
+# Stage 2: Build — builds on the deps stage (inherits its layer cache)
+FROM deps AS builder
+COPY src ./src
+ARG APP_VERSION=unknown
+ARG GIT_COMMIT=unknown
+RUN mvn package -DskipTests -B --no-transfer-progress \
+    -Dapp.version=${APP_VERSION} \
+    -Dgit.commit=${GIT_COMMIT}
+
+# Stage 3: Extract layers — Spring Boot layered jars split the JAR into
+#           four layers ordered from least to most frequently changed,
+#           so only application code changes invalidate the innermost layer
+FROM eclipse-temurin:17-jre AS extractor
+WORKDIR /extract
+COPY --from=builder /build/target/*.jar app.jar
+RUN java -Djarmode=layertools -jar app.jar extract
+
+# Stage 4: Runtime — minimal JRE only, no JDK or Maven
+FROM eclipse-temurin:17-jre-alpine AS runtime
+
+# OCI image labels for registries, SBOM tools, and audit trails
+LABEL org.opencontainers.image.title="ticket-service"
+LABEL org.opencontainers.image.description="TicketFlow ticket management service"
+LABEL org.opencontainers.image.vendor="TicketFlow Engineering"
+
+# Security: create and switch to non-root user
+RUN addgroup -S ticketflow &amp;&amp; adduser -S ticketuser -G ticketflow
+
+WORKDIR /app
+
+# Copy Spring Boot layers in optimal order (least → most frequently changed)
+# dependencies: frameworks, libraries
+# spring-boot-loader: Spring's fat-jar launcher
+# snapshot-dependencies: in-development library snapshots (if any)
+# application: your compiled classes and resources (changes every commit)
+COPY --from=extractor /extract/dependencies/ ./
+COPY --from=extractor /extract/spring-boot-loader/ ./
+COPY --from=extractor /extract/snapshot-dependencies/ ./
+COPY --from=extractor /extract/application/ ./
+
+# Set ownership before USER instruction
+RUN chown -R ticketuser:ticketflow /app
+
+# Drop privileges
+USER ticketuser
+
+# Runtime configuration via environment variables (overridden in K8s via ConfigMap)
+ENV SPRING_PROFILES_ACTIVE=production
+ENV SERVER_PORT=8080
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport"
+
+EXPOSE 8080
+
+# Health check using Spring Boot Actuator — start-period gives JVM time to warm up
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider \
+      http://localhost:8080/actuator/health || exit 1
+
+# Use exec form so Java is PID 1 and receives SIGTERM for graceful shutdown.
+# The 'exec' shell builtin replaces sh with java (avoids double-process problem
+# when JAVA_OPTS needs shell variable expansion).
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS org.springframework.boot.loader.JarLauncher"]</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SECTION 9 — Image Scanning
+         ============================================================ -->
+    <h2 class="section-title">Image Scanning</h2>
+
+    <p>Building a small, well-structured image is only half the security story. You also need to scan your images for known vulnerabilities (CVEs) in OS packages and application dependencies. <strong>Trivy</strong> by Aqua Security is the most widely adopted open-source scanner — it's fast, accurate, and integrates with every major CI platform.</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-bash"># Install Trivy
+brew install aquasecurity/trivy/trivy     # macOS
+apt-get install -y trivy                  # Ubuntu/Debian
+
+# Scan a local image — shows all vulnerabilities by severity
+trivy image myapp:v1.2.0
+
+# Filter to HIGH and CRITICAL only (useful for actionable CI reports)
+trivy image --severity HIGH,CRITICAL myapp:v1.2.0
+
+# Output as JSON for downstream tooling or dashboards
+trivy image --format json --output trivy-results.json myapp:v1.2.0
+
+# Fail CI pipeline if any CRITICAL vulnerability is found
+trivy image --exit-code 1 --severity CRITICAL myapp:v1.2.0
+
+# Scan the Dockerfile itself for configuration mistakes
+trivy config ./Dockerfile
+
+# GitHub Actions integration
+# - name: Scan image with Trivy
+#   uses: aquasecurity/trivy-action@master
+#   with:
+#     image-ref: myapp:${{ github.sha }}
+#     exit-code: '1'
+#     severity: 'CRITICAL,HIGH'</code></pre>
+    </div>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Note — SBOM</span>
+      <p>An <strong>SBOM</strong> (Software Bill of Materials) is a complete inventory of every component in your image — OS packages, language runtime libraries, transitive application dependencies. Generate one with <code>trivy sbom myapp:v1.2.0 --format cyclonedx</code>. SBOMs are required by some enterprise security policies and government regulations, including US Executive Order 14028 (May 2021), which mandates SBOMs for software sold to federal agencies. Generating them costs nothing extra if you already run Trivy in CI.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 10 — Image Size Optimization
+         ============================================================ -->
+    <h2 class="section-title">Image Size Optimization</h2>
+
+    <p>A naive Dockerfile for a Node.js service can produce a 1.2 GB image. An optimized Dockerfile for the same application produces an 85 MB image — 93% smaller. Here's the before and after:</p>
+
+    <div class="code-wrapper">
+      <pre><code class="language-dockerfile"># BEFORE: naive Dockerfile — 1.2 GB
+FROM node:18                  # full Debian + Node
+WORKDIR /app
+COPY . .                      # copies node_modules if not dockerignored
+RUN npm install               # installs dev AND prod dependencies
+CMD ["node", "server.js"]
+
+
+# AFTER: optimized — 85 MB (93% smaller)
+FROM node:18-alpine AS deps   # Alpine base: 7 MB vs 350 MB
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production  # production dependencies only, no dev deps
+
+FROM node:18-alpine AS runtime
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY src/ ./src/
+COPY package.json .
+USER node                     # non-root: the 'node' user is built into node images
+CMD ["node", "src/server.js"]</code></pre>
+    </div>
+
+    <p>Checklist for every image you build:</p>
+    <ul class="checklist">
+      <li>Use Alpine or distroless base image</li>
+      <li>Multi-stage build — exclude compilers, build tools, dev dependencies</li>
+      <li><code>npm ci --only=production</code> or equivalent (no dev dependencies in runtime)</li>
+      <li>Combine related <code>RUN</code> commands to reduce layer count</li>
+      <li>Remove package manager caches in the same <code>RUN</code> layer as installation</li>
+      <li><code>.dockerignore</code> excludes <code>node_modules</code>, <code>.git</code>, <code>.env</code>, and test files</li>
+      <li>Copy only what's needed — avoid <code>COPY . .</code> without a solid <code>.dockerignore</code></li>
+      <li>Measure image size after every change: <code>docker images myapp</code></li>
+    </ul>
+
+    <!-- ============================================================
+         SECTION 11 — Behind the Scenes
+         ============================================================ -->
+    <h2 class="section-title">Behind the Scenes</h2>
+
+    <details>
+      <summary>How does layer caching work internally?</summary>
+      <div class="answer-content">
+        <p>Each image layer is identified by a <strong>content hash</strong> computed from two inputs: the hash of the instruction itself (including any files referenced by <code>COPY</code> or <code>ADD</code>, checksummed by Docker) plus the hash of the previous layer. This creates a chain: change any layer, and all layers after it have a different hash and must be rebuilt.</p>
+        <p>This is why instruction order matters structurally — it's not just a convention. Layer A's cache key incorporates layer A-1's key. If you reorder instructions, you change the dependency chain and the cache no longer applies even if the layer content hasn't changed.</p>
+        <p>For <code>RUN</code> instructions that fetch external resources (like <code>apt-get install</code>), Docker only caches based on the instruction text — it doesn't know whether the remote package repository has new versions. Use <code>docker build --no-cache</code> to force a full rebuild, or use <code>--build-arg CACHE_BUST=$(date +%s)</code> to selectively invalidate from a specific point.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is OverlayFS and how does Docker use it?</summary>
+      <div class="answer-content">
+        <p>Docker images are stacks of read-only layers. At the bottom is the base image layer (e.g., Alpine's minimal filesystem). Each Dockerfile instruction adds another read-only layer on top. When you run a container, Docker adds a single writable layer on top of all the read-only layers.</p>
+        <p><strong>OverlayFS</strong> is the Linux kernel filesystem driver that makes this work efficiently. It presents a unified view of multiple directories (the layers) without copying any data. Files are accessed from whichever layer they exist in, starting from the top (most recent).</p>
+        <p>When a container writes to a file that lives in a read-only layer, OverlayFS performs a <strong>copy-on-write</strong>: the file is copied to the writable layer first, then modified there. The original in the read-only layer is untouched. This is why containers that modify many large files (like compiling source code) have high I/O overhead — every touched file triggers a copy. It's also why writing large files in a container doesn't reduce image size; the write goes to the writable layer while the original file still occupies space in the image.</p>
+        <p>When the container is removed, the writable layer is discarded. Everything in the read-only image layers persists for the next container that starts from the same image.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is BuildKit and how does it improve builds?</summary>
+      <div class="answer-content">
+        <p><strong>BuildKit</strong> is the modern Docker build engine, enabled by default since Docker 23 (and available since Docker 18.09 via <code>DOCKER_BUILDKIT=1</code>). It replaces the legacy builder with a fundamentally different architecture.</p>
+        <p>Key improvements over the legacy builder:</p>
+        <ul>
+          <li><strong>Parallel stage execution:</strong> BuildKit analyzes the dependency graph between stages. Stages that don't depend on each other are built in parallel. A multi-stage build with independent builder and tester stages runs both at the same time.</li>
+          <li><strong>Better cache semantics:</strong> BuildKit uses a content-addressed cache that persists across builds more reliably than the legacy cache. It also supports <code>--mount=type=cache</code> for sharing package manager caches (like <code>~/.m2</code>, <code>~/.npm</code>) between build runs without baking them into the image.</li>
+          <li><strong>Build secrets:</strong> <code>RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm install</code> mounts a secret file for a single <code>RUN</code> instruction only. The secret never exists in any image layer and doesn't appear in <code>docker history</code>.</li>
+          <li><strong>SSH forwarding:</strong> <code>--mount=type=ssh</code> forwards the host's SSH agent into the build, enabling <code>npm install</code> of private git dependencies without embedding SSH keys.</li>
+        </ul>
+        <p>To explicitly enable BuildKit: set the environment variable <code>DOCKER_BUILDKIT=1</code>, or use <code>docker buildx build</code> which always uses BuildKit.</p>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         SECTION 12 — Common Mistakes
+         ============================================================ -->
+    <h2 class="section-title">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 1 — Package manager cache left in the image</span>
+      <p><code>RUN apt-get install -y nginx</code> leaves the entire apt package cache inside the layer. This can add tens of megabytes to every image silently. Always complete the cleanup in the same instruction: <code>RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends nginx &amp;&amp; apt-get clean &amp;&amp; rm -rf /var/lib/apt/lists/*</code>. The <code>--no-install-recommends</code> flag also prevents apt from pulling in suggested packages you don't need.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 2 — Copying node_modules into the image</span>
+      <p>If <code>node_modules</code> is not in your <code>.dockerignore</code> and you <code>COPY . .</code>, you're copying your local development modules. These may contain native binaries compiled for your host OS (macOS or Windows) that won't run on the Linux container. They may also contain dev-only packages, local patches, or symlinks that don't survive the copy. Always let Docker install dependencies fresh from your lockfile with <code>npm ci</code>.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 3 — Using ENTRYPOINT without CMD together carelessly</span>
+      <p>If you use <code>ENTRYPOINT</code> in exec form without <code>CMD</code>, you can't easily debug a running container by doing <code>docker run myimage sh</code>. That command passes <code>sh</code> as an argument to your entrypoint instead of running a shell. Use <code>ENTRYPOINT</code> for the fixed executable and <code>CMD</code> for default arguments. Override <code>CMD</code> for alternate arguments; override <code>ENTRYPOINT</code> only when you need a completely different executable (e.g., for debug containers).</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 4 — Not setting a non-root USER</span>
+      <p>By default, containers run as root (UID 0). This is unnecessary and dangerous. Always add a <code>USER</code> instruction. If your app needs to write files, create directories and set permissions <em>before</em> switching users. Many Kubernetes clusters run with the <code>runAsNonRoot: true</code> security context enforced via admission controllers — images that require root will fail to start.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 5 — Large build context from missing .dockerignore</span>
+      <p>Without a <code>.dockerignore</code>, running <code>docker build .</code> in a Node project sends hundreds of megabytes to the Docker daemon before a single instruction executes. Even on localhost, this traverses a Unix socket. In a CI environment it can mean uploading gigabytes. Place your <code>.dockerignore</code> at the repository root and verify it with <code>docker build --no-cache .</code> while watching the "Sending build context" output line shrink.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 6 — Pinning only to major version</span>
+      <p><code>FROM node:18</code> resolves to a different image every time Node 18.x.y is patched. Your build is not reproducible. A patch release can change behavior, break native addon compilation, or introduce new CVEs. Use fully pinned tags: <code>FROM node:18.19.1-alpine3.19</code>. You can update deliberately when you review changelogs, rather than receiving silent updates on every build.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 13 — Production Checklist
+         ============================================================ -->
+    <h2 class="section-title">Production Checklist</h2>
+
+    <p>Before pushing an image to a registry or deploying to production, verify each of the following:</p>
+
+    <ul class="checklist">
+      <li>Base image uses a fully pinned version tag (not <code>:latest</code>)</li>
+      <li>Multi-stage build separates build tools from the runtime image</li>
+      <li>Non-root <code>USER</code> instruction set before <code>CMD</code> / <code>ENTRYPOINT</code></li>
+      <li><code>HEALTHCHECK</code> instruction defined with appropriate <code>--start-period</code></li>
+      <li><code>.dockerignore</code> present and excludes <code>node_modules</code>, <code>.git</code>, <code>.env</code></li>
+      <li>Package manager cache cleaned in the same <code>RUN</code> layer as installation</li>
+      <li>Secrets not stored in <code>ENV</code> or <code>ARG</code> — injected at runtime</li>
+      <li><code>COPY</code> used instead of <code>ADD</code> for all file copying</li>
+      <li><code>CMD</code> and <code>ENTRYPOINT</code> use exec form (JSON array), not shell form</li>
+      <li>Dependency manifests copied before source code (cache optimization)</li>
+      <li>Image size measured and tracked: <code>docker images myapp</code></li>
+      <li>Image scanned with Trivy before push to registry</li>
+      <li>OCI labels added: <code>title</code>, <code>description</code>, <code>vendor</code>, <code>version</code></li>
+    </ul>
+
+    <!-- ============================================================
+         SECTION 14 — Hands-On Lab
+         ============================================================ -->
+    <h2 class="section-title">Hands-On Lab</h2>
+
+    <div class="lab-box">
+      <span class="lab-box-label">Lab — Build a Progressively Optimized Node.js Image</span>
+      <p>Start with a naive Dockerfile, measure image size, then apply each optimization and watch the size shrink. All commands run in a single terminal session.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Step 0: Create the test application
+mkdir dockerfile-lab &amp;&amp; cd dockerfile-lab
+
+cat &gt; server.js &lt;&lt; 'EOF'
+const http = require('http');
+const server = http.createServer((req, res) =&gt; {
+  res.writeHead(200);
+  res.end('Hello from TicketFlow!\n');
+});
+server.listen(3000, () =&gt; console.log('Listening on port 3000'));
+EOF
+
+cat &gt; package.json &lt;&lt; 'EOF'
+{
+  "name": "ticket-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "eslint": "^8.0.0"
+  }
+}
+EOF
+
+# Step 1: Naive Dockerfile
+cat &gt; Dockerfile.naive &lt;&lt; 'EOF'
+FROM node:18
+WORKDIR /app
+COPY . .
+RUN npm install
+CMD ["node", "server.js"]
+EOF
+
+docker build -f Dockerfile.naive -t ticket-service:naive .
+docker images ticket-service:naive    # note the size — likely ~1.1 GB+
+
+
+# Step 2: Alpine base + cache-friendly layer ordering
+cat &gt; Dockerfile.alpine &lt;&lt; 'EOF'
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+CMD ["node", "server.js"]
+EOF
+
+docker build -f Dockerfile.alpine -t ticket-service:alpine .
+docker images ticket-service:alpine   # compare — should be ~250 MB
+
+
+# Step 3: Production-optimized (multi-stage + prod deps only + non-root)
+cat &gt; Dockerfile.prod &lt;&lt; 'EOF'
+FROM node:18-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:18-alpine AS runtime
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY server.js .
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=30s CMD wget -q --spider http://localhost:3000/ || exit 1
+CMD ["node", "server.js"]
+EOF
+
+docker build -f Dockerfile.prod -t ticket-service:prod .
+docker images ticket-service:prod     # should be ~85 MB — 93% smaller than naive!
+
+
+# Compare all three side by side
+docker images ticket-service
+
+
+# Run and test the production-optimized image
+docker run -d -p 3000:3000 --name ticket-test ticket-service:prod
+curl http://localhost:3000
+docker logs ticket-test
+
+# Inspect the running user — verify it's not root
+docker exec ticket-test whoami        # should print: node
+
+
+# Clean up
+docker stop ticket-test &amp;&amp; docker rm ticket-test</code></pre>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 15 — Interview Questions
+         ============================================================ -->
+    <h2 class="section-title">Interview Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary>Q1: What is the difference between CMD and ENTRYPOINT?</summary>
+          <div class="answer-content">
+            <p><code>ENTRYPOINT</code> defines the fixed executable that always runs when the container starts. It cannot be overridden by passing a command to <code>docker run</code> — only the <code>--entrypoint</code> flag overrides it. <code>CMD</code> provides default arguments that can be easily replaced by anything you pass to <code>docker run myimage arg1 arg2</code>.</p>
+            <p>When used together: <code>ENTRYPOINT</code> is the program, <code>CMD</code> is its default arguments. <code>docker run myapp</code> runs <code>ENTRYPOINT CMD</code>. <code>docker run myapp override</code> runs <code>ENTRYPOINT override</code> — the CMD is replaced but the entrypoint is not.</p>
+            <p>Rule of thumb: use <code>ENTRYPOINT</code> when your container <em>is</em> an executable (e.g., a compiled binary that takes subcommands). Use <code>CMD</code> when it's a service with configurable startup. For most microservices, using only <code>CMD</code> in exec form is sufficient and provides the most flexibility.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q2: Why does instruction order in a Dockerfile matter?</summary>
+          <div class="answer-content">
+            <p>Docker caches each layer. When a layer changes, all subsequent layers are invalidated and rebuilt from scratch — even if their own content is unchanged.</p>
+            <p>The practical implication: put rarely-changing instructions first and frequently-changing instructions last. The classic pattern for a Node.js service is: copy <code>package.json</code> first → run <code>npm install</code> (cached until <code>package.json</code> changes) → copy source code → run build. This means <code>npm install</code> only re-executes when you actually change dependencies, not on every code edit.</p>
+            <p>Without this discipline, every single code change rebuilds the dependency layer — which can mean minutes of wasted CI time per commit across a team.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q3: What is a multi-stage build and when would you use it?</summary>
+          <div class="answer-content">
+            <p>A multi-stage build uses multiple <code>FROM</code> instructions in a single Dockerfile. Each <code>FROM</code> starts a new build stage. Later stages can selectively copy artifacts from earlier stages using <code>COPY --from=&lt;stage-name&gt;</code>. Only the last stage becomes the final image.</p>
+            <p>Use it whenever your build process requires tools that shouldn't be in the production image: compilers, build systems (Maven, Gradle, Go toolchain), test runners, linters, or development dependencies. A Java service built with Maven produces an 800 MB builder image, but the final image containing only the JRE and compiled JAR is 180 MB. The Maven installation, JDK, and source code never appear in the registry or in production.</p>
+            <p>Beyond size, multi-stage builds reduce attack surface by excluding tools that could be exploited, and they prevent build-time secrets or intermediate artifacts from leaking into the final image.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q4: How do you pass secrets to a Docker build without them ending up in the image?</summary>
+          <div class="answer-content">
+            <p>With BuildKit (default in Docker 23+), use the <code>--secret</code> flag at build time and the <code>--mount=type=secret</code> syntax in the Dockerfile. The secret is mounted as a temporary file for that single <code>RUN</code> instruction only — it is never written to any image layer and never appears in <code>docker history</code>.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># Build command
+docker build --secret id=npmrc,src=$HOME/.npmrc .</code></pre>
+            </div>
+            <div class="code-wrapper">
+              <pre><code class="language-dockerfile"># In Dockerfile
+RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm install</code></pre>
+            </div>
+            <p>Alternatives that do NOT work safely: using <code>ENV</code> (visible in <code>docker inspect</code>), using <code>ARG</code> (visible in <code>docker history</code>), or copying a secrets file and then deleting it in a later layer (the file still exists in the earlier layer). For production registries, inject secrets at runtime via Kubernetes Secrets, AWS Secrets Manager, or HashiCorp Vault — never bake them into images.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q5: What is distroless and why would you use it?</summary>
+          <div class="answer-content">
+            <p>Distroless images (published by Google at <code>gcr.io/distroless/</code>) contain only the application runtime and its language-level dependencies — no shell, no package manager, no coreutils, no system tools. They're based on Debian so they use glibc (unlike Alpine), but they strip everything non-essential.</p>
+            <p>The security benefit is significant: if an attacker achieves code execution inside your container, there's no <code>bash</code> to drop into, no <code>curl</code> to download further payloads, no <code>apt</code> to install tools. The attack surface for post-exploitation is dramatically reduced.</p>
+            <p>The trade-off is debuggability. You can't <code>exec</code> a shell into a distroless container. For incident response, use the <code>:debug</code> tag variants which include a <code>busybox</code> shell — but never deploy debug images to production. For routine debugging during development, keep a sidecar debug image available and use <code>kubectl debug</code> to attach it to a running pod without modifying the production image.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q6: How does the Docker layer cache work and how can it be busted?</summary>
+          <div class="answer-content">
+            <p>Each layer's cache key is computed from two inputs: the content of the instruction itself (including checksums of any files referenced by <code>COPY</code> or <code>ADD</code>) plus the cache key of the preceding layer. This creates a chain — if any layer in the chain changes, all subsequent layers are invalidated.</p>
+            <p>Common ways to bust the cache deliberately:</p>
+            <ul>
+              <li><code>docker build --no-cache .</code> — disables cache entirely for this build</li>
+              <li>Adding a build argument that changes: <code>ARG CACHE_BUST=$(date +%s)</code> then passing <code>--build-arg CACHE_BUST=$(date +%s)</code> at build time invalidates from that instruction forward</li>
+              <li>Modifying any referenced file — Docker checksums files for <code>COPY</code> instructions, so touching a file busts the cache from that <code>COPY</code> forward</li>
+            </ul>
+            <p>Important limitation: Docker cannot detect if an external resource has changed. <code>RUN apt-get install nginx</code> might install a newer nginx version today vs. six months ago, but Docker sees the same instruction text and returns the cached layer. This is intentional for reproducibility, but means you must occasionally force a rebuild to pick up security patches.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary>Q7: What is the security risk of running containers as root?</summary>
+          <div class="answer-content">
+            <p>Running as root (UID 0) inside a container means that if your application has a vulnerability — remote code execution, path traversal, server-side template injection, deserialization — an attacker with container access has root-level privileges inside that container.</p>
+            <p>While Linux namespaces and cgroups provide isolation, root in a container is not the same as being sandboxed. Several escape vectors exist: mounted Docker socket (<code>/var/run/docker.sock</code>) grants full host control; privileged containers bypass namespace isolation entirely; kernel vulnerabilities exploitable only from root are more accessible; misconfigured volume mounts can expose host filesystems with root write access.</p>
+            <p>Running as a non-root user significantly reduces blast radius. Even with a container escape, the attacker gets an unprivileged user on the host rather than root. Additionally, many Kubernetes security policies — enforced via OPA Gatekeeper, Kyverno, or Pod Security Standards — reject pods that run as root. Using <code>USER</code> in your Dockerfile keeps your images compatible with security-hardened cluster configurations and communicates intent to platform teams.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+
+  </div><!-- /.page-content -->
+</main>
+
+<script src="../assets/app.js" defer></script>
+
+</body>
+</html>
