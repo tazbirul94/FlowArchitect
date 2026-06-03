@@ -15,10 +15,10 @@
 <body data-page-id="05" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
 
 <aside id="sidebar">
-  <div class="logo">
+  <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
     <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
     <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
-  </div>
+  </a>
   <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
   <nav id="sidebar-nav"></nav>
 </aside>
@@ -58,8 +58,11 @@
     <h2 id="story" class="section-title" style="display:none;">Story</h2>
     <div class="story-card">
       <span class="story-card-label">Story</span>
-      <p>Imagine a large office building. Every floor is a separate department. People on the same floor can walk over and talk to each other freely. People on different floors need to take the elevator and have the right access card. The building's reception — the gateway — handles all visitors from outside.</p>
-      <p>Docker networking works the same way. Containers on the same network can reach each other by name, like office colleagues. Containers on different networks can't talk unless explicitly connected. The host machine is the building — it decides what traffic comes in from outside and where it goes.</p>
+      <ul>
+        <li>Containers on the same network reach each other by name — no IPs needed.</li>
+        <li>Containers on different networks can't talk unless explicitly connected.</li>
+        <li>The host decides what external traffic enters and where it goes.</li>
+      </ul>
     </div>
 
     <!-- ============================================================
@@ -67,7 +70,7 @@
          ============================================================ -->
     <h2 id="network-types" class="section-title">Network Types Overview</h2>
 
-    <p>Docker ships with several network drivers. Each serves a different purpose. Choosing the wrong one leads to security gaps, broken DNS, or unnecessary complexity. Here is the complete picture:</p>
+    <p>Docker ships with several network drivers — pick the wrong one and you get broken DNS, security gaps, or unnecessary complexity.</p>
 
     <table class="decision-table">
       <thead>
@@ -137,7 +140,7 @@
          ============================================================ -->
     <h2 id="default-bridge" class="section-title">Default Bridge Network</h2>
 
-    <p>When you run a container without specifying a network, Docker attaches it to the default <code>bridge</code> network (backed by the <code>docker0</code> virtual interface on the host). This is fine for quick experiments, but it has a critical limitation: containers cannot reach each other by name.</p>
+    <p>Without specifying a network, Docker attaches containers to the default <code>bridge</code> (<code>docker0</code>). Critical limitation: <strong>no DNS</strong> — containers can't reach each other by name, only by IP.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Default bridge: containers communicate by IP only
@@ -159,7 +162,7 @@ docker stop container-a container-b &amp;&amp; docker rm container-a container-b
 
     <div class="common-mistake">
       <span class="common-mistake-label">Common Mistake</span>
-      <p>The default <code>bridge</code> network does NOT support automatic DNS resolution between containers. You have to use IP addresses, which change every restart. Always create a custom bridge network for multi-container apps. This is the #1 Docker networking mistake beginners make.</p>
+      <p>Default <code>bridge</code> has no DNS — you must use IP addresses, which change on every restart. Always use a custom bridge network for multi-container apps. This is the #1 Docker networking mistake.</p>
     </div>
 
     <!-- ============================================================
@@ -167,7 +170,7 @@ docker stop container-a container-b &amp;&amp; docker rm container-a container-b
          ============================================================ -->
     <h2 id="custom-bridge" class="section-title">Custom Bridge Networks (The Right Way)</h2>
 
-    <p>A custom bridge network is identical in mechanism to the default bridge, but Docker registers every container's name and aliases with a built-in DNS server. Any container on the same custom network can reach any other container by name — no IP addresses needed, no configuration files to maintain.</p>
+    <p>Custom bridge networks have a built-in DNS server — containers reach each other by name, no IPs needed.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Create a custom bridge network
@@ -212,7 +215,7 @@ docker network disconnect ticketflow-backend user-service
 docker network prune</code></pre>
     </div>
 
-    <p>A well-architected multi-container application uses separate networks to enforce service boundaries. The diagram below shows the TicketFlow reference architecture split across two networks — the API gateway lives on the frontend-facing network and is the only service that bridges to the internal backend network.</p>
+    <p>Use separate networks to enforce service boundaries — the API gateway bridges both, backend services stay isolated.</p>
 
     <div class="mermaid-wrapper">
       <div class="mermaid">
@@ -248,7 +251,7 @@ flowchart TB
          ============================================================ -->
     <h2 id="dns-resolution" class="section-title">Container DNS Resolution</h2>
 
-    <p>Every container on a custom network has its <code>/etc/resolv.conf</code> automatically configured to point at Docker's embedded DNS resolver. This resolver — always reachable at <code>127.0.0.11</code> inside the container — maps container names to their current IPs on that network.</p>
+    <p>Every container on a custom network has <code>/etc/resolv.conf</code> pointing at Docker's embedded DNS resolver at <code>127.0.0.11</code>, which maps container names to IPs.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Docker's embedded DNS server resolves container names
@@ -274,11 +277,11 @@ docker run -d \
 # Now both "db-primary" and "database" resolve to postgres</code></pre>
     </div>
 
-    <p>DNS-based service discovery goes further when you run multiple containers with the same network alias. Docker's embedded DNS returns all their IP addresses in a round-robin rotation — giving you basic load balancing at zero configuration cost. This is how Docker Swarm spreads traffic across replicated services. In production Kubernetes, the equivalent is a ClusterIP Service with multiple backing Pods, but the DNS mechanism is conceptually identical.</p>
+    <p>Multiple containers sharing the same alias get round-robin DNS — free basic load balancing with zero config.</p>
 
     <div class="production-tip">
       <span class="production-tip-label">Production Tip</span>
-      <p>Use <code>--network-alias</code> for service roles rather than individual instance names. If you name your database container <code>db-primary</code> and give it the alias <code>database</code>, your application code connects to <code>database:5432</code>. When you later promote a replica or replace the container, only the alias needs to be updated — not a single line of application config.</p>
+      <p>Use <code>--network-alias</code> for roles, not instance names. App connects to <code>database:5432</code>; swap the underlying container without changing any app config.</p>
     </div>
 
     <!-- ============================================================
@@ -286,7 +289,7 @@ docker run -d \
          ============================================================ -->
     <h2 id="port-mapping" class="section-title">Port Mapping Deep Dive</h2>
 
-    <p>Port mapping (<code>-p</code>) creates iptables NAT rules that forward traffic from a host port to a container port. It is the mechanism that makes containers accessible from outside the Docker network — from the host, from other machines on the network, and from the internet (if the host is publicly reachable).</p>
+    <p><code>-p</code> creates iptables NAT rules forwarding host ports to container ports — the only way to reach a container from outside Docker.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Syntax: -p [host_ip:]host_port:container_port[/protocol]
@@ -312,7 +315,7 @@ docker run -P nginx
 docker port nginx   # see all mappings</code></pre>
     </div>
 
-    <p>The diagram below shows what happens at the kernel level when traffic arrives at a published port. Docker inserts iptables DNAT rules in the <code>DOCKER</code> chain that rewrite the destination address before forwarding the packet to the container's private IP.</p>
+    <p>Docker inserts iptables DNAT rules in the <code>DOCKER</code> chain that rewrite the destination to the container's private IP.</p>
 
     <div class="mermaid-wrapper">
       <div class="mermaid">
@@ -328,7 +331,7 @@ flowchart LR
 
     <div class="beginner-note">
       <span class="beginner-note-label">Beginner</span>
-      <p>You only need <code>-p</code> when you want something <em>outside</em> the Docker network to reach the container — your browser, another machine, a load balancer. Two containers on the same custom network talk to each other directly by name without any port publishing. Publishing ports unnecessarily exposes services to the host and potentially the internet.</p>
+      <p>Only use <code>-p</code> when something <em>outside</em> Docker needs to reach the container. Containers on the same network talk by name with no port publishing needed.</p>
     </div>
 
     <!-- ============================================================
@@ -336,7 +339,7 @@ flowchart LR
          ============================================================ -->
     <h2 id="host-network" class="section-title">Host Network</h2>
 
-    <p>The <code>host</code> network driver removes all network isolation. The container shares the host machine's full network stack — the same interfaces, routing table, and port space. No virtual bridge, no NAT, no iptables rewrites.</p>
+    <p><code>host</code> removes all network isolation — container shares the host's interfaces, routing table, and port space directly. No NAT, no virtual bridge.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Host network: no isolation, container uses host's network stack
@@ -352,8 +355,11 @@ docker run --rm --network host alpine ip addr</code></pre>
 
     <div class="architect-note">
       <span class="architect-note-label">Architect Note</span>
-      <p>Host network gives maximum performance — no NAT overhead — and is sometimes needed for apps that require raw socket access or multicast. But it completely removes network isolation. A port conflict kills both the container process and the host service that was already using that port. It is rarely needed outside of specialized networking tools such as packet sniffers, service meshes doing eBPF-based monitoring, or legacy applications that use dynamic port negotiation protocols.</p>
-      <p>On macOS and Windows, Docker runs inside a lightweight VM. Host networking on those platforms connects to the VM's network stack, not the physical host's — behavior differs significantly from Linux. Never rely on host networking for cross-platform portability.</p>
+      <ul>
+        <li>Use for: packet sniffers, eBPF monitoring, multicast, raw socket access.</li>
+        <li>Risk: port conflict kills both container and host service using that port.</li>
+        <li>macOS/Windows: connects to VM's network, not physical host — behavior differs from Linux.</li>
+      </ul>
     </div>
 
     <!-- ============================================================
@@ -361,7 +367,7 @@ docker run --rm --network host alpine ip addr</code></pre>
          ============================================================ -->
     <h2 id="none-network" class="section-title">None Network</h2>
 
-    <p>The <code>none</code> driver creates a container with no network interfaces except the loopback (<code>lo</code>). The container cannot send or receive any network traffic. It cannot reach the internet, other containers, or the host.</p>
+    <p><code>none</code> gives the container only loopback (<code>lo</code>) — no internet, no other containers, no host.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># No network at all
@@ -376,14 +382,14 @@ docker run --rm --network none alpine ip addr
 # Use case: containers that communicate only via shared volumes</code></pre>
     </div>
 
-    <p>The <code>none</code> network is the most secure option when a container genuinely does not need network access — file transformation jobs, data encryption pipelines, or model inference on locally-mounted files. It is also useful in security-sensitive testing environments where you want provable network isolation.</p>
+    <p>Use <code>none</code> for batch jobs, encryption pipelines, or any workload that communicates only via volumes — provable network isolation.</p>
 
     <!-- ============================================================
          SECTION 9 — Network Troubleshooting
          ============================================================ -->
     <h2 id="troubleshooting" class="section-title">Network Troubleshooting</h2>
 
-    <p>Most Docker networking problems fall into three categories: the containers are not on the same network, DNS is not resolving, or the target port has nothing listening on it. Work through these commands in order until you find the break.</p>
+    <p>Most problems fall into three categories: wrong network, DNS not resolving, or nothing listening on the target port.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-bash"># Check container's network config
@@ -415,7 +421,7 @@ docker exec my-app curl -s https://ifconfig.me  # what IP does container appear 
 
     <div class="production-tip">
       <span class="production-tip-label">Production Tip</span>
-      <p>Minimal base images like Alpine do not include <code>ping</code>, <code>curl</code>, or <code>netstat</code> by default. If you're debugging a running container and tools are missing, use <code>docker run --rm --network container:&lt;name&gt; nicolaka/netshoot</code> — this starts a purpose-built network debugging container attached to the same network namespace as your target container. You get a full suite of tools without modifying the production image.</p>
+      <p>Alpine lacks <code>ping</code>, <code>curl</code>, <code>netstat</code> by default. Debug without modifying the image: <code>docker run --rm --network container:&lt;name&gt; nicolaka/netshoot</code> — attaches a full tool suite to the same network namespace.</p>
     </div>
 
     <!-- ============================================================
@@ -423,32 +429,39 @@ docker exec my-app curl -s https://ifconfig.me  # what IP does container appear 
          ============================================================ -->
     <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
 
-    <p>Understanding the kernel-level mechanisms makes networking problems much easier to reason about and debug.</p>
-
     <details>
       <summary>How does Docker's virtual bridge actually work?</summary>
       <div class="answer-content">
-        <p>When you create a Docker network with the bridge driver, Linux creates a virtual bridge interface — <code>docker0</code> for the default network, or a named interface like <code>br-a1b2c3d4e5f6</code> for custom networks. This bridge behaves exactly like a virtual network switch: connected interfaces can send Ethernet frames to each other.</p>
-        <p>Each container gets a <strong>virtual ethernet pair</strong> (<code>veth</code>): two virtual interfaces joined at the kernel level. One end lives inside the container's network namespace and appears as <code>eth0</code>. The other end is attached to the bridge on the host and appears as <code>vethXXXXXX</code> in <code>ip link show</code>. Anything sent into one end of the pair comes out the other.</p>
-        <p>For outbound internet traffic, Docker installs iptables MASQUERADE rules that perform source NAT — rewriting the container's private source IP to the host's public IP before sending packets out. For published ports, DNAT rules rewrite the destination before forwarding inbound packets to the container's private IP.</p>
+        <ol>
+          <li>Bridge driver creates a virtual network switch (<code>docker0</code> or <code>br-xxxx</code>) on the host.</li>
+          <li>Each container gets a <strong>veth pair</strong>: one end appears as <code>eth0</code> inside the container, the other attaches to the bridge.</li>
+          <li>Outbound traffic: iptables MASQUERADE rewrites the container's private IP to the host's public IP.</li>
+          <li>Published ports: DNAT rules rewrite inbound destination to the container's private IP.</li>
+        </ol>
       </div>
     </details>
 
     <details>
       <summary>How does Docker's embedded DNS work?</summary>
       <div class="answer-content">
-        <p>Each custom network has its own DNS resolver running at the loopback address <code>127.0.0.11</code> inside every container on that network. Docker configures each container's <code>/etc/resolv.conf</code> to point at this address at container creation time.</p>
-        <p>When a container is added to a network, Docker registers the container's name and any configured <code>--network-alias</code> values with that network's resolver. The resolver maps these names to the container's IP address on that network. When a container is removed or its IP changes, Docker immediately updates the DNS record.</p>
-        <p>When multiple containers share the same alias, the resolver returns all their IP addresses in a rotating round-robin order. The client receives a different IP each time it queries — basic load distribution without any load balancer. For sticky sessions or more sophisticated routing, you need a real load balancer or service mesh in front.</p>
+        <ol>
+          <li>DNS resolver runs at <code>127.0.0.11</code> inside each container on a custom network.</li>
+          <li>When container joins a network, Docker registers its name and aliases with that resolver.</li>
+          <li>IP changes (on restart) update the DNS record immediately — within milliseconds.</li>
+          <li>Multiple containers with the same alias → round-robin DNS responses for basic load distribution.</li>
+        </ol>
       </div>
     </details>
 
     <details>
       <summary>What happens to networking on container restart?</summary>
       <div class="answer-content">
-        <p>When a container restarts, it gets a brand new network configuration. The container's IP address on each network is reassigned from the subnet pool — it is not guaranteed to get the same IP it had before. Containers that were communicating with the restarted container by IP address will find that IP stale.</p>
-        <p>This is exactly why hardcoding container IP addresses is dangerous: any restart breaks all dependent services until they are updated or restarted themselves. DNS resolution — using the container name or network alias — always works correctly because Docker updates the DNS record the moment the new container IP is assigned, typically within milliseconds of the container coming online.</p>
-        <p>In Docker Compose, services always refer to each other by service name, which maps to the network alias Docker Compose creates automatically. This is why Compose applications tolerate container restarts gracefully out of the box.</p>
+        <ul>
+          <li>Container gets a <strong>new IP</strong> from the subnet pool — not guaranteed to be the same.</li>
+          <li>Anything connecting by hardcoded IP breaks until restarted.</li>
+          <li>DNS (name/alias) always works — record updates within milliseconds of the container coming online.</li>
+          <li>Docker Compose uses service names as aliases automatically — restarts are transparent.</li>
+        </ul>
       </div>
     </details>
 
@@ -459,27 +472,27 @@ docker exec my-app curl -s https://ifconfig.me  # what IP does container appear 
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 1 — Using the default bridge network</span>
-      <p>The default <code>bridge</code> network has no DNS resolver. Containers must communicate by IP address, which changes on every restart. New developers often spend hours wondering why <code>ping postgres</code> fails while <code>ping 172.17.0.3</code> works — then the IP changes on the next deploy and everything breaks again. Always create a named custom bridge network and connect your containers to it.</p>
+      <p>Default <code>bridge</code> has no DNS — containers communicate by IP only, which changes on every restart. Always create a named custom bridge network.</p>
     </div>
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 2 — Exposing internal services to the host</span>
-      <p>Mapping a database port as <code>-p 5432:5432</code> makes Postgres reachable on <em>all</em> host interfaces — including the public IP if your server is internet-facing. Anyone who can reach your server's IP can attempt to connect to your database. Use <code>-p 127.0.0.1:5432:5432</code> for local-only access, or better yet, don't publish the port at all if your application and database share a Docker network.</p>
+      <p><code>-p 5432:5432</code> binds to <em>all</em> host interfaces, including public IPs. Use <code>-p 127.0.0.1:5432:5432</code> for local-only, or skip publishing entirely if the app and DB share a network.</p>
     </div>
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 3 — Forgetting network isolation</span>
-      <p>Putting all containers on a single network means every container can reach every other container. A compromised frontend service can attempt connections to your database, message queue, or internal admin APIs. Design your networks to match your trust boundaries: a frontend network for public-facing services, a backend network for internal services only, and a data network for databases that only application services can join.</p>
+      <p>All containers on one network = every container can reach every other. Use separate networks per trust boundary: frontend, backend, data.</p>
     </div>
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 4 — <code>ping</code> not available in minimal images</span>
-      <p>When debugging network issues inside an Alpine-based container, <code>ping</code> will fail with "executable file not found". Alpine does not include <code>iputils</code> by default. Use <code>wget -qO- http://service:port</code>, <code>nc -zv service port</code>, or <code>nslookup service</code> instead — all available in Alpine's base package. For a temporary fix: <code>apk add --no-cache iputils</code>. Never commit this to your Dockerfile for production images.</p>
+      <p>Alpine excludes <code>iputils</code>. Use <code>wget -qO- http://service:port</code>, <code>nc -zv service port</code>, or <code>nslookup service</code> instead — all in Alpine's base.</p>
     </div>
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 5 — Publishing ports for inter-container communication</span>
-      <p>Port mapping (<code>-p</code>) is only needed for HOST-to-container or external-to-container traffic. Two containers on the same Docker network reach each other directly by container name without any port publishing. Publishing internal service ports unnecessarily exposes them to the host and adds iptables overhead for every inter-container packet.</p>
+      <p>Containers on the same network reach each other by name with no <code>-p</code> needed. Publishing internal ports exposes them to the host and adds iptables overhead.</p>
     </div>
 
     <!-- ============================================================
@@ -532,7 +545,7 @@ docker rm my-postgres my-app
 docker network rm tf-frontend tf-backend</code></pre>
       </div>
 
-      <p>After completing this lab you should be comfortable creating isolated networks, connecting containers to multiple networks, and verifying that the <code>--internal</code> flag truly prevents outbound traffic. This three-layer architecture — frontend, backend, data — is the foundation of virtually every production container deployment.</p>
+      <p>After this lab: you can create isolated networks, connect containers to multiple networks, and verify <code>--internal</code> blocks outbound traffic. This frontend/backend/data pattern is the foundation of every production container deployment.</p>
     </div>
 
     <!-- ============================================================
@@ -540,16 +553,18 @@ docker network rm tf-frontend tf-backend</code></pre>
          ============================================================ -->
     <h2 id="interview-questions" class="section-title">Interview Questions</h2>
 
-    <p>These are the Docker networking questions that appear in DevOps, platform engineering, and senior backend interviews. Click each question to reveal the full answer.</p>
-
     <div class="interview-section">
 
       <div class="interview-q">
         <details>
           <summary>Q1: What is the difference between the default bridge network and a custom bridge network?</summary>
           <div class="answer-content">
-            <p>The default bridge network (<code>docker0</code>) does not support automatic DNS resolution — containers can only reach each other by IP address, which changes on restart. Custom bridge networks have an embedded DNS server at <code>127.0.0.11</code> that resolves container names and aliases. Custom networks also provide better isolation (containers on different networks cannot communicate), support network-level configuration (subnet, gateway), and allow connecting and disconnecting containers at runtime without restarting them.</p>
-            <p>Always use custom networks in real applications. The default bridge exists for backward compatibility and single-container experiments, not for multi-service deployments.</p>
+            <p>Default bridge has no DNS — containers use IPs only, which change on restart. Custom bridge has embedded DNS at <code>127.0.0.11</code>.</p>
+            <ul>
+              <li>Custom: containers reach each other by name.</li>
+              <li>Custom: supports subnet/gateway config and runtime connect/disconnect.</li>
+              <li>Default: backward compatibility only — never use for multi-service apps.</li>
+            </ul>
           </div>
         </details>
       </div>
@@ -558,9 +573,13 @@ docker network rm tf-frontend tf-backend</code></pre>
         <details>
           <summary>Q2: How does container DNS resolution work in Docker?</summary>
           <div class="answer-content">
-            <p>Docker runs an embedded DNS resolver at <code>127.0.0.11</code> inside each container that is on a custom network. When a container starts on a custom network, Docker registers its name and any <code>--network-alias</code> values with that network's DNS resolver. Containers query this resolver for other container names, getting back the target container's IP on that shared network.</p>
-            <p>Round-robin DNS is used when multiple containers share the same alias — each DNS query returns the IPs in a different order, distributing client connections across replicas. The resolver configuration appears in <code>/etc/resolv.conf</code> inside the container as <code>nameserver 127.0.0.11</code>.</p>
-            <p>The default bridge network does not have this resolver. That is the single most important practical difference between the two network types.</p>
+            <p>Docker runs an embedded DNS resolver at <code>127.0.0.11</code> inside each container on a custom network.</p>
+            <ul>
+              <li>Container name and aliases registered on join; updated immediately on restart.</li>
+              <li>Multiple containers with the same alias → round-robin DNS for basic load distribution.</li>
+              <li>Visible in container: <code>cat /etc/resolv.conf</code> → <code>nameserver 127.0.0.11</code>.</li>
+              <li>Default bridge has no resolver — this is the key practical difference.</li>
+            </ul>
           </div>
         </details>
       </div>
@@ -569,9 +588,12 @@ docker network rm tf-frontend tf-backend</code></pre>
         <details>
           <summary>Q3: What does <code>--network host</code> mean and when would you use it?</summary>
           <div class="answer-content">
-            <p><code>--network host</code> removes network isolation entirely — the container shares the host's network namespace. There is no NAT, no virtual interfaces, no port mapping. The container binds directly to host ports and sees the same network interfaces as the host process.</p>
-            <p>Legitimate use cases include: network monitoring tools that need raw socket access or promiscuous mode, performance-critical applications where NAT overhead is measurable and matters (high-frequency trading, real-time data pipelines), and applications that use multicast or other protocols that behave incorrectly through NAT.</p>
-            <p>Never use host networking in multi-tenant environments — any container with host network can bind any host port, potentially conflicting with or intercepting traffic from other services. On macOS and Windows, host networking connects to the VM's network, not the physical host, so behavior differs from Linux.</p>
+            <p>Container shares the host's full network namespace — no NAT, no virtual interfaces, no port mapping.</p>
+            <ul>
+              <li>Use for: packet sniffers, eBPF monitors, multicast, high-frequency trading (no NAT overhead).</li>
+              <li>Risk: any port conflict kills both container and the host service.</li>
+              <li>macOS/Windows: connects to VM network, not physical host — behavior differs.</li>
+            </ul>
           </div>
         </details>
       </div>
@@ -580,11 +602,12 @@ docker network rm tf-frontend tf-backend</code></pre>
         <details>
           <summary>Q4: How do you prevent a containerized database from being accessible from outside the host?</summary>
           <div class="answer-content">
-            <p>Three complementary approaches, most effective when combined:</p>
-            <p><strong>Option 1 — Don't publish the port at all.</strong> If your application and database are on the same Docker custom network, the application reaches the database by container name without any <code>-p</code> flag. No iptables rule is created, so the port is genuinely unreachable from outside.</p>
-            <p><strong>Option 2 — Bind to localhost only.</strong> Use <code>-p 127.0.0.1:5432:5432</code> instead of <code>-p 5432:5432</code>. Docker creates an iptables rule bound to the loopback interface, so the port is accessible from the host machine but not from other machines on the network or the internet.</p>
-            <p><strong>Option 3 — Use an internal network.</strong> Create the network with <code>--internal</code>. Containers on an internal network cannot make outbound connections and cannot be reached from outside the Docker network. The database cannot even reach the internet, let alone be reached from it.</p>
-            <p>In production, combine all three: no port publishing, place the database on an <code>--internal</code> network, and let the application bridge between the frontend and backend networks.</p>
+            <p>Three approaches — use all three in production:</p>
+            <ul>
+              <li><strong>No port publish:</strong> app and DB on the same custom network — no <code>-p</code> flag, no iptables rule created.</li>
+              <li><strong>Localhost bind:</strong> <code>-p 127.0.0.1:5432:5432</code> — reachable from host only, not external IPs.</li>
+              <li><strong>Internal network:</strong> <code>docker network create --internal</code> — no outbound or inbound internet at all.</li>
+            </ul>
           </div>
         </details>
       </div>
@@ -593,13 +616,14 @@ docker network rm tf-frontend tf-backend</code></pre>
         <details>
           <summary>Q5: A container can't reach another container by name. How do you debug it?</summary>
           <div class="answer-content">
-            <p>Systematic diagnosis — work through each step until you find the break:</p>
-            <p><strong>Step 1:</strong> <code>docker network ls</code> — confirm both containers are on the same custom network. If either is on the default bridge, DNS will not work.</p>
-            <p><strong>Step 2:</strong> <code>docker inspect &lt;container-name&gt;</code> — check <code>NetworkSettings.Networks</code> and confirm the shared network appears for both containers with an assigned IP.</p>
-            <p><strong>Step 3:</strong> <code>docker exec container-a cat /etc/resolv.conf</code> — verify <code>nameserver 127.0.0.11</code> is present. Its absence means the container is on the default bridge, not a custom network.</p>
-            <p><strong>Step 4:</strong> <code>docker exec container-a nslookup container-b</code> — test DNS directly. If this resolves but connection fails, DNS is working and the problem is at the TCP layer.</p>
-            <p><strong>Step 5:</strong> If DNS resolves but connection still fails, verify the target container has a process actually listening on the expected port: <code>docker exec container-b ss -tlnp</code>.</p>
-            <p><strong>Step 6:</strong> <code>docker exec container-a nc -zv container-b 8080</code> — test TCP reachability to the specific port.</p>
+            <ol>
+              <li><code>docker network ls</code> — confirm both containers share a <strong>custom</strong> network.</li>
+              <li><code>docker inspect &lt;name&gt;</code> → check <code>NetworkSettings.Networks</code> for shared network + assigned IP.</li>
+              <li><code>docker exec container-a cat /etc/resolv.conf</code> — must show <code>nameserver 127.0.0.11</code>.</li>
+              <li><code>docker exec container-a nslookup container-b</code> — DNS resolves? If yes, problem is at TCP layer.</li>
+              <li><code>docker exec container-b ss -tlnp</code> — verify something is actually listening on the port.</li>
+              <li><code>docker exec container-a nc -zv container-b 8080</code> — test TCP reachability.</li>
+            </ol>
           </div>
         </details>
       </div>
@@ -608,10 +632,13 @@ docker network rm tf-frontend tf-backend</code></pre>
         <details>
           <summary>Q6: How does Docker networking differ from production Kubernetes networking?</summary>
           <div class="answer-content">
-            <p>Docker networking is host-scoped. Custom bridge networks span only the containers on a single host. Overlay networks extend this to multiple hosts in a Docker Swarm, but configuration and management are handled manually.</p>
-            <p>In Kubernetes, every Pod gets its own IP address from the cluster-wide CIDR, assigned by the Container Network Interface (CNI) plugin. Pods can communicate with any other Pod across any node in the cluster without NAT — a flat network model. There is no concept of separate networks for isolation; that is handled by <code>NetworkPolicy</code> objects.</p>
-            <p>Kubernetes Services provide stable DNS names and virtual IPs that load-balance across backing Pods, analogous to Docker's round-robin DNS for shared aliases but with significantly more control (session affinity, health-based routing via the endpoints controller, headless services for direct Pod IP discovery).</p>
-            <p>Understanding Docker's custom bridge networks makes Kubernetes networking easier to learn: Docker DNS by name maps to Kubernetes Service DNS, Docker's internal networks map to Kubernetes NetworkPolicies, and Docker's overlay driver conceptually explains why K8s needs a CNI plugin to build a flat cluster network across hosts.</p>
+            <p>Docker networking is host-scoped; Kubernetes uses a flat cluster-wide network model.</p>
+            <ul>
+              <li>K8s: every Pod gets its own IP (CNI plugin) — Pods talk to any Pod on any node without NAT.</li>
+              <li>K8s: isolation via <code>NetworkPolicy</code> objects, not separate networks.</li>
+              <li>K8s Services ≈ Docker round-robin DNS aliases but with health-based routing, session affinity, headless mode.</li>
+              <li>Docker DNS by name → K8s Service DNS; Docker <code>--internal</code> → K8s NetworkPolicy.</li>
+            </ul>
           </div>
         </details>
       </div>

@@ -111,9 +111,11 @@ function renderSidebar() {
   const prefix = getPathPrefix();
   const activeName = currentFilename();
 
-  // Build logo
-  const logo = document.createElement('div');
+  // Build logo (links back to index.html)
+  const logo = document.createElement('a');
   logo.className = 'sidebar-logo';
+  logo.href = decodeURIComponent(window.location.pathname).replace(/\\/g, '/').includes('/pages/') ? '../index.html' : 'index.html';
+  logo.style.cssText = 'display:block;text-decoration:none;cursor:pointer;';
   logo.innerHTML = `
     <span class="sidebar-logo-title">DevArchitect</span>
     <span class="sidebar-logo-subtitle">Beginner → Architect</span>
@@ -128,6 +130,15 @@ function renderSidebar() {
     const titleEl = document.createElement('div');
     titleEl.className = 'nav-group-title';
     titleEl.textContent = group.group;
+    titleEl.style.cursor = 'pointer';
+    titleEl.addEventListener('click', () => {
+      groupEl.classList.toggle('collapsed');
+      try {
+        const state = JSON.parse(localStorage.getItem('navCollapsed') || '{}');
+        state[group.group] = groupEl.classList.contains('collapsed');
+        localStorage.setItem('navCollapsed', JSON.stringify(state));
+      } catch(e) {}
+    });
     groupEl.appendChild(titleEl);
 
     const itemsEl = document.createElement('div');
@@ -138,7 +149,10 @@ function renderSidebar() {
     group.items.forEach(item => {
       const a = document.createElement('a');
       a.className = 'nav-item';
-      a.href = prefix + item.file;
+      const isInPages = decodeURIComponent(window.location.pathname).replace(/\\/g, '/').includes('/pages/');
+      a.href = item.file === '00-roadmap.html'
+        ? (isInPages ? '../00-roadmap.html' : '00-roadmap.html')
+        : prefix + item.file;
       a.dataset.file = item.file;
 
       const numSpan = document.createElement('span');
@@ -169,6 +183,10 @@ function renderSidebar() {
     });
 
     groupEl.appendChild(itemsEl);
+    try {
+      const state = JSON.parse(localStorage.getItem('navCollapsed') || '{}');
+      if (state[group.group] === true) groupEl.classList.add('collapsed');
+    } catch(e) {}
     container.appendChild(groupEl);
   });
 }

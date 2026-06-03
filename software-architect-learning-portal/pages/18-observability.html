@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Observability — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="18" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Expert Topics → Observability</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 45 min read</span>
+          <span class="tag">Epic 6</span>
+        </div>
+        <h1 class="page-title">Observability</h1>
+        <p class="page-subtitle">Metrics, logs, and traces — the three pillars that let you understand what your distributed system is doing in production.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Observability</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🔭 Flying Blind at 35,000 Feet</span>
+        <p>In the early days of aviation, pilots flew by looking out the window and trusting their gut. When clouds obscured visibility, they crashed. The solution was not to tell pilots to "try harder" — it was to instrument the cockpit. Altimeter, airspeed indicator, artificial horizon, fuel gauge. Now pilots knew the state of their aircraft even when they could not see it directly.</p>
+        <p>Distributed systems are the same. A monolith running on one server was like a small propeller plane — you could SSH in, run <code>top</code>, check a log file, and understand what was wrong. But a microservices system running 30 services across 100 pods on Kubernetes is a commercial jetliner. You cannot look out the window. A user reports "checkout is slow." Which service? Which pod? Which database query? Which network hop? You need instruments.</p>
+        <p>Observability is the practice of building those instruments into your system from the beginning. Not as an afterthought, but as a first-class engineering concern. When production breaks at 3am, the engineers who sleep through the incident are the ones who invested in observability. The ones paging through raw logs for 4 hours are the ones who did not.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-observability" class="section-title">What is Observability?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🩺 Beginner Analogy</span>
+        <p>Think of observability like a doctor diagnosing a patient. The doctor cannot look inside the body directly — so they use instruments. A stethoscope measures heart rate (metrics). The patient's symptom history is their medical record (logs). A blood test traces specific substances through the body over time (traces). Each instrument tells you something different. Together, they give the doctor enough information to diagnose and treat the problem without cutting the patient open.</p>
+        <p>Observability for software is the same idea: you give your running system instruments so you can understand its health and behaviour from the outside.</p>
+      </div>
+
+      <p>Observability is built on three complementary pillars. Each answers a different question:</p>
+
+      <ul>
+        <li><strong>Metrics</strong> — <em>"How much?"</em> Numerical measurements over time. CPU at 87%. Requests per second: 1,200. Error rate: 0.3%. P95 latency: 340ms. Metrics are cheap to store and fast to query, but tell you only aggregated numbers — not why a specific user's request failed.</li>
+        <li><strong>Logs</strong> — <em>"What happened?"</em> Timestamped, structured records of discrete events. "User 4821 attempted checkout at 14:32:11 — payment declined: card expired." Logs tell you exactly what occurred for a specific request, but they are expensive to store at scale and hard to query across millions of records.</li>
+        <li><strong>Traces</strong> — <em>"Where did the time go?"</em> A trace follows a single request as it flows through every service. It shows that user 4821's checkout took 3.2 seconds total: 40ms in api-gateway, 80ms in order-service, 2.9 seconds in payment-service (database query took 2.7 seconds). Traces connect cause and effect across service boundaries.</li>
+      </ul>
+
+      <p>In practice, the real power comes from connecting all three: a Grafana dashboard shows P95 latency spiking (metrics), you click the spike and jump to correlated logs (logs), you pick a slow trace and see the exact database query causing the bottleneck (traces).</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="technical-deep-dive" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">Prometheus — Metrics Collection</h3>
+      <p>Prometheus is an open-source time-series database and monitoring system. It works on a <strong>pull model</strong>: Prometheus periodically scrapes HTTP endpoints (called targets) that expose metrics in a plain-text format. Every service you want to monitor must expose a <code>/metrics</code> endpoint.</p>
+
+      <p><strong>Scrape configuration</strong> — Prometheus discovers targets either via static configuration or via service discovery (Kubernetes, AWS, Consul). For Kubernetes, Prometheus automatically discovers pods and services annotated with <code>prometheus.io/scrape: "true"</code>.</p>
+
+      <p><strong>Metric types:</strong></p>
+      <ul>
+        <li><strong>Counter</strong> — monotonically increasing value that only goes up. Total HTTP requests, total errors. Never decremented. Use <code>rate()</code> to turn it into a per-second rate.</li>
+        <li><strong>Gauge</strong> — a value that goes up and down. Current memory usage, number of active connections, queue depth.</li>
+        <li><strong>Histogram</strong> — samples observations and counts them in configurable buckets. Used for latency and request sizes. Enables calculating percentiles (P50, P95, P99). Most important for SLO tracking.</li>
+        <li><strong>Summary</strong> — similar to histogram but calculates quantiles on the client side. Less flexible than histograms for aggregation; prefer histograms.</li>
+      </ul>
+
+      <p><strong>PromQL</strong> — Prometheus Query Language. Used to query and aggregate time-series data. Core functions:</p>
+      <ul>
+        <li><code>rate(metric[5m])</code> — per-second rate of a counter over last 5 minutes</li>
+        <li><code>histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))</code> — P95 latency</li>
+        <li><code>sum by (service) (rate(http_requests_total[5m]))</code> — requests/sec grouped by service label</li>
+        <li><code>increase(metric[1h])</code> — total increase over 1 hour</li>
+      </ul>
+
+      <p><strong>Recording rules</strong> — pre-computed expressions saved back as new time series. Expensive queries (P95 across all pods) run once per scrape interval and stored, so dashboards load instantly instead of recomputing on every request.</p>
+
+      <p><strong>Alerting rules</strong> — conditions that trigger alerts when a PromQL expression is true for a specified duration. Alerts fire to Alertmanager, which handles routing, deduplication, grouping, and notification.</p>
+
+      <h3 class="subsection-title">Grafana — Visualization</h3>
+      <p>Grafana is the visualization layer. It connects to data sources (Prometheus, Loki, Tempo, Elasticsearch, CloudWatch, and 60+ others) and renders interactive dashboards. Key concepts:</p>
+      <ul>
+        <li><strong>Data sources</strong> — configured connections to backends. One Grafana instance can query Prometheus for metrics, Loki for logs, and Tempo for traces simultaneously.</li>
+        <li><strong>Dashboards</strong> — collections of panels arranged on a grid. Each panel runs a query against a data source and visualizes the result (time-series graph, stat, gauge, heatmap, table, logs, trace viewer).</li>
+        <li><strong>Alerting</strong> — Grafana has its own alerting engine (introduced in Grafana 8). Alerts can query any data source, not just Prometheus. Notifications go to PagerDuty, Slack, OpsGenie, email, and webhooks.</li>
+        <li><strong>Annotations</strong> — vertical lines on dashboards marking events (deployments, incidents, config changes). Automatically correlate metric spikes with deployments.</li>
+        <li><strong>Variables</strong> — template variables that make dashboards dynamic. A <code>$service</code> variable lets a single dashboard show metrics for any service by selecting from a dropdown.</li>
+      </ul>
+
+      <h3 class="subsection-title">Loki — Log Aggregation</h3>
+      <p>Loki is Grafana Labs' log aggregation system, designed to be cost-efficient and Prometheus-like in its approach. Unlike Elasticsearch, Loki does not index the full content of logs — it only indexes metadata labels (pod name, namespace, service, level). The log content is compressed and stored cheaply in object storage (S3).</p>
+      <ul>
+        <li><strong>Promtail</strong> — the log shipping agent. Runs as a DaemonSet on every Kubernetes node, tails container logs from <code>/var/log/pods/</code>, adds labels (pod, namespace, container), and pushes to Loki.</li>
+        <li><strong>LogQL</strong> — Loki's query language. Two types: log queries (return log lines) and metric queries (derive metrics from logs). Example: <code>{app="payment-service"} |= "ERROR"</code> returns all error log lines from payment-service. <code>rate({app="payment-service"} |= "ERROR" [5m])</code> returns error rate as a metric.</li>
+        <li><strong>Label strategy</strong> — the most important Loki design decision. High-cardinality labels (user ID, trace ID, request ID) must not be labels — they go in the log body instead. Labels should be low-cardinality: service, environment, pod, namespace, level.</li>
+      </ul>
+
+      <h3 class="subsection-title">Jaeger / Tempo — Distributed Tracing</h3>
+      <p>Distributed tracing follows a request through every service it touches. The two most common tools in the Kubernetes ecosystem are Jaeger (CNCF project) and Grafana Tempo (Prometheus-like, label-based, cheaply stores traces in object storage).</p>
+      <ul>
+        <li><strong>Span</strong> — the basic unit. Represents a single operation (HTTP call, database query, cache lookup). Has a start time, duration, operation name, service name, and key-value tags.</li>
+        <li><strong>Trace</strong> — a collection of spans with parent-child relationships forming a tree. The root span is the entry point (incoming HTTP request to api-gateway). Each downstream call creates a child span.</li>
+        <li><strong>Context propagation</strong> — trace context (trace ID, span ID) is passed between services via HTTP headers (W3C Trace Context standard: <code>traceparent</code> header, or legacy B3 headers). Services read the incoming context and create child spans under the same trace.</li>
+        <li><strong>Sampling</strong> — tracing every request is expensive. Head-based sampling decides at the first service (1% of requests). Tail-based sampling decides after the full trace is collected (sample all traces with errors or high latency). Tail-based is more powerful but complex.</li>
+        <li><strong>OpenTelemetry (OTel)</strong> — the open-source standard for instrumentation. Replaces vendor-specific SDKs (Jaeger client, Zipkin client) with a unified API. Services are instrumented with OTel; the OTel Collector receives data and forwards to Jaeger, Tempo, or any backend. Adopt OTel now — it is the industry standard.</li>
+      </ul>
+
+      <h3 class="subsection-title">Alertmanager — Alert Routing</h3>
+      <p>Prometheus Alertmanager receives alerts fired by Prometheus (and Grafana) and handles routing, grouping, deduplication, silencing, and notification. Key concepts:</p>
+      <ul>
+        <li><strong>Routes</strong> — a tree of routing rules that match alerts by label (service, severity, team) and direct them to specific receivers (Slack channel, PagerDuty service, OpsGenie team).</li>
+        <li><strong>Grouping</strong> — multiple alerts about the same outage are grouped into a single notification to avoid alert storms. Group by <code>alertname</code> and <code>service</code> means 50 firing pod alerts become one message.</li>
+        <li><strong>Inhibition</strong> — suppress lower-severity alerts when a high-severity alert is active. If the entire cluster is down, suppress individual pod alerts.</li>
+        <li><strong>Silences</strong> — mute alerts during maintenance windows without disabling them.</li>
+        <li><strong>Repeat interval</strong> — how often to re-notify for a still-firing alert. Critical alerts: every 5 minutes. Warning alerts: every 4 hours.</li>
+      </ul>
+
+      <h3 class="subsection-title">SLO, SLI, and SLA</h3>
+      <p>These three terms define reliability contracts and drive alert design:</p>
+      <ul>
+        <li><strong>SLI (Service Level Indicator)</strong> — the metric you measure. The ratio of good requests to total requests. P95 latency. Availability (uptime percentage). A specific, measurable number derived from real user traffic.</li>
+        <li><strong>SLO (Service Level Objective)</strong> — the internal target for your SLI. "99.9% of payment-service requests will complete in under 500ms over any 30-day window." Agreed internally. Failing an SLO means you owe the team an explanation and a postmortem, not a refund.</li>
+        <li><strong>SLA (Service Level Agreement)</strong> — the external, contractual commitment. "We guarantee 99.9% availability. If we fail, you get a 10% credit." Involves lawyers, contracts, and financial penalties. SLOs should be tighter than SLAs to give you a safety buffer.</li>
+        <li><strong>Error budget</strong> — the allowed failure budget derived from the SLO. A 99.9% availability SLO for a 30-day window gives you 43.2 minutes of allowable downtime. If you have used 40 minutes this month, you have 3.2 minutes left. Burn the budget too fast and the team freezes new deployments until it recovers.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="observability-stack" class="section-title">Observability Stack Architecture</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    subgraph K8S["AWS EKS — TicketFlow Services"]
+      US["user-service\n(Node.js)"]
+      TS["ticket-service\n(Spring Boot)"]
+      PS["payment-service\n(Python)"]
+      OS["order-service\n(Go)"]
+      NS["notification-service\n(Node.js)"]
+      AG["api-gateway\n(NGINX)"]
+    end
+
+    subgraph COLLECT["Collection Layer"]
+      PROM["Prometheus\n(scrapes /metrics)"]
+      PT["Promtail\n(tails container logs)"]
+      OC["OTel Collector\n(receives traces)"]
+    end
+
+    subgraph STORE["Storage Layer"]
+      LOKI["Loki\n(log store → S3)"]
+      TEMPO["Tempo\n(trace store → S3)"]
+    end
+
+    subgraph VIZ["Visualization & Alerting"]
+      GRAFANA["Grafana\n(dashboards + alerts)"]
+      AM["Alertmanager\n(route + notify)"]
+    end
+
+    subgraph NOTIFY["Notifications"]
+      PD["PagerDuty\n(on-call)"]
+      SL["Slack\n(#alerts channel)"]
+    end
+
+    US -- "/metrics" --> PROM
+    TS -- "/metrics" --> PROM
+    PS -- "/metrics" --> PROM
+    OS -- "/metrics" --> PROM
+    NS -- "/metrics" --> PROM
+    AG -- "/metrics" --> PROM
+
+    US -- "stdout logs" --> PT
+    TS -- "stdout logs" --> PT
+    PS -- "stdout logs" --> PT
+    OS -- "stdout logs" --> PT
+    NS -- "stdout logs" --> PT
+    AG -- "stdout logs" --> PT
+
+    US -- "OTLP traces" --> OC
+    TS -- "OTLP traces" --> OC
+    PS -- "OTLP traces" --> OC
+    OS -- "OTLP traces" --> OC
+
+    PT --> LOKI
+    OC --> TEMPO
+
+    PROM --> GRAFANA
+    LOKI --> GRAFANA
+    TEMPO --> GRAFANA
+    PROM --> AM
+    AM --> PD
+    AM --> SL
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow P95 Latency SLO</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow — payment-service SLO Crisis</span>
+        <p>TicketFlow's engineering team has defined the following SLO for <code>payment-service</code>:</p>
+        <blockquote style="border-left:4px solid #6366f1;padding-left:1rem;margin:1rem 0;font-style:italic;">
+          "99.5% of payment-service HTTP requests will complete with HTTP 2xx status within 500ms (P95), measured over a rolling 30-day window."
+        </blockquote>
+        <p>This gives them an error budget of: 30 days × 24 hours × 60 minutes × 0.5% = <strong>216 minutes</strong> of allowed latency SLO violations per month.</p>
+
+        <p>On a Tuesday afternoon, the Grafana dashboard shows the P95 latency for <code>payment-service</code> jumping from 180ms to 2.3 seconds. The Alertmanager fires two alerts:</p>
+        <ul>
+          <li><code>PaymentServiceP95LatencyHigh</code> — severity: warning — Slack #alerts</li>
+          <li><code>PaymentServiceErrorBudgetBurnRate</code> — severity: critical — PagerDuty on-call</li>
+        </ul>
+
+        <p><strong>Investigation workflow using the three pillars:</strong></p>
+        <ol>
+          <li><strong>Metrics first</strong> — Grafana shows P95 latency spike started at 14:32 UTC. CPU and memory for payment-service pods are normal. The spike correlates with a Grafana annotation showing a new deployment at 14:30 UTC.</li>
+          <li><strong>Traces second</strong> — The on-call engineer opens Tempo in Grafana and filters for traces from payment-service with duration &gt; 1s. Every slow trace shows a single span: <code>postgres.query — SELECT * FROM payment_methods WHERE user_id = ?</code> taking 2.1 seconds. The new deployment added a missing index removal during "cleanup".</li>
+          <li><strong>Logs to confirm</strong> — LogQL query in Grafana: <code>{app="payment-service"} |= "slow query" | logfmt | duration > 1s</code> confirms hundreds of slow query log lines starting at exactly 14:30 UTC.</li>
+        </ol>
+
+        <p>Root cause: a database migration in the new deployment dropped an index on <code>payment_methods.user_id</code> by mistake. The fix (re-adding the index) is deployed at 15:10 UTC — 38 minutes of SLO violation. Error budget remaining: 178 minutes. The incident is logged, a postmortem scheduled, and migration review added to the deployment checklist.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">Prometheus Scrape Configuration (kubernetes SD)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># prometheus.yml — scrape config for TicketFlow on EKS
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: ticketflow-prod
+    region: eu-west-1
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Kubernetes pod auto-discovery
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      # Only scrape pods with annotation prometheus.io/scrape: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      # Use custom port annotation if set
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: $1
+      # Add pod labels as metric labels
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      # Add namespace and pod name
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  # Explicit job for payment-service (additional scrape config)
+  - job_name: payment-service
+    static_configs:
+      - targets:
+          - payment-service.ticketflow.svc.cluster.local:8080
+    metrics_path: /metrics
+    scrape_interval: 10s   # more frequent for SLO-critical service</code></pre>
+      </div>
+
+      <h3 class="subsection-title">PromQL Queries — SLO Tracking</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-promql"># P95 latency for payment-service over last 5 minutes
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(http_request_duration_seconds_bucket{
+      job="payment-service",
+      status_code=~"2.."
+    }[5m])
+  )
+)
+
+# Request success rate (for availability SLI)
+sum(rate(http_requests_total{job="payment-service", status_code=~"2.."}[5m]))
+/
+sum(rate(http_requests_total{job="payment-service"}[5m]))
+
+# Error budget burn rate (30d window, 0.5% error budget)
+1 - (
+  sum(rate(http_requests_total{job="payment-service", status_code=~"2.."}[30d]))
+  /
+  sum(rate(http_requests_total{job="payment-service"}[30d]))
+) / 0.005
+
+# P95 latency broken down by HTTP method
+histogram_quantile(
+  0.95,
+  sum by (le, method) (
+    rate(http_request_duration_seconds_bucket{job="payment-service"}[5m])
+  )
+)
+
+# Requests per second grouped by service
+sum by (job) (
+  rate(http_requests_total{namespace="ticketflow"}[5m])
+)
+
+# Recording rule — pre-compute P95 (put this in a rules file, not inline)
+# record: job:http_request_duration_p95:rate5m
+# expr: histogram_quantile(0.95, sum by (le, job)(rate(http_request_duration_seconds_bucket[5m])))</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Prometheus Recording and Alerting Rules</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># /etc/prometheus/rules/ticketflow-slo.yml
+groups:
+  - name: ticketflow_recording_rules
+    interval: 30s
+    rules:
+      # Pre-compute P95 latency per job — used by dashboards and alert rules
+      - record: job:http_request_duration_p95:rate5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, job) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          )
+
+      # Pre-compute error rate per job
+      - record: job:http_error_rate:rate5m
+        expr: |
+          sum by (job) (rate(http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum by (job) (rate(http_requests_total[5m]))
+
+  - name: ticketflow_slo_alerts
+    rules:
+      # P95 latency SLO violation — payment-service
+      - alert: PaymentServiceP95LatencyHigh
+        expr: |
+          job:http_request_duration_p95:rate5m{job="payment-service"} > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          team: payments
+          service: payment-service
+        annotations:
+          summary: "payment-service P95 latency exceeds 500ms SLO"
+          description: "Current P95: {{ $value | humanizeDuration }}. SLO threshold: 500ms."
+          runbook: "https://wiki.ticketflow.io/runbooks/payment-service-latency"
+
+      # Fast burn rate — error budget being consumed 14x faster than allowed
+      - alert: PaymentServiceErrorBudgetBurnRate
+        expr: |
+          (
+            1 - (
+              sum(rate(http_requests_total{job="payment-service", status_code=~"2.."}[1h]))
+              / sum(rate(http_requests_total{job="payment-service"}[1h]))
+            )
+          ) / 0.005 > 14
+        for: 5m
+        labels:
+          severity: critical
+          team: payments
+          service: payment-service
+        annotations:
+          summary: "payment-service error budget burn rate critical"
+          description: "Burning error budget {{ $value | humanize }}x faster than allowed."
+
+      # Ticket service down
+      - alert: TicketServiceDown
+        expr: up{job="ticket-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "ticket-service is unreachable"
+          description: "Prometheus cannot scrape ticket-service at {{ $labels.instance }}"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Alertmanager Routing Configuration</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># alertmanager.yml
+global:
+  resolve_timeout: 5m
+  slack_api_url: "https://hooks.slack.com/services/TICKETFLOW/ALERTS/webhook"
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  # Default receiver for unmatched alerts
+  receiver: slack-warnings
+  group_by: [alertname, service, namespace]
+  group_wait: 30s          # wait before sending first notification
+  group_interval: 5m       # wait before sending updates to existing group
+  repeat_interval: 4h      # re-notify after this duration if still firing
+
+  routes:
+    # Critical alerts — payments team → PagerDuty
+    - match:
+        severity: critical
+        team: payments
+      receiver: pagerduty-payments
+      repeat_interval: 15m
+      continue: true        # also send to default receiver (Slack)
+
+    # Critical platform alerts → PagerDuty platform team
+    - match:
+        severity: critical
+        team: platform
+      receiver: pagerduty-platform
+      repeat_interval: 15m
+
+    # Warning-level alerts — Slack only
+    - match:
+        severity: warning
+      receiver: slack-warnings
+
+receivers:
+  - name: pagerduty-payments
+    pagerduty_configs:
+      - service_key: "${PAGERDUTY_PAYMENTS_KEY}"
+        description: '{{ template "pagerduty.description" . }}'
+        severity: critical
+
+  - name: pagerduty-platform
+    pagerduty_configs:
+      - service_key: "${PAGERDUTY_PLATFORM_KEY}"
+        severity: critical
+
+  - name: slack-warnings
+    slack_configs:
+      - channel: "#alerts-ticketflow"
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+inhibit_rules:
+  # If the entire payment-service is down, suppress individual endpoint alerts
+  - source_match:
+      alertname: PaymentServiceDown
+    target_match:
+      service: payment-service
+    equal: [namespace]</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Loki LogQL Queries</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-logql"># All error logs from payment-service
+{app="payment-service", namespace="ticketflow"} |= "ERROR"
+
+# Parse JSON logs and filter by duration > 1 second
+{app="payment-service"} | json | duration > 1s
+
+# Error rate from payment-service logs (metric query)
+sum(rate({app="payment-service"} |= "ERROR" [5m])) by (pod)
+
+# Slow database queries (logfmt format)
+{app="payment-service"} | logfmt | query_duration_ms > 1000
+
+# Correlate logs across services for a specific trace ID
+{namespace="ticketflow"} |= "trace_id=abc123def456"
+
+# Count HTTP 5xx responses per service in the last hour
+sum by (app) (
+  count_over_time(
+    {namespace="ticketflow"} |= "\"status\":5" [1h]
+  )
+)
+
+# user-service registration errors with user context
+{app="user-service"} | json | level="error" | action="register"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">OpenTelemetry Instrumentation — payment-service (Python)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-python"># payment_service/main.py
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.sdk.resources import Resource
+import fastapi
+
+# Configure the tracer provider with service metadata
+resource = Resource.create({
+    "service.name": "payment-service",
+    "service.version": "2.4.1",
+    "deployment.environment": "production",
+    "k8s.namespace.name": "ticketflow",
+})
+
+provider = TracerProvider(resource=resource)
+
+# Export to OTel Collector (which forwards to Tempo)
+otlp_exporter = OTLPSpanExporter(
+    endpoint="otel-collector.monitoring.svc.cluster.local:4317",
+    insecure=True,
+)
+provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+trace.set_tracer_provider(provider)
+
+tracer = trace.get_tracer("payment-service")
+
+app = fastapi.FastAPI()
+
+# Auto-instrument FastAPI — creates spans for every HTTP request
+FastAPIInstrumentor.instrument_app(app)
+
+# Auto-instrument SQLAlchemy — creates spans for every DB query
+SQLAlchemyInstrumentor().instrument()
+
+@app.post("/v1/payments")
+async def process_payment(payment: PaymentRequest):
+    # Custom span for business-level tracing
+    with tracer.start_as_current_span("payment.process") as span:
+        span.set_attribute("payment.amount", payment.amount)
+        span.set_attribute("payment.currency", payment.currency)
+        span.set_attribute("payment.user_id", payment.user_id)
+
+        try:
+            result = await charge_card(payment)
+            span.set_attribute("payment.status", "success")
+            span.set_attribute("payment.transaction_id", result.transaction_id)
+            return result
+        except CardDeclinedError as e:
+            span.set_attribute("payment.status", "declined")
+            span.set_attribute("payment.decline_reason", str(e))
+            span.record_exception(e)
+            raise</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Prometheus Metrics Instrumentation — order-service (Go)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-go">// order_service/metrics/metrics.go
+package metrics
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	// Counter — total HTTP requests by method, path, and status code
+	HTTPRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total number of HTTP requests handled by order-service",
+		},
+		[]string{"method", "path", "status_code"},
+	)
+
+	// Histogram — request latency in seconds with SLO-aligned buckets
+	HTTPRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_duration_seconds",
+			Help:    "HTTP request duration in seconds",
+			// Buckets designed around SLO threshold (500ms)
+			Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0},
+		},
+		[]string{"method", "path"},
+	)
+
+	// Gauge — current number of orders being processed
+	ActiveOrders = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "order_service_active_orders",
+		Help: "Number of orders currently being processed",
+	})
+
+	// Counter — order outcomes
+	OrdersProcessedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "orders_processed_total",
+			Help: "Total orders processed by outcome",
+		},
+		[]string{"outcome"}, // "success", "failed", "cancelled"
+	)
+)
+
+// Middleware records HTTP metrics for every request
+func InstrumentHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		timer := prometheus.NewTimer(
+			HTTPRequestDuration.WithLabelValues(r.Method, r.URL.Path),
+		)
+		defer timer.ObserveDuration()
+
+		rw := &responseWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(rw, r)
+
+		HTTPRequestsTotal.WithLabelValues(
+			r.Method,
+			r.URL.Path,
+			strconv.Itoa(rw.status),
+		).Inc()
+	})
+}</code></pre>
+      </div>
+
+      <h3 class="subsection-title">OTel Collector Configuration</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># otel-collector-config.yml — deployed as ConfigMap in monitoring namespace
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  # Add Kubernetes metadata to all spans
+  k8sattributes:
+    auth_type: serviceAccount
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.node.name
+        - k8s.deployment.name
+
+  # Tail-based sampling — keep 100% of error traces, 1% of success traces
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: errors-policy
+        type: status_code
+        status_code: {status_codes: [ERROR]}
+      - name: slow-traces-policy
+        type: latency
+        latency: {threshold_ms: 500}
+      - name: probabilistic-policy
+        type: probabilistic
+        probabilistic: {sampling_percentage: 1}
+
+exporters:
+  # Export traces to Grafana Tempo
+  otlp/tempo:
+    endpoint: tempo.monitoring.svc.cluster.local:4317
+    tls:
+      insecure: true
+
+  # Export metrics to Prometheus via remote write
+  prometheusremotewrite:
+    endpoint: http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [k8sattributes, tail_sampling, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [k8sattributes, batch]
+      exporters: [prometheusremotewrite]</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="os-commands" class="section-title">Platform-Specific Commands</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+          <button class="os-tab-btn" data-tab="kubectl">kubectl (all platforms)</button>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Port-forward Prometheus UI to localhost
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
+
+# Port-forward Grafana UI to localhost
+kubectl port-forward -n monitoring svc/grafana 3000:3000
+
+# Port-forward Alertmanager UI
+kubectl port-forward -n monitoring svc/alertmanager 9093:9093
+
+# Stream Loki-ready logs from payment-service pods (JSON format)
+kubectl logs -n ticketflow -l app=payment-service -f --output=json
+
+# Run a PromQL query via curl against port-forwarded Prometheus
+curl -s 'http://localhost:9090/api/v1/query?query=up{job="payment-service"}' | jq .
+
+# Check Alertmanager active alerts
+curl -s http://localhost:9093/api/v2/alerts | jq '.[] | {name:.labels.alertname, state:.status.state}'
+
+# Install kube-prometheus-stack via Helm (includes Prometheus + Grafana + Alertmanager)
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --values monitoring-values.yml</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Port-forward Prometheus UI to localhost
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
+
+# Port-forward Grafana UI to localhost
+kubectl port-forward -n monitoring svc/grafana 3000:3000
+
+# Stream Loki-ready logs from payment-service pods
+kubectl logs -n ticketflow -l app=payment-service -f
+
+# Run a PromQL query (PowerShell, requires curl.exe or Invoke-RestMethod)
+Invoke-RestMethod "http://localhost:9090/api/v1/query?query=up{job='payment-service'}" | ConvertTo-Json -Depth 5
+
+# Check Alertmanager active alerts
+Invoke-RestMethod "http://localhost:9093/api/v2/alerts" | Select-Object -ExpandProperty labels
+
+# Install kube-prometheus-stack via Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install monitoring prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  --create-namespace `
+  --values monitoring-values.yml</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="kubectl">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Check Prometheus targets status (are all services being scraped?)
+kubectl exec -n monitoring deploy/prometheus -- \
+  wget -qO- 'http://localhost:9090/api/v1/targets' | grep -o '"health":"[^"]*"' | sort | uniq -c
+
+# Check Promtail is collecting logs from all nodes
+kubectl get pods -n monitoring -l app=promtail
+
+# Check OTel Collector health
+kubectl logs -n monitoring deploy/otel-collector --tail=50
+
+# Verify payment-service exposes /metrics endpoint
+kubectl exec -n ticketflow deploy/payment-service -- \
+  wget -qO- http://localhost:8080/metrics | head -30
+
+# Annotate payment-service deployment for Prometheus auto-discovery
+kubectl annotate pod -n ticketflow -l app=payment-service \
+  prometheus.io/scrape="true" \
+  prometheus.io/port="8080" \
+  prometheus.io/path="/metrics"
+
+# Scale Prometheus StatefulSet (for high availability)
+kubectl scale -n monitoring statefulset/prometheus --replicas=2
+
+# Check error budget remaining via kubectl exec into Prometheus
+kubectl exec -n monitoring prometheus-0 -- \
+  wget -qO- "http://localhost:9090/api/v1/query?query=1-job:http_request_duration_p95:rate5m%7Bjob%3D%22payment-service%22%7D"</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How does Prometheus's pull model work internally?</summary>
+        <div class="answer-content">
+          <p>Every Prometheus scrape cycle, the Prometheus server iterates over all configured targets and sends an HTTP GET to each target's <code>/metrics</code> endpoint. The response is plain text in the Prometheus exposition format:</p>
+          <pre style="background:#1e293b;color:#e2e8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin:0.5rem 0;"><code># HELP http_requests_total Total HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",path="/health",status_code="200"} 12847
+http_requests_total{method="POST",path="/v1/payments",status_code="200"} 4821
+http_requests_total{method="POST",path="/v1/payments",status_code="500"} 12</code></pre>
+          <p>Prometheus parses this text, timestamps each sample with the current Unix timestamp (millisecond precision), and writes them to its TSDB (time-series database). The TSDB uses a chunk-based WAL (Write-Ahead Log) + block files on disk. Old data is compacted into increasingly larger blocks. Default retention is 15 days.</p>
+          <p>For Kubernetes service discovery, Prometheus queries the Kubernetes API server to discover pods, services, and endpoints. It re-discovers targets every 5 minutes by default and applies relabeling rules to transform Kubernetes metadata (annotations, labels) into Prometheus labels.</p>
+          <p>The pull model has important implications for security: Prometheus needs network access to all scrape targets, but targets never need credentials to push data out. Firewall rules control who can scrape whom. Compare this to push models (StatsD, InfluxDB line protocol) where agents push outward — useful for ephemeral jobs but harder to control at scale.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does distributed trace context propagation actually work?</summary>
+        <div class="answer-content">
+          <p>When a request arrives at api-gateway (NGINX), the OTel instrumentation creates a root span with a globally unique 128-bit <strong>trace ID</strong> and a 64-bit <strong>span ID</strong>. These are encoded in HTTP headers using the W3C Trace Context specification:</p>
+          <pre style="background:#1e293b;color:#e2e8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin:0.5rem 0;"><code>traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+#            version-traceId(32 hex chars)-parentSpanId(16 hex chars)-flags</code></pre>
+          <p>When api-gateway calls order-service, it includes this header in the downstream HTTP request. order-service's OTel SDK reads the <code>traceparent</code> header, extracts the trace ID and parent span ID, and creates a new child span with its own unique span ID but the <strong>same trace ID</strong>. It then passes the updated traceparent header when it calls payment-service.</p>
+          <p>Each service's OTel SDK batches spans and sends them to the OTel Collector via the OTLP protocol (gRPC or HTTP). The Collector processes, samples, and forwards spans to Tempo. Tempo stores all spans together and indexes them by trace ID, enabling the full trace tree to be reconstructed at query time.</p>
+          <p>The trace ID is also logged in application logs and included in HTTP response headers (<code>X-Trace-ID</code>), enabling correlation: when a user reports a slow request and provides a request ID, the engineer can look up logs by trace ID and see the exact trace in Grafana Tempo.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Loki's label-based indexing compare to Elasticsearch?</summary>
+        <div class="answer-content">
+          <p>Elasticsearch indexes every word in every log line. This makes full-text search extremely fast but requires significant memory and CPU for the inverted index. A 1TB log corpus might require 300GB of index data in memory for fast queries. The operational overhead is substantial.</p>
+          <p>Loki takes the opposite approach: it indexes only the stream labels (pod name, service, namespace, level) — not the log content. Log content is compressed with Snappy or gzip and stored in cheap object storage (S3, GCS). This makes Loki 10-100x cheaper to operate than Elasticsearch for the same log volume.</p>
+          <p>The trade-off: queries that filter on log content (LogQL's <code>|=</code> operator) must scan through compressed chunks rather than hitting an inverted index. This is slower for arbitrary full-text search but fast enough for the structured queries engineers actually need in production (filter by service + error level + time range).</p>
+          <p>The key design principle: put high-cardinality data in log lines, not labels. If you add <code>user_id="abc123"</code> as a label, Loki creates a new index entry for every unique user ID — millions of entries. Instead, structure your logs as <code>{"level":"error","user_id":"abc123","action":"checkout"}</code> and use LogQL's <code>| json | user_id="abc123"</code> to filter after label selection. This keeps the index small and queries efficient.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 1: High-Cardinality Labels in Prometheus</span>
+        <p>Adding <code>user_id</code>, <code>order_id</code>, or <code>request_id</code> as Prometheus metric labels creates a new time series for every unique value. With 1 million users, a single metric explodes into 1 million time series. Prometheus's memory usage is proportional to the number of active time series — this will OOM-kill your Prometheus instance and corrupt your metrics database.</p>
+        <p><strong>Fix:</strong> Prometheus labels should be low-cardinality (fewer than ~1,000 unique values). Service name, HTTP method, status code, endpoint path are fine. User IDs, order IDs, and trace IDs are not. For high-cardinality data, use logs or traces — that is exactly what they are designed for.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 2: Alerting on Symptoms Rather than Causes</span>
+        <p>Teams write alerts for every internal metric they can think of: CPU &gt; 80%, JVM heap &gt; 70%, database connections &gt; 50. These are <em>causes</em>, not symptoms. A database with 50 connections might be perfectly healthy. A pod at 85% CPU might be processing a batch job normally. These alerts fire constantly, get ignored, and train engineers to dismiss pages as noise — until the real incident is buried in alert fatigue.</p>
+        <p><strong>Fix:</strong> Alert on user-visible symptoms first. P95 latency, error rate, and availability SLO burn rate are user-visible. CPU and heap are context for debugging — put them on dashboards, not alerts. The Google SRE team's rule: alert only when a human needs to take action.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 3: Setting SLOs Without Error Budgets</span>
+        <p>Teams set a 99.9% availability SLO but never track error budget consumption. The SLO becomes a vanity metric — looked at quarterly in a management review rather than daily as an engineering decision-making tool. Without error budget tracking, the SLO has no operational teeth.</p>
+        <p><strong>Fix:</strong> Calculate your 30-day error budget (for 99.9%: 43.2 minutes). Track its burn rate in real time via PromQL. When burn rate exceeds 2x the sustainable rate for 1 hour (fast burn) or 6x for 6 hours (slow burn), alert the team. When the budget is nearly exhausted, halt non-critical deployments until it recovers.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 4: Tracing Only the Happy Path</span>
+        <p>Engineers instrument their main business logic but skip error paths, retries, and background jobs. When an incident occurs in a retry loop or a background payment reconciliation job, there are no traces to show what happened. The benefit of distributed tracing is greatest precisely when something goes wrong.</p>
+        <p><strong>Fix:</strong> Instrument all code paths: error handlers, retry logic, background workers, queue consumers, and cron jobs. Use OpenTelemetry's <code>span.record_exception(e)</code> and <code>span.set_status(StatusCode.ERROR)</code> in every exception handler. Configure tail-based sampling to keep 100% of error traces regardless of overall sample rate.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 5: Storing Logs Unstructured</span>
+        <p>Teams write logs as free-form strings: <code>print(f"Payment failed for user {user_id} with error {error}")</code>. These are human-readable but machine-hostile. Loki's <code>|=</code> operator can filter them, but parsing and aggregating requires fragile regex. Correlating with traces is impossible because no trace ID field exists.</p>
+        <p><strong>Fix:</strong> Use structured logging (JSON) from day one. Every log line should be a JSON object with fields like <code>level</code>, <code>timestamp</code>, <code>service</code>, <code>trace_id</code>, <code>span_id</code>, <code>user_id</code>, <code>action</code>, <code>duration_ms</code>, <code>error</code>. In Python, use <code>structlog</code>. In Node.js, use <code>pino</code>. In Java, use Logback with <code>logstash-logback-encoder</code>. In Go, use <code>zap</code> or <code>slog</code>.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>Observability is not a tool you install — it is a discipline you build into your system from the beginning. The difference between a team that resolves incidents in 15 minutes and one that takes 4 hours is almost always observability investment made months earlier.</p>
+
+        <p><strong>Design observability into your system architecture:</strong></p>
+        <ul>
+          <li><strong>Correlation IDs everywhere</strong> — every incoming request gets a UUID at the API gateway. This ID propagates as a trace ID in distributed tracing headers, as a field in every log line, and as a label in metrics for request-specific debugging. When a customer reports a problem with "reference number TF-4821," you can pull all logs, metrics, and traces for that exact request in seconds.</li>
+          <li><strong>The USE method for infrastructure</strong> — for every resource (CPU, memory, network, disk), measure Utilization (what % is being used), Saturation (is it queued or waiting?), and Errors. This gives a consistent framework for diagnosing infrastructure bottlenecks.</li>
+          <li><strong>The RED method for services</strong> — for every service, measure Rate (requests per second), Errors (errors per second), and Duration (P50/P95/P99 latency). These three metrics tell you whether a service is healthy from a user's perspective. They are the foundation of SLOs.</li>
+          <li><strong>OpenTelemetry is the answer to vendor lock-in</strong> — instrument once with OTel, export to any backend. Starting with Jaeger today does not lock you into Jaeger forever. OTel separates instrumentation (in your code) from the observability backend (Jaeger, Tempo, Honeycomb, Datadog). This is the right long-term architectural decision.</li>
+          <li><strong>Observability costs money — plan for it</strong> — Prometheus with 30-day retention for 100 services needs 50–200GB of disk. Loki ingesting 100GB/day of logs needs S3 and query capacity. Distributed tracing with 1% sample rate on 10,000 RPS still generates significant storage. Build observability costs into capacity planning from the start, not as a surprise afterthought when the storage bill arrives.</li>
+        </ul>
+
+        <p><strong>The maturity ladder:</strong> Start with metrics (cheapest, highest value). Add structured logs with trace IDs next. Add distributed tracing last — it requires code changes and OTel SDK integration in every service. For a new system: instrument metrics in week 1, structured logs in week 2, tracing as you add services. For a legacy system: add Prometheus exporters externally (NGINX exporter, JVM exporter, DB exporter) before touching application code.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <p>Before declaring a service production-ready from an observability standpoint, verify all of the following:</p>
+
+      <ul class="checklist">
+        <li>Every service exposes a <code>/metrics</code> endpoint and is scraped by Prometheus</li>
+        <li>RED metrics (Rate, Errors, Duration) are instrumented for every service endpoint</li>
+        <li>Histograms are used for latency (not summaries) with SLO-aligned bucket boundaries</li>
+        <li>Recording rules pre-compute expensive P95/P99 queries to keep dashboards fast</li>
+        <li>Alerting rules cover P95 latency SLO breach, error rate SLO breach, and service down</li>
+        <li>Error budget burn rate alerts exist for both fast burn (1h window) and slow burn (6h window)</li>
+        <li>Alertmanager routes critical alerts to PagerDuty and warning alerts to Slack</li>
+        <li>Grafana dashboards include the service's RED metrics, error budget, and recent deployment annotations</li>
+        <li>All log output is structured JSON with <code>trace_id</code>, <code>level</code>, <code>service</code>, and <code>timestamp</code> fields</li>
+        <li>Promtail (or Fluent Bit) is configured to collect and ship logs to Loki</li>
+        <li>Services are instrumented with OpenTelemetry SDK and traces exported to the OTel Collector</li>
+        <li>Trace IDs are included in HTTP response headers (<code>X-Trace-ID</code>) for user-facing error correlation</li>
+        <li>SLO document exists with defined SLI, SLO target, and error budget calculation</li>
+        <li>Runbook exists for every critical alert with diagnostic steps and escalation path</li>
+        <li>Grafana data sources link Prometheus metrics, Loki logs, and Tempo traces for correlated investigation</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: PromQL Queries and Grafana Dashboard</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">🧪 Lab — Requires kube-prometheus-stack or local Prometheus</span>
+
+        <p>This lab walks you through writing production-grade PromQL queries for TicketFlow's <code>payment-service</code> SLO and building a Grafana dashboard panel by panel.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Deploy the full observability stack locally with Docker Compose</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Clone the TicketFlow observability lab
+git clone https://github.com/ticketflow-labs/observability-lab
+cd observability-lab
+
+# Start Prometheus + Grafana + Loki + Tempo + a mock payment-service
+docker compose up -d
+
+# Verify all services are up
+docker compose ps
+
+# Access UIs:
+# Prometheus: http://localhost:9090
+# Grafana:    http://localhost:3000  (admin/admin)
+# Alertmanager: http://localhost:9093</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Explore Prometheus targets and raw metrics</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Open http://localhost:9090/targets — verify payment-service is UP
+
+# Open http://localhost:9090/graph and run these queries one at a time:
+
+# 2a. Check that payment-service is being scraped
+up{job="payment-service"}
+
+# 2b. View all raw metric names for payment-service
+{job="payment-service"}
+
+# 2c. See raw histogram buckets for request duration
+http_request_duration_seconds_bucket{job="payment-service"}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Write the SLO PromQL queries</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-promql"># 3a. Current request rate (requests/sec)
+rate(http_requests_total{job="payment-service"}[5m])
+
+# 3b. Error rate (5xx / total)
+sum(rate(http_requests_total{job="payment-service", status_code=~"5.."}[5m]))
+/
+sum(rate(http_requests_total{job="payment-service"}[5m]))
+
+# 3c. P95 latency — the core SLO metric
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(http_request_duration_seconds_bucket{job="payment-service"}[5m])
+  )
+)
+
+# 3d. P50 and P99 for comparison (change 0.95 to 0.50 and 0.99)
+histogram_quantile(0.99,
+  sum by (le) (rate(http_request_duration_seconds_bucket{job="payment-service"}[5m]))
+)
+
+# 3e. SLO compliance — what % of requests meet the 500ms target
+sum(rate(http_request_duration_seconds_bucket{
+  job="payment-service",
+  le="0.5"
+}[5m]))
+/
+sum(rate(http_request_duration_seconds_bucket{
+  job="payment-service",
+  le="+Inf"
+}[5m]))</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Build a Grafana SLO dashboard</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-text">In Grafana (http://localhost:3000):
+
+1. Create a new dashboard: Dashboards → New → New Dashboard
+2. Add variable: Settings → Variables → Add variable
+   - Name: service
+   - Type: Custom
+   - Values: payment-service,order-service,user-service,ticket-service
+
+3. Add Panel 1 — P95 Latency Time Series
+   - Query: histogram_quantile(0.95, sum by (le)(rate(http_request_duration_seconds_bucket{job="$service"}[5m])))
+   - Visualization: Time series
+   - Unit: seconds (s)
+   - Add threshold line at 0.5 (500ms SLO)
+   - Panel title: "$service P95 Latency"
+
+4. Add Panel 2 — SLO Compliance Stat
+   - Query: (paste 3e from above with $service variable)
+   - Visualization: Stat
+   - Unit: Percent (0-100)
+   - Thresholds: green > 99.5%, yellow > 99%, red < 99%
+   - Panel title: "SLO Compliance (30d)"
+
+5. Add Panel 3 — Error Rate Time Series
+   - Query: sum(rate(http_requests_total{job="$service", status_code=~"5.."}[5m])) / sum(rate(http_requests_total{job="$service"}[5m]))
+   - Visualization: Time series
+   - Unit: Percent (0-100)
+   - Panel title: "Error Rate"
+
+6. Save dashboard as "TicketFlow Service SLO"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Write a LogQL query in Grafana Explore</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-logql"># In Grafana → Explore → select Loki data source
+
+# 5a. All logs from payment-service
+{app="payment-service"}
+
+# 5b. Error logs only
+{app="payment-service"} |= "ERROR"
+
+# 5c. Parse JSON and filter by field
+{app="payment-service"} | json | level="error"
+
+# 5d. Correlate by trace ID from a Tempo trace
+{namespace="ticketflow"} |= "trace_id=YOUR_TRACE_ID_HERE"
+
+# 5e. Slow payment queries
+{app="payment-service"} | json | query_duration_ms > 500</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How P95 latency tells a completely different story than P50 (median) — P50 might be 80ms while P95 is 1.2 seconds.</li>
+          <li>How the Grafana variable <code>$service</code> makes one dashboard work for all services.</li>
+          <li>How SLO compliance percentage drops even during a brief spike — the 30-day window means even a 5-minute outage has lasting impact.</li>
+          <li>How LogQL's <code>| json</code> parser lets you filter on structured fields that are not index labels.</li>
+          <li>How tracing a single trace ID across Loki logs reveals the full story of one request through multiple services.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions cover the observability concepts most frequently tested in senior engineer and architect-level interviews. Click each to reveal a complete answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What are the three pillars of observability and what does each tell you?</summary>
+            <div class="answer-content">
+              <p>The three pillars are <strong>metrics</strong>, <strong>logs</strong>, and <strong>traces</strong>, each answering a different diagnostic question:</p>
+              <ul>
+                <li><strong>Metrics</strong> — <em>"How much / how many?"</em> Numerical aggregates over time: requests/second, P95 latency, error rate, CPU usage. Cheap to store, fast to query, but cannot explain why a specific request failed. Best for dashboards, SLO tracking, and alerting.</li>
+                <li><strong>Logs</strong> — <em>"What happened?"</em> Timestamped records of discrete events for specific requests. Rich context (user ID, stack trace, SQL query text) but expensive at scale. Best for post-incident investigation and audit trails.</li>
+                <li><strong>Traces</strong> — <em>"Where did the time go across service boundaries?"</em> A trace follows a single request through every service it touches, showing parent-child call relationships and per-service latency breakdown. Best for diagnosing latency issues and understanding inter-service dependencies in microservices architectures.</li>
+              </ul>
+              <p>The real power is in connecting all three. A Grafana dashboard shows P95 latency spiking (metrics). You click the spike and jump to correlated error logs (logs). You find a specific failing request and follow its trace to identify which service and which database query caused the slowdown (traces).</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: Explain SLI, SLO, and SLA with concrete examples. What is an error budget?</summary>
+            <div class="answer-content">
+              <p><strong>SLI (Service Level Indicator)</strong> is the specific metric you measure as a proxy for user happiness. For TicketFlow's payment-service: "the ratio of HTTP requests completing within 500ms with a 2xx status code, measured over the last 5 minutes." It is a number you can compute from real traffic data using PromQL.</p>
+              <p><strong>SLO (Service Level Objective)</strong> is the internal target for that SLI. "99.5% of payment-service requests will meet the SLI over any rolling 30-day window." Failing an SLO triggers a postmortem and potentially a deployment freeze — not a refund. SLOs are agreed to internally between engineering and product.</p>
+              <p><strong>SLA (Service Level Agreement)</strong> is the external contractual commitment, usually to enterprise customers. "We guarantee 99.9% API availability. Failure incurs a 25% service credit." SLAs involve legal contracts and financial penalties. SLOs should be tighter than SLAs (99.5% SLO vs 99% SLA) to create a safety buffer.</p>
+              <p><strong>Error budget</strong> is derived from the SLO: the allowed failure quota. A 99.5% SLO over 30 days gives: 30 days × 24 hours × 60 min × 0.5% = <strong>216 minutes</strong> of allowed SLO violation. The error budget is a shared resource between engineering (stability = preserve budget) and product (new features = risk burning budget). When the budget is exhausted, no new deployments until it recovers. This creates a data-driven, emotionally neutral conversation about risk.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: How does Prometheus differ from push-based monitoring systems? What are the trade-offs?</summary>
+            <div class="answer-content">
+              <p>Prometheus uses a <strong>pull model</strong>: Prometheus actively scrapes HTTP <code>/metrics</code> endpoints on each target at a configured interval (default 15s). Targets are passive — they expose metrics and wait to be scraped.</p>
+              <p>Push-based systems (StatsD, InfluxDB line protocol, Graphite) require each service to actively send metrics to a central collector. Services need the collector's address and credentials.</p>
+              <p><strong>Pull model advantages:</strong></p>
+              <ul>
+                <li>Prometheus always knows if a target is reachable — if scraping fails, the target is marked as down and an alert fires. With push, a silent service looks healthy.</li>
+                <li>Access control is simpler: Prometheus needs read access to scrape targets; targets don't need outbound permissions to the monitoring system.</li>
+                <li>Easier debugging: you can manually <code>curl http://service/metrics</code> to see exactly what Prometheus sees.</li>
+              </ul>
+              <p><strong>Pull model disadvantages:</strong></p>
+              <ul>
+                <li>Short-lived jobs (batch jobs, CI pipelines) finish before Prometheus can scrape them. Solution: Prometheus Pushgateway — jobs push to the gateway; Prometheus scrapes the gateway.</li>
+                <li>Services behind strict firewalls (Prometheus cannot reach them) require a Prometheus federation or remote write proxy.</li>
+                <li>At massive scale (millions of services), a single Prometheus instance cannot scrape all targets. Solution: Prometheus federation, Thanos, or Cortex for horizontal scaling.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: Why is high cardinality dangerous in Prometheus? How do you handle high-cardinality data?</summary>
+            <div class="answer-content">
+              <p>Prometheus stores each unique combination of metric name + label values as a separate time series. Cardinality is the total number of unique time series. Memory usage scales linearly with cardinality — typically 1–2 KB per active time series.</p>
+              <p>A label with high cardinality (many unique values) creates an explosion. A <code>user_id</code> label with 1 million unique users creates 1 million time series for a single metric. At 1KB each, that is 1GB of RAM just for one metric. Production Prometheus instances have crashed from cardinality explosions, taking down monitoring exactly when it is most needed.</p>
+              <p><strong>Safe Prometheus label cardinality:</strong></p>
+              <ul>
+                <li>HTTP method: 5 values (GET, POST, PUT, DELETE, PATCH) — safe</li>
+                <li>Status code class: 5 values (2xx, 3xx, 4xx, 5xx, errors) — safe</li>
+                <li>Service name: 20 services — safe</li>
+                <li>User ID: 1,000,000 users — dangerous</li>
+                <li>Request ID: unique per request — catastrophic</li>
+              </ul>
+              <p><strong>How to handle high-cardinality data:</strong></p>
+              <ul>
+                <li><strong>Logs</strong> — user IDs, order IDs, request IDs belong in log lines, not metric labels. Use structured logging and query with LogQL.</li>
+                <li><strong>Traces</strong> — individual request timing and path data belong in trace spans, not metrics.</li>
+                <li><strong>ClickHouse / columnar stores</strong> — for analytics use cases requiring high-cardinality metric exploration (Honeycomb and Grafana Mimir support this).</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What is distributed tracing and how does context propagation work across services?</summary>
+            <div class="answer-content">
+              <p>Distributed tracing captures the full lifecycle of a request as it flows through multiple services in a distributed system. Without tracing, you might know a request took 3 seconds total but have no idea which of the 8 services it touched caused the slowdown.</p>
+              <p><strong>Core concepts:</strong></p>
+              <ul>
+                <li><strong>Span</strong> — a single operation. HTTP request to a service, database query, cache lookup. Has start time, duration, service name, operation name, and key-value attributes.</li>
+                <li><strong>Trace</strong> — a tree of spans with parent-child relationships representing the complete execution path of one request. All spans in a trace share the same trace ID.</li>
+                <li><strong>Context propagation</strong> — the mechanism for passing trace identity between services.</li>
+              </ul>
+              <p><strong>How context propagation works step by step:</strong></p>
+              <ol>
+                <li>api-gateway receives an HTTP request. OTel SDK creates a root span with a randomly-generated 128-bit trace ID and a 64-bit span ID.</li>
+                <li>When api-gateway calls order-service (outbound HTTP), the OTel SDK automatically injects trace context into the HTTP request headers using the W3C Trace Context standard: <code>traceparent: 00-{traceId}-{spanId}-{flags}</code>.</li>
+                <li>order-service's OTel SDK reads the <code>traceparent</code> header, extracts the trace ID and parent span ID, and creates a new child span with the same trace ID but a new span ID.</li>
+                <li>This repeats for every downstream call. All spans are exported asynchronously to the OTel Collector.</li>
+                <li>The tracing backend (Tempo/Jaeger) stores all spans and reconstructs the trace tree using the trace ID and parent-span-ID relationships.</li>
+              </ol>
+              <p>In the OpenTelemetry model, this is all handled automatically by HTTP client/server instrumentation libraries — no manual header management required in application code.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How would you design alerting to avoid alert fatigue on a team of 10 engineers?</summary>
+            <div class="answer-content">
+              <p>Alert fatigue occurs when engineers receive so many non-actionable pages that they start ignoring alerts. Solving it requires discipline in alert design, not just tooling.</p>
+              <p><strong>Principles for alert design that avoids fatigue:</strong></p>
+              <ul>
+                <li><strong>Alert on symptoms, not causes</strong> — P95 latency &gt; SLO threshold and error rate &gt; SLO budget burn rate are symptoms users feel. CPU &gt; 80% is a cause that may or may not affect users. Causes belong on dashboards; symptoms trigger pages.</li>
+                <li><strong>Every alert must be actionable</strong> — if an alert fires and the on-call engineer's only response is "I'll wait and see if it recovers," the alert should not fire. Either it needs a runbook action or it should be demoted to a dashboard-only metric.</li>
+                <li><strong>Multi-window burn rate alerting (Google's approach)</strong> — instead of alerting when P95 &gt; 500ms for 2 minutes, alert when the error budget burn rate is unsustainable. A fast-burn alert (budget burning 14x faster than sustainable over 1 hour) pages immediately. A slow-burn alert (budget burning 5x over 6 hours) creates a ticket for investigation during business hours. This catches incidents at different severity levels with appropriate urgency.</li>
+                <li><strong>Severity tiers with matching response expectations</strong> — Critical (P1): wake someone up, resolve in &lt;30 minutes. Warning (P2): Slack notification, review in &lt;4 hours. Info: dashboard only, no page. Do not mix these — no one should be woken up for a P2.</li>
+                <li><strong>Regularly review and prune alerts</strong> — run a monthly audit. Every alert that fired and required no action in the last 30 days should be deleted or demoted. Alerts should earn their place on the on-call runbook.</li>
+              </ul>
+              <p>For a team of 10: aim for fewer than 5 P1 alert types per service, a shared on-call rotation with documented runbooks for every alert, and a weekly 15-minute alert review in the team standup to discuss false positives.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: How do you correlate metrics, logs, and traces in a production incident investigation?</summary>
+            <div class="answer-content">
+              <p>Effective incident investigation follows a structured flow from broad to specific, using each observability pillar in the right order:</p>
+              <p><strong>1. Start with metrics (broad view, fast):</strong> Open the service RED dashboard. Which metric spiked? When did it start? What changed? Correlate with deployment annotations. Is it one service or multiple? One region or global? Metrics give you the "what and when" in seconds.</p>
+              <p><strong>2. Use traces to find the bottleneck (service-level detail):</strong> In Grafana Explore, open Tempo. Filter for traces with high latency or errors in the affected time window. Pick representative slow/erroring traces. The trace waterfall view immediately shows which service and which specific operation (DB query, external API call, internal function) is taking the most time. Traces give you the "where" — the exact span causing the problem.</p>
+              <p><strong>3. Use logs to understand the cause (request-level detail):</strong> Take the trace ID from the slow trace. Open Loki in Grafana Explore. Query: <code>{namespace="ticketflow"} |= "trace_id=YOUR_TRACE_ID"</code>. This pulls every log line across all services for that specific request. You can now see the exact error message, the SQL query that was slow, the external API response that failed.</p>
+              <p><strong>Technical enablers for this workflow:</strong></p>
+              <ul>
+                <li>Grafana's "Explore" view with cross-data-source navigation (click a metric spike → jump to logs for that time range)</li>
+                <li>Exemplars — Prometheus can store trace IDs alongside histogram samples, linking specific high-latency data points directly to their trace in Tempo</li>
+                <li>Structured logs with <code>trace_id</code> as a field (not just embedded in message text) so LogQL can filter by it</li>
+                <li>Deployment annotations on Grafana dashboards correlating changes with metric behavior</li>
+              </ul>
+              <p>With this setup, the time from "alert fires" to "root cause identified" drops from hours to minutes — the difference between a P1 incident lasting 2 hours versus 15 minutes.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

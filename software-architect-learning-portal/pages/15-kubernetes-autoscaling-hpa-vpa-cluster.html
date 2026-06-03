@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Autoscaling: HPA, VPA &amp; Cluster Autoscaler — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="15" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Advanced → Autoscaling</span>
+      <button id="theme-toggle">🌙</button>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ============================================================
+           PAGE HEADER
+           ============================================================ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 40 min read</span>
+          <span class="tag">Epic 5</span>
+        </div>
+        <h1 class="page-title">Kubernetes Autoscaling: HPA, VPA &amp; Cluster Autoscaler</h1>
+        <p class="page-subtitle">Master all three layers of Kubernetes autoscaling — pod replicas, pod resource right-sizing, and node provisioning — plus KEDA for event-driven scale-to-zero.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ============================================================
+           SECTION 1 — THE STORY
+           ============================================================ -->
+      <h2 id="story" class="section-title">The Story Behind Autoscaling</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">Concert Night at TicketFlow</span>
+        <p>It is 9:59 AM on a Friday. Beyoncé's world tour just went on sale. In 60 seconds, 400,000 fans will simultaneously hammer TicketFlow's ticket-service endpoint. At 9:55 AM, the platform is idling on 3 pods consuming a total of 600 MB of RAM. By 10:02 AM it needs to handle 80,000 requests per second.</p>
+        <p>Before autoscaling: the SRE team would pre-provision 200 pods the night before — paying for them all night, scrambling to scale down Monday morning, and still occasionally getting the numbers wrong. One Friday they under-provisioned by 40% and the site returned 503 errors for 11 minutes while Taylor Swift tickets sold out. That 11 minutes cost $2.3 million in lost sales and a viral Twitter storm.</p>
+        <p>After Kubernetes autoscaling: the cluster watches CPU, memory, and custom queue depth metrics in real time. When the concert sale opens, HPA spins up 180 new pod replicas in under 90 seconds. Cluster Autoscaler provisions 12 new EC2 nodes to accommodate them. The VPA silently adjusts container memory requests so JVM-heavy ticket-service pods get the right amount. After the rush, everything scales back down automatically. The team slept through Friday morning.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 2 — BEGINNER EXPLANATION
+           ============================================================ -->
+      <h2 id="beginner-explanation" class="section-title">What is Autoscaling?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">Beginner Analogy</span>
+        <p>Think of a restaurant. On a quiet Tuesday, two waiters can handle every table. On New Year's Eve, you call in 20 extra staff. On a regular night, the kitchen is fine with 4 burners lit — but on a busy Saturday you also open the second kitchen entirely (a new node).</p>
+        <p>Kubernetes autoscaling works exactly like this across three layers:</p>
+        <ul>
+          <li><strong>HPA (Horizontal Pod Autoscaler)</strong> — calls in more waiters (more pod copies) when demand rises.</li>
+          <li><strong>VPA (Vertical Pod Autoscaler)</strong> — makes each waiter stronger by giving them the right tools (adjusts CPU/memory limits per pod).</li>
+          <li><strong>Cluster Autoscaler</strong> — opens new kitchens when all existing space is full (adds new nodes to the cluster).</li>
+          <li><strong>KEDA</strong> — calls in staff based on specific triggers like "the reservation phone is ringing off the hook" (event-driven scale based on queues, HTTP traffic, custom sources).</li>
+        </ul>
+      </div>
+
+      <!-- ============================================================
+           SECTION 3 — TECHNICAL EXPLANATION
+           ============================================================ -->
+      <h2 id="technical-deep-dive" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">Horizontal Pod Autoscaler (HPA)</h3>
+      <p>HPA is a Kubernetes controller that automatically adjusts the number of pod replicas in a Deployment, ReplicaSet, or StatefulSet. It operates on a control loop — by default every 15 seconds — comparing observed metric values against desired targets.</p>
+      <p>The scaling formula Kubernetes uses internally is:</p>
+      <div class="code-wrapper">
+        <pre><code class="language-text">desiredReplicas = ceil[currentReplicas * (currentMetricValue / desiredMetricValue)]
+
+Example:
+  currentReplicas = 3
+  currentCPU     = 80% (of requested)
+  targetCPU      = 50%
+  desiredReplicas = ceil[3 * (80 / 50)] = ceil[4.8] = 5</code></pre>
+      </div>
+      <p>HPA supports three metric sources:</p>
+      <ul>
+        <li><strong>Resource metrics</strong> — CPU and memory utilization relative to pod requests. Sourced from the <code>metrics-server</code> add-on (must be installed separately on EKS).</li>
+        <li><strong>Custom metrics</strong> — application-level metrics exposed through the Custom Metrics API adapter (e.g., Prometheus Adapter). Examples: requests-per-second, queue depth, active WebSocket connections.</li>
+        <li><strong>External metrics</strong> — metrics from systems outside the cluster entirely. Examples: SQS queue length, Kafka lag, Google Pub/Sub messages. Requires an external metrics adapter or KEDA.</li>
+      </ul>
+      <p>Two important behavioral parameters control how aggressively HPA scales:</p>
+      <ul>
+        <li><strong>Scale-up stabilization window</strong> (default 0s) — how long HPA waits before scaling up after a spike. Low because scale-ups are urgent.</li>
+        <li><strong>Scale-down stabilization window</strong> (default 300s) — how long HPA waits before scaling down after load drops. High to prevent flapping — rapid scale up/down cycles that waste resources and destabilize the application.</li>
+      </ul>
+
+      <h3 class="subsection-title">Vertical Pod Autoscaler (VPA)</h3>
+      <p>VPA right-sizes container resource requests and limits based on actual historical and current usage. It observes how much CPU and memory pods actually use and recommends (or enforces) better-fitting requests. This solves the "ghost capacity" problem: a pod requesting 4 GB RAM that only ever uses 800 MB wastes 3.2 GB of node capacity that other pods could use.</p>
+      <p>VPA has four operating modes:</p>
+      <table class="decision-table">
+        <thead>
+          <tr><th>Mode</th><th>Behavior</th><th>Use When</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Off</code></td>
+            <td>VPA calculates recommendations but applies nothing. You read them manually.</td>
+            <td>Initial audit phase — understand current waste without touching production.</td>
+          </tr>
+          <tr>
+            <td><code>Initial</code></td>
+            <td>VPA sets resource requests only when a pod is first created. Never updates a running pod.</td>
+            <td>New deployments where you want right-sized initial requests but don't want forced restarts.</td>
+          </tr>
+          <tr>
+            <td><code>Recreate</code></td>
+            <td>VPA evicts and recreates pods when their resources differ significantly from the recommendation.</td>
+            <td>Non-critical workloads where occasional restarts are acceptable.</td>
+          </tr>
+          <tr>
+            <td><code>Auto</code></td>
+            <td>Same as Recreate today; will support in-place resource updates when the feature graduates.</td>
+            <td>Most recommended for production once in-place updates are stable.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>VPA consists of three components: the <strong>Recommender</strong> (watches metrics and calculates ideal requests), the <strong>Updater</strong> (evicts pods that are too far from recommendations), and the <strong>Admission Controller</strong> (mutates new pods on creation to set the recommended requests).</p>
+
+      <h3 class="subsection-title">Cluster Autoscaler (CA)</h3>
+      <p>Cluster Autoscaler operates at the infrastructure level — adding or removing worker nodes. It watches for pods in the <code>Pending</code> state that could not be scheduled because no existing node has sufficient capacity. When it finds such pods, it triggers the cloud provider's API to provision new nodes from a configured node group (on EKS: an Auto Scaling Group).</p>
+      <p>CA also watches for underutilized nodes — nodes where all pods could fit onto other nodes with available capacity. After a configurable delay (default 10 minutes), it cordons the node, evicts its pods (respecting PodDisruptionBudgets), and terminates the EC2 instance.</p>
+      <p>Key configuration parameters:</p>
+      <ul>
+        <li><code>--scale-down-delay-after-add</code> (default 10m) — wait this long after a scale-up before considering scale-down. Prevents premature scale-down of freshly provisioned nodes.</li>
+        <li><code>--scale-down-unneeded-time</code> (default 10m) — a node must be unneeded for this long before it is terminated.</li>
+        <li><code>--max-node-provision-time</code> (default 15m) — if a node takes longer than this to join the cluster, CA considers the scale-up failed.</li>
+      </ul>
+
+      <h3 class="subsection-title">KEDA — Kubernetes Event-Driven Autoscaling</h3>
+      <p>KEDA extends HPA to support event-driven scaling sources that standard HPA cannot handle natively. KEDA acts as an external metrics server and HPA controller in one. It connects to over 60 built-in <strong>scalers</strong> (event sources) and translates their metrics into HPA-compatible external metrics.</p>
+      <p>Key KEDA capabilities beyond standard HPA:</p>
+      <ul>
+        <li><strong>Scale to zero</strong> — KEDA can scale a Deployment down to 0 replicas when its event source is empty (e.g., empty SQS queue). Standard HPA has a minimum of 1. KEDA bridges 0 to 1 by bypassing HPA's minimum constraint.</li>
+        <li><strong>Rich event sources</strong> — AWS SQS, Kafka consumer lag, RabbitMQ queue depth, HTTP request rate, Redis list length, Prometheus queries, cron schedules, and more.</li>
+        <li><strong>ScaledObject</strong> — the KEDA CRD that defines what to scale, which scaler to use, min/max replicas, and cooldown settings.</li>
+        <li><strong>ScaledJob</strong> — for batch workloads, KEDA can scale Kubernetes Jobs (not just Deployments) based on queue depth — one Job per queue message pattern.</li>
+      </ul>
+
+      <!-- ============================================================
+           SECTION 4 — MERMAID DIAGRAM
+           ============================================================ -->
+      <h2 id="scaling-decision-flow" class="section-title">Scaling Decision Flow</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    METRICS["Metrics Sources\n(metrics-server / Prometheus / KEDA)"]
+    METRICS --> HPA_CTRL["HPA Controller\n(every 15s)"]
+    METRICS --> KEDA_CTRL["KEDA Controller\n(event-driven)"]
+
+    HPA_CTRL --> HPA_DECISION{CPU/Memory\nabove target?}
+    HPA_DECISION -->|Yes| SCALE_UP["Scale Up Replicas\n+N pods"]
+    HPA_DECISION -->|No, check cooldown| SCALE_DOWN_CHECK{Stabilization\nwindow elapsed?}
+    SCALE_DOWN_CHECK -->|Yes| SCALE_DOWN["Scale Down Replicas\n-N pods"]
+    SCALE_DOWN_CHECK -->|No| HOLD["Hold current\nreplicas"]
+
+    KEDA_CTRL --> KEDA_DECISION{Queue depth /\nHTTP reqs > threshold?}
+    KEDA_DECISION -->|Yes| KEDA_UP["Scale Up via HPA\n(or 0→1 directly)"]
+    KEDA_DECISION -->|Zero events| KEDA_ZERO["Scale to Zero\n(0 replicas)"]
+
+    SCALE_UP --> SCHED{Scheduler:\nfits on existing nodes?}
+    KEDA_UP --> SCHED
+    SCHED -->|Yes| POD_PLACED["Pod Placed\non existing node"]
+    SCHED -->|No - Pending| CA["Cluster Autoscaler\ndetects Pending pods"]
+    CA --> NEW_NODE["Provision new EC2 node\nfrom ASG"]
+    NEW_NODE --> POD_PLACED
+
+    VPA["VPA Recommender\n(background)"] --> VPA_EVICT{Request far\nfrom usage?}
+    VPA_EVICT -->|Yes - Recreate/Auto| EVICT["Evict + Recreate pod\nwith new requests"]
+    VPA_EVICT -->|No or Off/Initial| VPA_RECOMMEND["Log recommendation\nonly"]
+
+    style KEDA_ZERO fill:#1e3a5f,color:#fff
+    style NEW_NODE fill:#1a4731,color:#fff
+    style POD_PLACED fill:#1a4731,color:#fff
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SECTION 5 — ENTERPRISE SCENARIO (TicketFlow)
+           ============================================================ -->
+      <h2 id="ticketflow-scenario" class="section-title">Enterprise Scenario: TicketFlow Peak Load</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">TicketFlow — Concert Sale Architecture</span>
+        <p>TicketFlow's AWS EKS cluster hosts all six microservices. The <strong>ticket-service</strong> (Spring Boot) receives the most concentrated traffic spikes — up to 15,000 req/s during the first 90 seconds of a major sale. Here is the full autoscaling strategy the platform team implemented:</p>
+        <ul>
+          <li><strong>ticket-service</strong> — HPA on CPU (target 60%) with custom metric <code>http_requests_in_flight</code> via Prometheus Adapter. minReplicas: 3, maxReplicas: 200. VPA in <code>Off</code> mode (produces recommendations; team reviews weekly to right-size JVM heap settings).</li>
+          <li><strong>payment-service</strong> (Python) — KEDA ScaledObject on SQS queue depth (payment confirmation queue). Scales from 2 to 50 replicas. Scale-to-zero disabled (minReplicas: 2) because payment confirmations must always process.</li>
+          <li><strong>notification-service</strong> (Node.js) — KEDA ScaledObject on SQS queue depth (email/SMS queue). Full scale-to-zero enabled — notification-service sleeps at 0 pods when no events are in-flight, saving ~$180/month on EKS node capacity.</li>
+          <li><strong>order-service</strong> (Go) — HPA on CPU (target 70%). Very efficient binary — rarely needs more than 5 replicas even at peak, but HPA is configured as a safety net (max: 30).</li>
+          <li><strong>user-service</strong> (Node.js) — HPA on CPU + VPA in <code>Recreate</code> mode. VPA identified that user-service was requesting 512 MB but averaging 180 MB; after VPA, requests dropped to 200 MB, freeing capacity for 15 additional ticket-service pods per node.</li>
+          <li><strong>Cluster Autoscaler</strong> — configured across 3 node groups: on-demand m5.2xlarge (always-on baseline), Spot c5.2xlarge (cost-optimized burst), and memory-optimized r5.xlarge (for VPA-expanded JVM pods). Scale-down delay: 15 minutes post-sale to avoid thrashing.</li>
+        </ul>
+        <p><strong>Result:</strong> The last Beyoncé sale scaled from 3 to 186 ticket-service replicas in 78 seconds. Cluster Autoscaler provisioned 9 Spot nodes. Zero 503 errors. Post-sale scale-down completed within 25 minutes, reducing AWS bill by ~72% compared to pre-provisioned static capacity.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 6 — CODE EXAMPLES
+           ============================================================ -->
+      <h2 id="code-examples" class="section-title">Configuration Examples</h2>
+
+      <h3 class="subsection-title">HPA — CPU-Based Autoscaling for ticket-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ticket-service-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-service
+  minReplicas: 3
+  maxReplicas: 200
+  metrics:
+    # Scale on CPU utilization (relative to pod requests)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    # Scale on memory (secondary metric — both must be satisfied)
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0   # Scale up immediately on traffic spike
+      policies:
+        - type: Pods
+          value: 20                   # Add up to 20 pods per scaling period
+          periodSeconds: 30
+        - type: Percent
+          value: 100                  # Or double pod count — whichever is larger
+          periodSeconds: 30
+      selectPolicy: Max               # Use the policy that allows the most scale
+    scaleDown:
+      stabilizationWindowSeconds: 300 # Wait 5 min before scaling down (prevent flap)
+      policies:
+        - type: Pods
+          value: 5                    # Remove at most 5 pods per period
+          periodSeconds: 60</code></pre>
+      </div>
+
+      <h3 class="subsection-title">HPA — Custom Metric (HTTP Requests In-Flight)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ticket-service-hpa-custom
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-service
+  minReplicas: 3
+  maxReplicas: 200
+  metrics:
+    # Custom metric — requires Prometheus Adapter to be installed and configured
+    # Metric name must match what Prometheus Adapter exposes via Custom Metrics API
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_in_flight   # exposed by ticket-service /metrics endpoint
+        target:
+          type: AverageValue
+          averageValue: "50"              # Target: 50 in-flight requests per pod replica
+    # Also keep CPU as a fallback metric
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60</code></pre>
+      </div>
+
+      <h3 class="subsection-title">VPA — Right-Sizing user-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: user-service-vpa
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  updatePolicy:
+    updateMode: "Recreate"            # Evict + recreate pods with updated requests
+  resourcePolicy:
+    containerPolicies:
+      - containerName: user-service
+        minAllowed:
+          cpu: "50m"                  # Never go below 50 millicores (startup need)
+          memory: "128Mi"
+        maxAllowed:
+          cpu: "2"                    # Never exceed 2 cores (runaway protection)
+          memory: "1Gi"
+        controlledResources:
+          - cpu
+          - memory
+        # VPA will update both requests AND limits
+        controlledValues: RequestsAndLimits</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Reading VPA Recommendations</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Get current VPA recommendations for user-service
+kubectl describe vpa user-service-vpa -n production
+
+# Output excerpt:
+# Recommendation:
+#   Container Recommendations:
+#     Container Name: user-service
+#       Lower Bound:
+#         cpu:     57m
+#         memory:  188Mi
+#       Target:
+#         cpu:     120m       # Recommended request value
+#         memory:  210Mi      # Recommended request value
+#       Upper Bound:
+#         cpu:     800m
+#         memory:  512Mi
+#       Uncapped Target:
+#         cpu:     114m
+#         memory:  196Mi</code></pre>
+      </div>
+
+      <h3 class="subsection-title">KEDA — notification-service Scaled to Zero on SQS</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: notification-service-scaledobject
+  namespace: production
+spec:
+  scaleTargetRef:
+    name: notification-service            # Deployment to scale
+  pollingInterval: 10                     # Check SQS queue every 10 seconds
+  cooldownPeriod: 60                      # Wait 60s after queue empty before scale to 0
+  minReplicaCount: 0                      # Allow full scale to zero
+  maxReplicaCount: 80
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: https://sqs.us-east-1.amazonaws.com/123456789/ticketflow-notifications
+        queueLength: "5"                  # Target: 5 messages per replica
+        awsRegion: us-east-1
+      authenticationRef:
+        name: keda-sqs-auth               # TriggerAuthentication with IAM role ARN
+---
+# TriggerAuthentication using IRSA (IAM Roles for Service Accounts on EKS)
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-sqs-auth
+  namespace: production
+spec:
+  podIdentity:
+    provider: aws-eks                     # Use IRSA — no static credentials needed</code></pre>
+      </div>
+
+      <h3 class="subsection-title">KEDA — payment-service on SQS with Minimum Replicas</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: payment-service-scaledobject
+  namespace: production
+spec:
+  scaleTargetRef:
+    name: payment-service
+  pollingInterval: 5                      # Check every 5s — payment confirmations are latency-sensitive
+  cooldownPeriod: 120                     # 2 min cooldown before scale down
+  minReplicaCount: 2                      # Always keep 2 warm (payment service must always respond)
+  maxReplicaCount: 50
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: https://sqs.us-east-1.amazonaws.com/123456789/ticketflow-payments
+        queueLength: "3"                  # Aggressive: 1 pod per 3 unprocessed payments
+        awsRegion: us-east-1
+      authenticationRef:
+        name: keda-sqs-auth</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Cluster Autoscaler Deployment on EKS</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      serviceAccountName: cluster-autoscaler   # IAM role attached via IRSA
+      containers:
+        - name: cluster-autoscaler
+          image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.0
+          command:
+            - ./cluster-autoscaler
+            - --v=4
+            - --stderrthreshold=info
+            - --cloud-provider=aws
+            - --skip-nodes-with-local-storage=false
+            - --expander=least-waste            # Prefer node group that wastes least capacity
+            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/ticketflow-prod
+            - --balance-similar-node-groups=true
+            - --scale-down-delay-after-add=15m
+            - --scale-down-unneeded-time=10m
+            - --scale-down-utilization-threshold=0.5  # Scale down if node < 50% utilized
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 300Mi
+            limits:
+              cpu: 100m
+              memory: 300Mi</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Node Group Annotations — Tell CA Which Nodes to Prefer</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># In your EKS managed node group or EC2 Auto Scaling Group launch template
+# Add these tags so CA can auto-discover and manage the group:
+#   k8s.io/cluster-autoscaler/enabled: "true"
+#   k8s.io/cluster-autoscaler/ticketflow-prod: "owned"
+
+# For Spot node groups, add a label so pods can prefer/avoid Spot:
+# Node label set by CA: node.kubernetes.io/lifecycle: spot
+
+# Pod anti-affinity to keep critical pods off Spot nodes:
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node.kubernetes.io/lifecycle
+              operator: NotIn
+              values:
+                - spot
+# Apply this to ticket-service — payment-service must not run on Spot instances</code></pre>
+      </div>
+
+      <!-- ============================================================
+           SECTION 7 — OS TABS
+           ============================================================ -->
+      <h2 id="kubectl-commands" class="section-title">Autoscaling kubectl Commands</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux-mac">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux-mac">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Create HPA imperatively (quick test)
+kubectl autoscale deployment ticket-service \
+  --cpu-percent=60 --min=3 --max=200 \
+  -n production
+
+# View HPA status — shows current/desired replicas and metric values
+kubectl get hpa -n production
+kubectl describe hpa ticket-service-hpa -n production
+
+# Watch HPA scale in real time during a load test
+watch -n 5 "kubectl get hpa,pods -n production | grep ticket"
+
+# Get VPA recommendations (requires VPA installed)
+kubectl get vpa -n production
+kubectl describe vpa user-service-vpa -n production
+
+# Check cluster nodes and their resource utilization
+kubectl top nodes
+kubectl get nodes -o wide
+
+# View pending pods (triggers for Cluster Autoscaler)
+kubectl get pods -A --field-selector=status.phase=Pending
+
+# Describe a pending pod to see why it cannot be scheduled
+kubectl describe pod <pending-pod-name> -n production
+
+# Check Cluster Autoscaler logs
+kubectl logs -n kube-system -l app=cluster-autoscaler --tail=50 -f
+
+# List KEDA ScaledObjects and their status
+kubectl get scaledobjects -n production
+kubectl describe scaledobject notification-service-scaledobject -n production
+
+# Force immediate HPA evaluation (useful after a load test)
+kubectl patch hpa ticket-service-hpa -n production \
+  -p '{"metadata":{"annotations":{"autoscaling.alpha.kubernetes.io/conditions":""}}}' \
+  --type=merge</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Create HPA imperatively (quick test)
+kubectl autoscale deployment ticket-service `
+  --cpu-percent=60 --min=3 --max=200 `
+  -n production
+
+# View HPA status — shows current/desired replicas and metric values
+kubectl get hpa -n production
+kubectl describe hpa ticket-service-hpa -n production
+
+# Watch HPA scale in real time (PowerShell loop)
+while ($true) {
+    kubectl get hpa,pods -n production | Select-String "ticket"
+    Start-Sleep -Seconds 5
+}
+
+# Get VPA recommendations (requires VPA installed)
+kubectl get vpa -n production
+kubectl describe vpa user-service-vpa -n production
+
+# Check cluster nodes and their resource utilization
+kubectl top nodes
+kubectl get nodes -o wide
+
+# View pending pods (triggers for Cluster Autoscaler)
+kubectl get pods -A --field-selector=status.phase=Pending
+
+# Check Cluster Autoscaler logs
+kubectl logs -n kube-system -l app=cluster-autoscaler --tail=50 -f
+
+# List KEDA ScaledObjects and their status
+kubectl get scaledobjects -n production
+kubectl describe scaledobject notification-service-scaledobject -n production</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SECTION 8 — BEHIND THE SCENES
+           ============================================================ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How does HPA actually retrieve metrics from Prometheus?</summary>
+        <div class="answer-content">
+          <p>Standard Kubernetes only ships with the <code>metrics-server</code>, which provides CPU and memory from the kubelet. For custom metrics (like <code>http_requests_in_flight</code>), you need a bridge between Prometheus and the Kubernetes Custom Metrics API.</p>
+          <ol>
+            <li><strong>Application exposes metrics</strong> — ticket-service's Spring Boot app has a <code>/actuator/prometheus</code> endpoint. A Prometheus instance scrapes this endpoint every 15 seconds and stores the time-series data.</li>
+            <li><strong>Prometheus Adapter installed</strong> — the Prometheus Adapter deployment runs in the cluster. It is configured with rules that map Prometheus metric names to Kubernetes Custom Metrics API paths. Example rule: <code>http_requests_in_flight{namespace="production",pod=~"ticket-service-.*"}</code> → exposed as <code>pods/http_requests_in_flight</code>.</li>
+            <li><strong>HPA queries Custom Metrics API</strong> — the HPA controller calls <code>GET /apis/custom.metrics.k8s.io/v1beta1/namespaces/production/pods/*/http_requests_in_flight</code>. The Prometheus Adapter intercepts this request, queries Prometheus for the current value, and returns it.</li>
+            <li><strong>HPA calculates desired replicas</strong> — using the standard formula: <code>ceil[currentReplicas * (currentValue / targetValue)]</code>. If current in-flight is 350 across 5 replicas (70 per pod) and target is 50, desired = ceil[5 * (70/50)] = 7 replicas.</li>
+            <li><strong>HPA updates the Deployment scale subresource</strong> — the HPA controller patches <code>/scale</code> on the Deployment object, which the ReplicaSet controller then acts on by creating new pods.</li>
+          </ol>
+          <p><strong>Latency chain:</strong> metric scrape (15s) → Prometheus query → Adapter response → HPA evaluation → Deployment patch → Pod scheduled → Pod ready. Expect 30–90 seconds from load spike to traffic-serving pod. This is why predictive scaling (scaling in advance of known events) is important for hard spikes like concert sales.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Cluster Autoscaler decide which node group to expand?</summary>
+        <div class="answer-content">
+          <p>When Cluster Autoscaler detects pending pods, it simulates scheduling: for each node group, it asks "if I added one node from this group, would the pending pods schedule onto it?"</p>
+          <ol>
+            <li><strong>Expander strategy</strong> — the <code>--expander</code> flag controls which node group wins when multiple groups could accommodate the pods:
+              <ul>
+                <li><code>least-waste</code> — pick the group whose node type wastes the least CPU/memory after placing the pods. Best for heterogeneous workloads (TicketFlow's default).</li>
+                <li><code>random</code> — pick randomly. Useful when you want to spread load across groups evenly.</li>
+                <li><code>most-pods</code> — pick the group that can schedule the most pending pods. Minimizes the number of scale-up events.</li>
+                <li><code>price</code> — pick the cheapest option. Requires cloud-provider cost data.</li>
+              </ul>
+            </li>
+            <li><strong>Node template</strong> — CA does not actually launch a node to check; it uses node group templates (based on existing nodes in the group) to simulate the node's resources.</li>
+            <li><strong>PodDisruptionBudgets respected</strong> — before evicting pods from underutilized nodes during scale-down, CA checks PDBs. If evicting a pod would violate a PDB (e.g., bringing replicas below <code>minAvailable</code>), CA skips that node.</li>
+            <li><strong>AWS Auto Scaling Groups</strong> — on EKS, CA calls the AWS Auto Scaling API: <code>SetDesiredCapacity</code> to increase the ASG. The EC2 instance launches, the kubelet registers the node, and CA watches for it to enter <code>Ready</code> state.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does KEDA achieve true scale-to-zero?</summary>
+        <div class="answer-content">
+          <p>Standard HPA has a minimum replica count of 1. It literally cannot set replicas to 0. KEDA works around this by taking direct ownership of the Deployment scale when the replica count needs to be 0:</p>
+          <ol>
+            <li>When the SQS queue empties and the cooldown period expires, KEDA directly patches the Deployment to 0 replicas — bypassing HPA entirely for this operation.</li>
+            <li>KEDA creates an HPA internally for values between 1 and maxReplicas. For the 0-to-1 transition, KEDA handles it directly.</li>
+            <li>When a new message arrives in the queue, KEDA detects it in its polling loop (every <code>pollingInterval</code> seconds), immediately sets replicas to 1, and then hands control back to HPA for further scaling.</li>
+            <li>The cold-start problem: there is a window between a message arriving and the first pod being ready to process it. For notification-service this is acceptable (< 30s). For latency-sensitive services (payment-service), keep <code>minReplicaCount: 2</code> to avoid cold starts.</li>
+          </ol>
+          <p>KEDA also supports <strong>ScaledJob</strong> for true one-to-one message processing: one Job (batch pod) per queue message, each pod processes one message and exits. This pattern guarantees ordered, isolated processing and is used by TicketFlow's invoice-generation batch worker.</p>
+        </div>
+      </details>
+
+      <!-- ============================================================
+           SECTION 9 — COMMON MISTAKES
+           ============================================================ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Running HPA and VPA Together in Conflicting Modes</span>
+        <p>HPA scales replicas based on CPU utilization. VPA changes CPU requests. When VPA reduces a pod's CPU request, the pod's CPU utilization percentage (relative to request) instantly increases — which triggers HPA to scale up. When HPA scales up, load is distributed more, CPU per pod drops — VPA then reduces requests again. The two controllers fight in a loop.</p>
+        <p><strong>Fix:</strong> Never use VPA in <code>Auto</code> or <code>Recreate</code> mode on the same resource metric that HPA uses. The safe combination is: HPA scales on CPU + VPA in <code>Off</code> mode (recommendations only). If you need both controllers active, configure HPA to scale on custom metrics (e.g., request rate) and let VPA manage CPU/memory requests without triggering HPA. Alternatively, disable CPU as an HPA metric and exclusively use VPA for CPU right-sizing.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: No Resource Requests Set on Pods</span>
+        <p>HPA calculates utilization as <code>actualUsage / requestedAmount</code>. If a pod has no CPU request set (<code>resources.requests.cpu</code>), the denominator is zero — HPA cannot compute utilization and will refuse to scale. The HPA status will show condition <code>AbleToScale: False</code> with message "missing request for cpu".</p>
+        <p>Cluster Autoscaler also depends on resource requests: it schedules pods based on requested (not actual) resources. Without requests, CA has no signal to trigger node provisioning. The pod may land on an already-overloaded node, causing OOM kills or CPU throttling — not because no capacity exists but because requests were not set.</p>
+        <p><strong>Fix:</strong> Always define <code>resources.requests</code> and <code>resources.limits</code> for every container. Use VPA in <code>Off</code> mode first to calibrate realistic values, then set them explicitly. Use LimitRange objects to enforce defaults cluster-wide.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: HPA Flapping Due to Missing Stabilization Windows</span>
+        <p>Without a scale-down stabilization window, HPA behaves like a thermostat with no hysteresis: load spikes, 20 pods are added; load drops slightly for 30 seconds, 15 pods are removed; load spikes again, 15 pods must be added. The cluster constantly adds and removes pods, every pod restart causes brief connection drops, and the churn wastes time and money.</p>
+        <p><strong>Fix:</strong> Set <code>behavior.scaleDown.stabilizationWindowSeconds</code> to at least 300 (5 minutes) for most services. For services with predictable load patterns (e.g., daily peak then drop), increase to 600 or 900. Never set the scale-up window higher than 30s for services that need to respond to traffic spikes quickly.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Cluster Autoscaler Cannot Scale Down Because of PodDisruptionBudget Misconfiguration</span>
+        <p>A PDB set to <code>minAvailable: 100%</code> (or equivalently <code>maxUnavailable: 0</code>) means CA can never evict any pod on an underutilized node, because doing so would momentarily drop availability below 100%. The cluster wastes money on perpetually un-drainable nodes. This is especially common with StatefulSets where operators copy PDB examples verbatim.</p>
+        <p><strong>Fix:</strong> Set PDBs to <code>minAvailable: N-1</code> (at least 1 pod can be evicted) or <code>maxUnavailable: 1</code>. For a 3-replica deployment: <code>minAvailable: 2</code> allows CA to drain nodes safely while maintaining quorum. Review all PDBs in production with <code>kubectl get pdb -A</code> and flag any with 100% availability constraints.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Ignoring Cooldown Periods for KEDA</span>
+        <p>Setting <code>cooldownPeriod: 0</code> or a very low value for KEDA causes the notification-service to thrash: queue empties, pod scales to 0, one message arrives, pod scales to 1 (30s cold start), processes message, pod scales back to 0, another message arrives. Each scale event adds latency and node churn. The SQS poll may even show "zero messages" between polls while messages are in-flight, causing premature scale-down.</p>
+        <p><strong>Fix:</strong> Set <code>cooldownPeriod</code> to at least 60–120 seconds for most queue-based workloads. For bursty queues (e.g., concert sales), set it higher (300s) so the fleet stays warm through the entire burst window. Monitor the gap between KEDA scale-to-zero events and message arrival times using CloudWatch SQS metrics + Prometheus KEDA metrics.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 10 — ARCHITECT NOTES
+           ============================================================ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Autoscaling is not a set-and-forget feature. It is a feedback control system, and like any control system it can oscillate, saturate, or respond too slowly if tuned incorrectly. Here is how architects think about it:</p>
+        <ul>
+          <li><strong>Three layers, different time horizons</strong> — HPA operates in seconds-to-minutes, Cluster Autoscaler in minutes-to-tens-of-minutes, VPA in hours-to-days. Design your system so each layer has the capacity buffer needed to accommodate the slower layer's response time. HPA needs node capacity available before it can place pods; if CA takes 8 minutes to provision a node, you need enough existing node headroom for 8 minutes of HPA scaling.</li>
+          <li><strong>Scale-out latency is a system property</strong> — from a load spike being detected to a new pod serving traffic, there are 5+ sequential steps: metric scrape → HPA evaluation → pod creation → image pull → container start → health check pass → traffic routed. For Java services with 30s JVM startup, this chain can take 2–3 minutes. Either accept this latency, use faster runtimes (Go, Node.js native for notification-service), use GraalVM native image, or pre-warm pools with predictive scaling (KEDA cron trigger).</li>
+          <li><strong>Cost-conscious scaling requires target utilization calibration</strong> — setting HPA target to 50% CPU means you run at roughly 2x the required capacity on average. That is the safety buffer. For cost-optimized services, raise the target (70–80%). For revenue-critical services, lower it (40–50%). Model the cost of downtime vs. the cost of idle capacity to find the right target per service tier.</li>
+          <li><strong>Predictive scaling beats reactive scaling</strong> — for TicketFlow's concert sales, the team knows exact sale times 24 hours in advance. A KEDA cron trigger pre-scales ticket-service to 30 replicas 15 minutes before sale time, eliminating the cold-start lag during the first 90 seconds of maximum traffic. Reactive autoscaling then handles anything beyond those 30 pods.</li>
+          <li><strong>VPA is underutilized and high-value</strong> — most teams skip VPA because it requires restarts. The correct posture is to run VPA in <code>Off</code> mode on all services from day one, observe recommendations for 2 weeks, then apply them as baseline requests in your Helm chart values. This alone can reduce cluster cost by 30–40% through elimination of over-requested ghost capacity.</li>
+        </ul>
+      </div>
+
+      <!-- ============================================================
+           SECTION 11 — PRODUCTION CHECKLIST
+           ============================================================ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>All pods have <code>resources.requests</code> and <code>resources.limits</code> set — HPA and CA depend on these</li>
+        <li>metrics-server is installed and returning data (<code>kubectl top pods -n production</code> works)</li>
+        <li>HPA scale-down stabilization window is at least 300 seconds to prevent flapping</li>
+        <li>HPA scale-up policy allows aggressive burst (Percent: 100, periodSeconds: 30)</li>
+        <li>HPA and VPA are not both active on the same CPU metric simultaneously</li>
+        <li>PodDisruptionBudgets allow at least one pod to be evicted (maxUnavailable >= 1)</li>
+        <li>Cluster Autoscaler is deployed and has IAM permissions to modify Auto Scaling Groups</li>
+        <li>CA scale-down delay is tuned to your workload pattern (minimum 10m, 15m+ for bursty)</li>
+        <li>KEDA cooldown periods are set to prevent scale-to-zero thrashing</li>
+        <li>Payment-service and other latency-critical services have minReplicas >= 2 (no scale to zero)</li>
+        <li>Node groups have appropriate mix of on-demand (critical) and Spot (burst) instances</li>
+        <li>Critical pods (ticket-service, payment-service) use nodeAffinity to avoid Spot-only placement</li>
+        <li>VPA <code>Off</code> mode recommendations reviewed monthly and applied to Helm chart values</li>
+        <li>Predictive scaling (KEDA cron trigger) configured for known traffic peaks</li>
+        <li>Autoscaler metrics (HPA events, CA decisions, KEDA scale events) are visible in Grafana</li>
+      </ul>
+
+      <!-- ============================================================
+           SECTION 12 — HANDS-ON LAB
+           ============================================================ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Configure HPA with Custom Metric</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires kubectl access to a Kubernetes cluster (minikube or EKS)</span>
+
+        <p>In this lab you will configure an HPA on a simulated ticket-service deployment using CPU metrics, trigger scaling with a load generator, and observe the scaling behavior in real time.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Install metrics-server (minikube only)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Enable metrics-server on minikube
+minikube addons enable metrics-server
+
+# Verify metrics-server is running (may take 60s to start)
+kubectl get pods -n kube-system | grep metrics-server
+
+# Test that metrics are flowing
+kubectl top nodes
+kubectl top pods -A</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Deploy a sample ticket-service workload</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a namespace for the lab
+kubectl create namespace lab
+
+# Deploy a PHP-Apache app that simulates CPU-bound request processing
+kubectl apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+  namespace: lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ticket-service
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+    spec:
+      containers:
+      - name: ticket-service
+        image: registry.k8s.io/hpa-example
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "64Mi"
+          limits:
+            cpu: "500m"
+            memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-service
+  namespace: lab
+spec:
+  selector:
+    app: ticket-service
+  ports:
+    - port: 80
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Create the HPA</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create HPA targeting 50% CPU utilization
+kubectl apply -f - <<'EOF'
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ticket-service-hpa
+  namespace: lab
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-service
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60   # Shorter window for lab purposes
+EOF
+
+# Verify HPA was created and is reading metrics (may show unknown initially)
+kubectl get hpa -n lab
+kubectl describe hpa ticket-service-hpa -n lab</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Generate load to trigger scale-up</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Open a second terminal window and run this load generator
+# It sends continuous HTTP requests to saturate CPU
+kubectl run -i --tty load-generator \
+  --rm \
+  --image=busybox:1.28 \
+  --restart=Never \
+  --namespace=lab \
+  -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://ticket-service/; done"
+
+# Back in the first terminal, watch HPA respond in real time
+# Run this in a loop every 15 seconds
+watch -n 15 kubectl get hpa,pods -n lab</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Observe scaling behavior and scale down</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># After you see HPA scale to multiple replicas (allow 2-3 minutes):
+# 1. Stop the load generator in the second terminal (Ctrl+C)
+# 2. Watch the scale-down happen after the stabilization window (60s in this lab)
+watch -n 15 "kubectl get hpa -n lab && kubectl get pods -n lab"
+
+# Check HPA events for the full scaling history
+kubectl describe hpa ticket-service-hpa -n lab | grep -A 30 Events
+
+# Expected output will show:
+# SuccessfulRescale  Reason: "DesiredReplicas" → scale up message
+# SuccessfulRescale  Reason: "DesiredReplicas" → scale down message
+
+# Clean up when done
+kubectl delete namespace lab</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Explore VPA recommendations (bonus)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Install VPA (if using minikube with a recent version)
+# Clone the Kubernetes autoscaler repo and run the VPA installer:
+# https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
+
+# Create a VPA in Off mode for ticket-service
+kubectl apply -f - <<'EOF'
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ticket-service-vpa
+  namespace: lab
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-service
+  updatePolicy:
+    updateMode: "Off"
+EOF
+
+# After 5-10 minutes of traffic, check the recommendation:
+kubectl describe vpa ticket-service-vpa -n lab
+# Look for the "Recommendation" section showing Target CPU and Memory values</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How long it takes from load starting to HPA detecting the metric change — typically 30–60 seconds due to metrics scrape interval.</li>
+          <li>The HPA shows <code>TARGETS: X%/50%</code> in <code>kubectl get hpa</code> — watch this value change under load.</li>
+          <li>After load stops, HPA holds current replicas for the stabilization window before scaling down — preventing premature scale-down if load resumes.</li>
+          <li>VPA recommendation values — compare them to the requests you set manually in Step 2. In a real system, the VPA target becomes the new baseline for your Helm chart values.</li>
+        </ol>
+      </div>
+
+      <!-- ============================================================
+           SECTION 13 — INTERVIEW Q&A
+           ============================================================ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked Kubernetes autoscaling questions in senior DevOps, platform engineering, and software architect interviews.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is the difference between HPA, VPA, and Cluster Autoscaler? When do you use each?</summary>
+            <div class="answer-content">
+              <p><strong>HPA (Horizontal Pod Autoscaler)</strong> adjusts the number of pod replicas within a Deployment or StatefulSet. It scales out (more copies) when load increases and scales in (fewer copies) when load decreases. Use HPA for stateless services that benefit from parallel processing — web servers, API services, queue consumers.</p>
+              <p><strong>VPA (Vertical Pod Autoscaler)</strong> adjusts the CPU and memory requests/limits of existing pods. It right-sizes individual pods rather than adding more of them. Use VPA for services where adding replicas does not help (databases, single-threaded jobs) or where you want to eliminate resource waste and over-provisioning.</p>
+              <p><strong>Cluster Autoscaler</strong> adjusts the number of nodes in the cluster. It provisions new nodes when pods are Pending (cannot be scheduled) and removes underutilized nodes to reduce cost. Use CA whenever your workload scales beyond the capacity of existing nodes — it is the infrastructure layer that makes HPA possible at large scale.</p>
+              <p><strong>The key insight:</strong> these three work at different layers and different timescales. HPA needs nodes to place pods on — CA ensures those nodes exist. VPA ensures each pod uses the right amount of the node's resources. In production you typically want all three active, but must carefully avoid the HPA + VPA conflict on the same CPU metric.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: Can you run HPA and VPA together? What is the conflict and how do you resolve it?</summary>
+            <div class="answer-content">
+              <p>Yes, but with a critical caveat: <strong>HPA and VPA must not both control the same CPU metric simultaneously</strong>. The conflict arises from a feedback loop:</p>
+              <ol>
+                <li>VPA reduces a pod's CPU request from 500m to 200m (right-sizing).</li>
+                <li>Pod's CPU utilization percentage spikes instantly — it was using 100m (20% of 500m request), now it is using 100m (50% of 200m request).</li>
+                <li>HPA sees CPU at 50% — above its 40% target — and scales up replicas.</li>
+                <li>More replicas mean less load per pod, CPU utilization drops.</li>
+                <li>VPA observes lower CPU and further reduces requests, triggering more HPA scale-up.</li>
+              </ol>
+              <p><strong>Resolution strategies:</strong></p>
+              <ul>
+                <li><strong>Option 1 (most common):</strong> Use HPA on custom/external metrics (HTTP request rate, queue depth) and VPA on CPU/memory. The two controllers operate on orthogonal signals and cannot interfere.</li>
+                <li><strong>Option 2:</strong> Keep VPA in <code>Off</code> mode — read its recommendations and apply them manually to your Helm chart values. HPA operates on CPU normally.</li>
+                <li><strong>Option 3:</strong> Disable CPU as an HPA metric entirely. Let VPA manage CPU/memory resource requests. Use HPA only on non-resource metrics via KEDA.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: What is KEDA and how does it extend standard HPA?</summary>
+            <div class="answer-content">
+              <p>KEDA (Kubernetes Event-Driven Autoscaling) is an open-source CNCF project that extends HPA with event-driven scaling capabilities. Standard HPA supports CPU, memory, and custom metrics through the Custom Metrics API. KEDA adds two critical capabilities:</p>
+              <p><strong>1. True scale to zero:</strong> Standard HPA minimum is 1 replica. KEDA can scale a Deployment to 0 replicas when its event source is idle (empty queue, no HTTP traffic, no scheduled events). When events arrive, KEDA scales from 0 to 1 directly, then hands off to HPA for further scaling. This enables significant cost savings for intermittently used services.</p>
+              <p><strong>2. Rich event source ecosystem:</strong> KEDA ships with 60+ built-in scalers: AWS SQS, Kafka consumer lag, RabbitMQ queue depth, HTTP request rate, Redis list length, Prometheus queries, cron schedules, Azure Service Bus, and more. It translates these event sources into the External Metrics API that HPA can consume.</p>
+              <p><strong>How it works architecturally:</strong> KEDA installs as a deployment in the cluster and registers itself as an External Metrics API server. It polls its configured event sources and exposes their values through the API. HPA queries KEDA's external metrics endpoint as it would any other metrics source. For scale-to-zero, KEDA directly manages the Deployment's replica count outside of HPA.</p>
+              <p>KEDA also supports <code>ScaledJob</code> — scaling Kubernetes batch Jobs (not just Deployments) based on event queue depth. This enables one-job-per-message patterns ideal for heavy batch processing tasks like invoice generation or video encoding.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: Why might Cluster Autoscaler fail to scale down even when nodes appear underutilized?</summary>
+            <div class="answer-content">
+              <p>Cluster Autoscaler scale-down is blocked by several conditions, and this is one of the most common production mysteries teams encounter:</p>
+              <ol>
+                <li><strong>PodDisruptionBudget blocks eviction:</strong> If a PDB sets <code>minAvailable: 100%</code> or <code>maxUnavailable: 0</code>, CA cannot evict any pod from the node. Check with <code>kubectl get pdb -A</code> and look for zero-disruption PDBs.</li>
+                <li><strong>Pods with local storage:</strong> Pods using <code>emptyDir</code> or <code>hostPath</code> volumes cannot be evicted by default (the data would be lost). CA skips nodes with such pods unless <code>--skip-nodes-with-local-storage=false</code> is set.</li>
+                <li><strong>Non-evictable pods:</strong> Pods not backed by a controller (bare pods, not in a Deployment or StatefulSet) cannot be recreated after eviction. CA will not evict them.</li>
+                <li><strong>DaemonSet pods:</strong> These are not managed by CA — they are expected on every node. A node running only DaemonSet pods is technically "empty" from CA's perspective and can be removed, but DaemonSets themselves prevent eviction of their pods (they are ignored in utilization calculations).</li>
+                <li><strong>Scale-down delay not elapsed:</strong> The <code>--scale-down-unneeded-time</code> and <code>--scale-down-delay-after-add</code> timers may still be counting. Check CA logs: <code>kubectl logs -n kube-system -l app=cluster-autoscaler</code>.</li>
+                <li><strong>Node utilization above threshold:</strong> CA's default scale-down threshold is 50% of allocatable resources. If actual pod resource requests sum to > 50% of node capacity, CA considers the node utilized enough to keep.</li>
+              </ol>
+              <p>The debug command: <code>kubectl describe cm cluster-autoscaler-status -n kube-system</code> — the ConfigMap contains a JSON explanation of why each node group is not being scaled down.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What is the HPA scale-down stabilization window and why is it critical?</summary>
+            <div class="answer-content">
+              <p>The stabilization window is a duration during which HPA tracks the highest (for scale-down) or lowest (for scale-up) desired replica count computed from metrics. HPA only acts after the window elapses without the extreme value changing.</p>
+              <p><strong>Why it matters for scale-down:</strong> Traffic is rarely perfectly smooth. A batch job completes, CPU drops from 80% to 15% for 20 seconds, then a new batch starts and CPU returns to 75%. Without a stabilization window, HPA would scale from 10 to 2 pods in those 20 seconds, then back to 10 pods 30 seconds later. Each scale event causes brief service degradation as pods drain connections and new pods warm up.</p>
+              <p>The default 300-second (5-minute) scale-down window means HPA must observe consistently low utilization for 5 minutes before scaling down. This prevents flapping on transient dips.</p>
+              <p><strong>Scale-up has a default window of 0 seconds</strong> — scale up immediately on any spike. This asymmetry (fast scale-up, slow scale-down) is intentional: the cost of under-provisioning (dropped requests, user-facing errors) is much higher than the cost of over-provisioning (slightly higher cloud bill).</p>
+              <p><strong>Tuning guidance:</strong></p>
+              <ul>
+                <li>Bursty, event-driven workloads (concert sales): 600–900s scale-down window to stay warm through the full event.</li>
+                <li>Steady web traffic with predictable diurnal patterns: 300s (default) is usually appropriate.</li>
+                <li>Development/staging environments: 60–120s to avoid wasting resources during idle periods.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How would you implement predictive autoscaling for a known traffic spike like a concert ticket sale?</summary>
+            <div class="answer-content">
+              <p>Reactive autoscaling (HPA detecting and responding to CPU/metric spikes) has a fundamental latency problem: from metric spike to pod ready, you have 30–180 seconds depending on image pull time and application startup. For a concert sale where peak load arrives in the first 10 seconds, this is unacceptable.</p>
+              <p><strong>Predictive scaling strategy for TicketFlow:</strong></p>
+              <ol>
+                <li><strong>KEDA CronScaler (15 min before sale):</strong> Configure a KEDA ScaledObject with a cron trigger that fires at the scheduled sale time. Set <code>desiredReplicas: 30</code> during the sale window. This pre-warms 30 ticket-service pods and triggers CA to provision nodes 15 minutes before the flood.
+                  <div class="code-wrapper" style="margin-top:0.5rem;">
+                    <pre><code class="language-yaml">triggers:
+  - type: cron
+    metadata:
+      timezone: America/New_York
+      start: 55 9 * * 5    # 9:55 AM every Friday (pre-scale before 10 AM sales)
+      end: 30 11 * * 5      # 11:30 AM (scale down after sale rush)
+      desiredReplicas: "30"</code></pre>
+                  </div>
+                </li>
+                <li><strong>HPA takes over during the sale:</strong> Once the sale opens, reactive HPA adds replicas on top of the 30 pre-warmed pods. Since node capacity already exists (CA provisioned during the cron pre-scale), new pods schedule instantly.</li>
+                <li><strong>Graceful scale-down after the sale:</strong> Increase <code>stabilizationWindowSeconds</code> to 900s on sale days to prevent premature scale-down in case of late traffic bursts (fans retrying failed purchases).</li>
+                <li><strong>Warm the JVM:</strong> For Spring Boot ticket-service, configure Kubernetes readiness probes with a <code>initialDelaySeconds: 30</code> and a startup probe to ensure pods are JVM-warmed before receiving traffic. The 30-second buffer allows JIT compilation to kick in before the first real requests arrive.</li>
+              </ol>
+              <p>This hybrid approach — predictive cron pre-scale + reactive HPA for overflow — gives you the reliability of pre-provisioning without the cost of running those resources 24/7. The cron trigger brings capacity online only during the event window.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

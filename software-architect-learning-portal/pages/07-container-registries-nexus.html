@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Container Registries &amp; Nexus — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="07" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Registries &amp; CI/CD → Container Registries &amp; Nexus</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-intermediate">Intermediate</span>
+          <span class="tag">⏱ 30 min read</span>
+          <span class="tag">Epic 2</span>
+        </div>
+        <h1 class="page-title">Container Registries &amp; Nexus</h1>
+        <p class="page-subtitle">Where images live, how they are versioned, secured, and promoted from development all the way to production.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Registries</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">📦 The Art Gallery Problem</span>
+        <p>Imagine you are a sculptor. You create a beautiful bronze statue — your masterpiece. Now imagine if, every time someone wanted to see it, you had to rebuild the entire sculpture from scratch in front of them. No storage. No gallery. Just raw materials and your hands every time.</p>
+        <p>That would be absurd. You cast the statue once, put it in a gallery, and anyone who wants to see it visits the gallery and finds it exactly as you made it.</p>
+        <p>This is precisely what container registries solve. You build a Docker image once — your precisely crafted, tested, reproducible artifact — and store it in a registry. Your CI pipeline, your staging environment, your production Kubernetes cluster, your colleague's dev machine: they all pull the same image from the same gallery. Nothing is rebuilt. Nothing drifts. The statue is always exactly what you carved.</p>
+        <p>But just like galleries have different rules — some are public, some require membership, some are run by enterprises with strict curation policies — registries vary enormously in their features, access control, security scanning, and where they live. Choosing the right registry is an architectural decision with serious production implications.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-a-registry" class="section-title">What Is a Container Registry?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>A container registry is like GitHub, but for Docker images instead of source code. Just as you push code to GitHub and pull it on another machine, you push Docker images to a registry and pull them wherever you need to run them. The registry stores your versioned images, lets you tag specific releases, and controls who can read or write them.</p>
+        <p>The difference is that images are binary artifacts — not text you can read in a browser. They are layered filesystems assembled from layer blobs, described by a manifest file. The registry stores the blobs and manifests and serves them on demand over HTTPS.</p>
+      </div>
+
+      <p>Every Docker image reference has three parts:</p>
+
+      <ul>
+        <li><strong>Registry host</strong> — where to download from. Examples: <code>docker.io</code> (Docker Hub, the default), <code>nexus.ticketflow.io:5000</code> (your private Nexus), <code>123456789.dkr.ecr.eu-west-1.amazonaws.com</code> (Amazon ECR).</li>
+        <li><strong>Repository (image name)</strong> — the name of the image, optionally namespaced. Example: <code>ticketflow/user-service</code>.</li>
+        <li><strong>Tag or digest</strong> — the specific version. Example: <code>1.4.2</code> (tag, mutable pointer), or <code>@sha256:a8f3...</code> (digest, immutable content address).</li>
+      </ul>
+
+      <p>Combined: <code>nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2</code></p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="registry-comparison" class="section-title">Registry Comparison: Docker Hub vs Nexus vs Harbor vs ECR vs ACR vs GCR</h2>
+
+      <p>There is no single "best" registry. The right choice depends on your cloud provider, security requirements, team size, and whether you need to manage non-container artifacts alongside images. Here is the complete breakdown:</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Registry</th>
+            <th>Type</th>
+            <th>Best For</th>
+            <th>Hosting</th>
+            <th>Security Scanning</th>
+            <th>Multi-Format</th>
+            <th>Key Weakness</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Docker Hub</strong></td>
+            <td>Public / private</td>
+            <td>Open-source projects, public images, personal use</td>
+            <td>Cloud (docker.io)</td>
+            <td>Paid tiers only</td>
+            <td>No (images only)</td>
+            <td>Rate limits (100 pulls/6h anon), not enterprise-grade</td>
+          </tr>
+          <tr>
+            <td><strong>Nexus Repository</strong></td>
+            <td>Private (self-hosted)</td>
+            <td>Enterprises needing a single artifact store for all formats</td>
+            <td>Self-hosted or Sonatype Cloud</td>
+            <td>Via integration (Trivy, Snyk)</td>
+            <td>Yes — Docker, Maven, npm, PyPI, Helm, apt, yum</td>
+            <td>Requires infrastructure management; UI less polished than cloud options</td>
+          </tr>
+          <tr>
+            <td><strong>Harbor</strong></td>
+            <td>Private (self-hosted)</td>
+            <td>Security-focused teams, OCI-native, multi-tenant environments</td>
+            <td>Self-hosted (Kubernetes-native)</td>
+            <td>Built-in (Trivy or Clair)</td>
+            <td>Partial — Docker + Helm + OCI artifacts</td>
+            <td>Container images only; not a general artifact store</td>
+          </tr>
+          <tr>
+            <td><strong>Amazon ECR</strong></td>
+            <td>Private (managed)</td>
+            <td>Teams running workloads on AWS EKS / ECS</td>
+            <td>AWS managed</td>
+            <td>Built-in (via Inspector)</td>
+            <td>No (images + OCI artifacts only)</td>
+            <td>AWS vendor lock-in; poor UX outside AWS ecosystem</td>
+          </tr>
+          <tr>
+            <td><strong>Azure ACR</strong></td>
+            <td>Private (managed)</td>
+            <td>Teams running workloads on AKS / Azure DevOps</td>
+            <td>Azure managed</td>
+            <td>Built-in (Microsoft Defender)</td>
+            <td>Partial — Docker + Helm + OCI</td>
+            <td>Azure vendor lock-in</td>
+          </tr>
+          <tr>
+            <td><strong>GCR / Artifact Registry</strong></td>
+            <td>Private (managed)</td>
+            <td>Teams running workloads on GKE / Cloud Build</td>
+            <td>GCP managed</td>
+            <td>Built-in (Container Analysis)</td>
+            <td>Yes — Docker, Maven, npm, Python, Helm</td>
+            <td>GCP vendor lock-in; GCR is being deprecated in favour of Artifact Registry</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="production-tip">
+        <span class="production-tip-label">💡 Why Most Enterprises Choose Nexus</span>
+        <p>Large engineering organizations typically manage many artifact types: Docker images, Java JARs, npm packages, Python wheels, Helm charts, apt packages for OS bootstrapping. Nexus handles all of them in a single, self-hosted installation behind the corporate firewall. This means one authentication system, one audit log, one backup, one network policy. Cloud-native registries (ECR, ACR) only manage container images, forcing separate infrastructure for other artifact types. For TicketFlow — running on AWS EKS with Java, Node, Python, and Go services, plus Helm charts — Nexus is the practical choice.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="ci-push-k8s-pull" class="section-title">CI Pushes to Nexus — Kubernetes Pulls on Deploy</h2>
+
+      <p>This is the canonical image lifecycle in a production system. The image is built exactly once in CI, pushed to the registry, and then pulled by every environment that needs it — never rebuilt.</p>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    DEV["👨‍💻 Developer\nPushes to GitHub"] --> GHA["⚙️ GitHub Actions\nCI Pipeline"]
+
+    subgraph CI ["CI Pipeline"]
+      GHA --> BUILD["docker build\nuser-service:1.4.2-abc1234"]
+      BUILD --> SCAN["🔍 Trivy Scan\nCVE Check"]
+      SCAN -->|"No critical CVEs"| PUSH["docker push\nnexus.ticketflow.io:5000"]
+      SCAN -->|"Critical CVE found"| FAIL["❌ Pipeline Fails\nAlert team"]
+    end
+
+    PUSH --> NEXUS["🗄️ Nexus Registry\nnexus.ticketflow.io:5000\nticketflow/user-service:1.4.2-abc1234"]
+
+    NEXUS --> DEV_ENV["🔵 Dev Cluster\nEKS dev namespace\nAuto-deploy on push"]
+    NEXUS --> STG_ENV["🟡 Staging Cluster\nEKS staging namespace\nPromoted after QA sign-off"]
+    NEXUS --> PRD_ENV["🟢 Production Cluster\nEKS prod namespace\nPromoted after staging validation"]
+
+    DEV_ENV --> ROLLBACK["🔄 Rollback:\ndocker pull :1.4.1-prev\nHelm rollback user-service"]
+        </div>
+      </div>
+
+      <p>The key principle: the same image tag (<code>1.4.2-abc1234</code>) flows through all three environments. No rebuilds. No environment-specific images. What you validated in staging is byte-for-byte identical to what runs in production.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — IMAGE TAGGING STRATEGY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="tagging-strategy" class="section-title">Image Tagging Strategy</h2>
+
+      <p>Tags are your primary mechanism for versioning and promoting images. A disciplined tagging strategy is what makes image promotion pipelines reliable. Here is the production-grade approach TicketFlow uses:</p>
+
+      <h3 class="subsection-title">Semantic Versioning (semver)</h3>
+      <p>Semantic versioning uses three numbers: <code>MAJOR.MINOR.PATCH</code>. <code>1.0.0</code> → <code>1.0.1</code> (patch: bug fix) → <code>1.1.0</code> (minor: new feature, backward compatible) → <code>2.0.0</code> (major: breaking change). For container images, semver tags are applied at release time, not at every commit.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Build and tag with full semver for a release
+docker build -t nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2 .
+
+# Also apply the minor version floating tag (for internal tooling that wants latest patch)
+docker tag nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2 \
+           nexus.ticketflow.io:5000/ticketflow/user-service:1.4
+
+# Push both tags
+docker push nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2
+docker push nexus.ticketflow.io:5000/ticketflow/user-service:1.4</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Git SHA Tagging</h3>
+      <p>Every CI build should also be tagged with the short Git commit SHA. This creates an immutable link between the running container and the exact source code that produced it. It is invaluable for debugging production incidents: you see the image tag, look up the SHA, find the commit, and know exactly what code is running.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># In CI (GitHub Actions), GIT_SHA is the 7-char short commit hash
+GIT_SHA=$(git rev-parse --short HEAD)
+IMAGE_NAME="nexus.ticketflow.io:5000/ticketflow/user-service"
+
+# Tag with both semver and SHA — the SHA tag is the CI build artifact
+docker build \
+  -t "${IMAGE_NAME}:1.4.2" \
+  -t "${IMAGE_NAME}:1.4.2-${GIT_SHA}" \
+  .
+
+# The SHA-tagged image is what CI promotes through environments
+# Semver tag is applied at release time by the release pipeline
+docker push "${IMAGE_NAME}:1.4.2"
+docker push "${IMAGE_NAME}:1.4.2-${GIT_SHA}"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">The :latest Trap</h3>
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ The :latest Trap — Do Not Use in Production</span>
+        <p>The <code>:latest</code> tag is not a version — it is a mutable alias that points to the most recently pushed image. It has no semantic meaning beyond "last push". Using it in Kubernetes deployments is particularly dangerous because <code>imagePullPolicy: IfNotPresent</code> (the default) means Kubernetes will not pull a new image if one already exists locally under that tag. Your nodes could silently be running different versions of the same service. Even with <code>imagePullPolicy: Always</code>, you lose the ability to roll back to a specific previous version — all you can say is "the last one".</p>
+        <p><strong>Fix:</strong> Use <code>:latest</code> only for local development convenience (<code>docker compose up</code> on a dev machine). Never reference <code>:latest</code> in CI pipelines, Kubernetes manifests, or Helm values files. Always use a specific, immutable tag. In critical production workloads, use digest pinning: <code>image: nexus.ticketflow.io:5000/ticketflow/user-service@sha256:a8f3b2c1...</code></p>
+      </div>
+
+      <h3 class="subsection-title">Complete Tagging Convention for TicketFlow</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Convention used by TicketFlow CI/CD:
+#
+#   &lt;registry&gt;/&lt;namespace&gt;/&lt;service&gt;:&lt;semver&gt;-&lt;git-sha&gt;
+#
+# Examples across all 6 services:
+nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2-abc1234
+nexus.ticketflow.io:5000/ticketflow/ticket-service:2.1.0-def5678
+nexus.ticketflow.io:5000/ticketflow/payment-service:3.0.1-ghi9012
+nexus.ticketflow.io:5000/ticketflow/order-service:1.0.5-jkl3456
+nexus.ticketflow.io:5000/ticketflow/notification-service:1.2.0-mno7890
+nexus.ticketflow.io:5000/ticketflow/api-gateway:2.0.0-pqr1234
+
+# Additional environment promotion tags (applied by promotion scripts):
+nexus.ticketflow.io:5000/ticketflow/user-service:dev       # latest deployed to dev
+nexus.ticketflow.io:5000/ticketflow/user-service:staging   # latest deployed to staging
+nexus.ticketflow.io:5000/ticketflow/user-service:stable    # last known good production</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow's Image Promotion Pipeline</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow — Image Promotion in Production</span>
+        <p>TicketFlow runs six microservices on AWS EKS. Images are stored in Nexus at <code>nexus.ticketflow.io:5000</code>. Here is what happens when a developer merges a feature branch to <code>main</code>:</p>
+        <ol>
+          <li><strong>CI build triggers</strong> — GitHub Actions runs on the merge commit. It builds each changed service's image, tags it <code>&lt;semver&gt;-&lt;sha&gt;</code>, runs Trivy for CVE scanning, and pushes to Nexus only if scanning passes.</li>
+          <li><strong>Dev auto-deploy</strong> — Argo CD detects the new image tag in the Nexus registry (polling every 3 minutes), updates the Helm values file for the dev namespace, and deploys automatically. Developers can verify their change within 5 minutes of merging.</li>
+          <li><strong>QA promotion</strong> — After QA sign-off, a release engineer runs the promotion script: it re-tags the exact dev image as <code>staging</code> and updates the Helm values file. No rebuild. No code change. The promotion is a tag operation.</li>
+          <li><strong>Production promotion</strong> — After staging validation (automated load tests + manual smoke tests), the same image is promoted to <code>stable</code> and deployed to production. The full semver tag (<code>1.4.2</code>) is also applied at this point to mark the official release.</li>
+          <li><strong>Rollback</strong> — If production has an incident, the rollback is a Helm rollback to the previous release. Helm remembers which image tag was deployed. The previous image is still in Nexus. Rollback completes in under 60 seconds.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — REGISTRY AUTH AND NEXUS SETUP
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="registry-auth" class="section-title">Registry Authentication</h2>
+
+      <p>Private registries require authentication before you can push or pull images. Docker's authentication model is straightforward but has nuances that catch developers off guard in CI environments.</p>
+
+      <h3 class="subsection-title">docker login — How It Works</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Log in to Nexus (stores credentials in ~/.docker/config.json)
+docker login nexus.ticketflow.io:5000 \
+  --username ci-deploy \
+  --password-stdin &lt;&lt;&lt; "$NEXUS_PASSWORD"
+
+# Log in to Docker Hub (default registry)
+docker login --username myuser --password-stdin &lt;&lt;&lt; "$DOCKERHUB_TOKEN"
+
+# Log in to Amazon ECR (uses AWS CLI to generate a temporary token)
+aws ecr get-login-password --region eu-west-1 | \
+  docker login --username AWS --password-stdin \
+  123456789.dkr.ecr.eu-west-1.amazonaws.com
+
+# Log in to Azure ACR
+az acr login --name ticketflowacr
+
+# Verify credentials are stored
+cat ~/.docker/config.json</code></pre>
+      </div>
+
+      <div class="production-tip">
+        <span class="production-tip-label">💡 CI/CD Credential Management</span>
+        <p>In GitHub Actions, never hardcode registry credentials. Store them as encrypted repository secrets (<code>NEXUS_USERNAME</code>, <code>NEXUS_PASSWORD</code>) and reference them as <code>${{ secrets.NEXUS_PASSWORD }}</code>. Use a dedicated CI service account with minimal permissions — read/write to specific repositories only, never admin. Rotate service account passwords regularly (every 90 days). For ECR, use OIDC federation so CI never holds a long-lived AWS credential at all.</p>
+      </div>
+
+      <h3 class="subsection-title">Nexus Setup Walkthrough</h3>
+      <p>Setting up Nexus as a Docker registry involves three steps: install Nexus, create a Docker hosted repository, and configure a proxy repository to cache Docker Hub images (avoiding rate limits).</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># docker-compose.yml — Run Nexus locally or on a server
+version: "3.9"
+services:
+  nexus:
+    image: sonatype/nexus3:3.66.0
+    container_name: nexus
+    ports:
+      - "8081:8081"    # Nexus UI and API
+      - "5000:5000"    # Docker hosted repository (push/pull)
+      - "5001:5001"    # Docker proxy repository (Docker Hub cache)
+    volumes:
+      - nexus-data:/nexus-data
+    environment:
+      INSTALL4J_ADD_VM_PARAMS: "-Xms2703m -Xmx2703m -XX:MaxDirectMemorySize=2703m"
+
+volumes:
+  nexus-data:</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Step 1: Start Nexus and get the initial admin password
+docker compose up -d nexus
+# Wait ~2 minutes for Nexus to start
+docker exec nexus cat /nexus-data/admin.password
+# Open http://localhost:8081 and complete setup wizard
+
+# Step 2: Create repositories via Nexus REST API (after initial setup)
+# (Or use the UI: Administration → Repository → Repositories → Create repository)
+
+# Create a Docker hosted repository (where you push your own images)
+curl -u admin:$NEXUS_ADMIN_PASS \
+  -X POST http://localhost:8081/service/rest/v1/repositories/docker/hosted \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "docker-internal",
+    "online": true,
+    "storage": {"blobStoreName": "default", "strictContentTypeValidation": true, "writePolicy": "allow_once"},
+    "docker": {"v1Enabled": false, "forceBasicAuth": true, "httpPort": 5000}
+  }'
+
+# Create a Docker proxy repository (caches Docker Hub — avoids rate limits)
+curl -u admin:$NEXUS_ADMIN_PASS \
+  -X POST http://localhost:8081/service/rest/v1/repositories/docker/proxy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "docker-hub-proxy",
+    "online": true,
+    "storage": {"blobStoreName": "default", "strictContentTypeValidation": true},
+    "proxy": {"remoteUrl": "https://registry-1.docker.io", "contentMaxAge": 1440, "metadataMaxAge": 1440},
+    "docker": {"v1Enabled": false, "forceBasicAuth": true, "httpPort": 5001},
+    "dockerProxy": {"indexType": "HUB"}
+  }'</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Configure Docker Daemon to Trust the Registry</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-json">// /etc/docker/daemon.json — on every machine that needs to push/pull from Nexus
+// Required when running Nexus over HTTP (not HTTPS) — common in dev/internal setups
+{
+  "insecure-registries": ["nexus.ticketflow.io:5000"],
+  "registry-mirrors": ["http://nexus.ticketflow.io:5001"]
+}</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Restart the Docker daemon after editing daemon.json
+sudo systemctl restart docker
+
+# Verify the configuration was picked up
+docker info | grep -A5 "Insecure Registries"
+docker info | grep -A5 "Registry Mirrors"</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — PUSH/PULL WITH TICKETFLOW
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="push-pull-commands" class="section-title">Push and Pull Commands with TicketFlow</h2>
+
+      <h3 class="subsection-title">Building and Pushing All TicketFlow Services</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash">#!/bin/bash
+# build-and-push.sh — Build all TicketFlow services and push to Nexus
+set -euo pipefail
+
+REGISTRY="nexus.ticketflow.io:5000"
+NAMESPACE="ticketflow"
+VERSION="${1:-1.4.2}"
+GIT_SHA=$(git rev-parse --short HEAD)
+
+# Authenticate
+echo "$NEXUS_PASSWORD" | docker login "$REGISTRY" -u ci-deploy --password-stdin
+
+# Build and push each service
+SERVICES=(
+  "user-service:services/user-service"
+  "ticket-service:services/ticket-service"
+  "payment-service:services/payment-service"
+  "order-service:services/order-service"
+  "notification-service:services/notification-service"
+  "api-gateway:services/api-gateway"
+)
+
+for entry in "${SERVICES[@]}"; do
+  SERVICE="${entry%%:*}"
+  CONTEXT="${entry##*:}"
+  IMAGE="${REGISTRY}/${NAMESPACE}/${SERVICE}"
+
+  echo "==> Building ${SERVICE}..."
+  docker build \
+    --tag "${IMAGE}:${VERSION}" \
+    --tag "${IMAGE}:${VERSION}-${GIT_SHA}" \
+    --label "git.sha=${GIT_SHA}" \
+    --label "build.version=${VERSION}" \
+    "${CONTEXT}"
+
+  echo "==> Pushing ${SERVICE}..."
+  docker push "${IMAGE}:${VERSION}"
+  docker push "${IMAGE}:${VERSION}-${GIT_SHA}"
+
+  echo "==> ${SERVICE} pushed successfully"
+done
+
+echo "All services pushed to ${REGISTRY}"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Pulling Images for Deployment</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Pull a specific service image (explicit version — never :latest in scripts)
+docker pull nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2
+
+# Pull with digest (fully immutable — the tag could be overwritten, the digest cannot)
+docker pull nexus.ticketflow.io:5000/ticketflow/user-service@sha256:a8f3b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1
+
+# Pull the current staging image (promotion tag)
+docker pull nexus.ticketflow.io:5000/ticketflow/user-service:staging
+
+# Pull using Docker Hub proxy through Nexus (avoids rate limits)
+# Configure registry-mirrors in daemon.json first, then pull normally:
+docker pull node:18-alpine          # transparently goes through Nexus cache
+docker pull eclipse-temurin:17-jre  # cached in Nexus on first pull</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="os-setup" class="section-title">Configure Insecure Registry by OS</h2>
+
+      <p>When Nexus is accessed over HTTP (common in internal/dev environments), Docker requires explicit configuration to trust the insecure registry. The method differs by operating system.</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux</button>
+          <button class="os-tab-btn" data-tab="mac">macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Linux: Edit /etc/docker/daemon.json
+sudo tee /etc/docker/daemon.json &gt; /dev/null &lt;&lt;'EOF'
+{
+  "insecure-registries": ["nexus.ticketflow.io:5000"],
+  "registry-mirrors": ["http://nexus.ticketflow.io:5001"]
+}
+EOF
+
+# Restart the Docker daemon
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# Verify
+docker info | grep -A5 "Insecure Registries"</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="mac">
+          <div class="code-wrapper">
+            <pre><code class="language-json">// macOS (Docker Desktop):
+// Open Docker Desktop → Settings → Docker Engine
+// Add to the JSON configuration:
+{
+  "insecure-registries": ["nexus.ticketflow.io:5000"],
+  "registry-mirrors": ["http://nexus.ticketflow.io:5001"]
+}
+// Click "Apply &amp; Restart"
+
+// Or via CLI (writes to ~/Library/Group Containers/.../settings.json):
+// Not recommended — use the GUI for macOS to avoid JSON corruption</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-json">// Windows (Docker Desktop):
+// Right-click Docker Desktop tray icon → Settings → Docker Engine
+// Add to the JSON configuration:
+{
+  "insecure-registries": ["nexus.ticketflow.io:5000"],
+  "registry-mirrors": ["http://nexus.ticketflow.io:5001"]
+}
+// Click "Apply &amp; Restart"
+
+// PowerShell alternative (if running Docker Engine directly on Windows Server):
+// Edit C:\ProgramData\docker\config\daemon.json
+// Then restart the Docker service:
+Restart-Service docker</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when you run <code>docker push nexus.ticketflow.io:5000/ticketflow/user-service:1.4.2</code>?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>The Docker CLI reads your stored credentials from <code>~/.docker/config.json</code> for the host <code>nexus.ticketflow.io:5000</code>.</li>
+            <li>Docker sends a <code>POST /v2/&lt;name&gt;/blobs/uploads/</code> request to the Nexus registry API to initiate a push session and receive an upload URL.</li>
+            <li>For each image layer that Nexus does not already have (checked via a HEAD request against its content-addressable storage), Docker uploads the compressed layer blob using a chunked HTTP PUT.</li>
+            <li>Once all layers are uploaded, Docker pushes the image manifest — a JSON document describing the image layers, their digests, the image config, and metadata. The manifest is stored under both the tag name and its SHA256 digest.</li>
+            <li>Nexus stores blobs in its blobstore (by default at <code>/nexus-data/blobs/default/</code>) keyed by their SHA256 digest. The same layer shared across multiple images is stored exactly once — content-addressed deduplication.</li>
+            <li>The tag mapping (e.g., <code>user-service:1.4.2</code> → manifest SHA256) is updated in Nexus's metadata database.</li>
+            <li>On <code>docker pull</code>, the process reverses: Docker fetches the manifest by tag, then downloads only the layers it does not already have locally (delta pull based on layer digest matching).</li>
+          </ol>
+          <p>This is why the Docker Registry V2 API (which all modern registries implement — Nexus, ECR, ACR, Harbor, GCR) is content-addressable: images are addressed by what they contain (SHA256 digest), not where they came from. This property is what makes image promotion safe: you can re-tag an image in-registry without touching the bits at all.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Nexus proxy Docker Hub? What happens on the first pull?</summary>
+        <div class="answer-content">
+          <p>When you configure Nexus as a Docker Hub proxy and a developer pulls <code>node:18-alpine</code>:</p>
+          <ol>
+            <li>Docker sends the pull request to your Nexus proxy port (5001).</li>
+            <li>Nexus checks its local blobstore for the requested tag's manifest. On the first pull, it is not there.</li>
+            <li>Nexus forwards the request upstream to <code>https://registry-1.docker.io</code>, authenticating with the Docker Hub credentials you configured in the proxy repository settings.</li>
+            <li>Docker Hub returns the manifest and layer blobs. Nexus streams them back to the developer's Docker daemon <em>and simultaneously stores them locally</em>.</li>
+            <li>The next developer who pulls <code>node:18-alpine</code> gets it directly from Nexus's local cache — no Docker Hub round-trip, no rate limit consumption, much faster download.</li>
+          </ol>
+          <p>The cache TTL is configurable (default 1440 minutes = 24 hours for metadata). This means the proxy checks for upstream updates at most once per day per image tag — protecting you from Docker Hub's 100 pull/6-hour anonymous rate limit, which is trivially exceeded by CI systems rebuilding dozens of images per hour.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 1: Overwriting Released Tags</span>
+        <p>A CI pipeline pushes <code>user-service:1.4.2</code>. A hotfix is applied, the Dockerfile is updated, and another push overwrites <code>user-service:1.4.2</code> with different bits. Now every system pulling <code>1.4.2</code> gets different content depending on when they last pulled. Rollbacks become unreliable — "rolling back to 1.4.2" is meaningless if 1.4.2 has changed.</p>
+        <p><strong>Fix:</strong> Configure Nexus with <code>writePolicy: "allow_once"</code> on the hosted repository. This prevents overwriting existing tags. Released tags are immutable. Use a new version number for each distinct artifact. Only development/snapshot repositories should allow overwrites.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 2: Storing Registry Credentials in Docker Compose Files</span>
+        <p>Developers add registry credentials to <code>docker-compose.yml</code> or hardcode them in CI pipeline YAML files. These files get committed to Git. Credentials are now exposed to everyone with repo access and to GitHub's audit history permanently.</p>
+        <p><strong>Fix:</strong> Use environment variables. In docker-compose, reference <code>$NEXUS_PASSWORD</code> from the environment. In CI, use the secrets management feature of your CI platform (GitHub Actions secrets, GitLab CI variables, Jenkins credentials). Never write credentials in files that could be committed.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 3: Not Setting Up a Docker Hub Proxy</span>
+        <p>Teams pull base images directly from Docker Hub during CI builds. Docker Hub rate-limits anonymous pulls to 100/6h and authenticated pulls to 200/6h (free plan). A team of 10 developers each running multiple CI builds per day easily exceeds these limits. Builds start failing with <code>429 Too Many Requests</code> at the worst possible time.</p>
+        <p><strong>Fix:</strong> Set up a Nexus Docker proxy repository for Docker Hub from day one. Configure the Docker daemon's <code>registry-mirrors</code> to route Docker Hub pulls through your proxy. All base image pulls are cached locally — no rate limits, faster downloads, and you have a copy of your base images even if Docker Hub has an outage.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 4: Skipping Image Scanning</span>
+        <p>Teams push images to production without scanning for known vulnerabilities (CVEs). A base image like <code>node:18</code> can contain dozens of critical CVEs inherited from the Debian or Alpine packages it bundles. Without scanning, you ship known vulnerabilities to production and may violate security compliance requirements (SOC 2, PCI DSS, ISO 27001).</p>
+        <p><strong>Fix:</strong> Integrate Trivy (or Snyk) into the CI pipeline as a gate before the push step. Fail the pipeline on critical CVEs. Run scheduled re-scans of images already in the registry (Nexus IQ Server, or scheduled Trivy runs via cron). Update base images monthly as a maintenance task.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 5: One Nexus Repository for Everything</span>
+        <p>Engineers create a single Docker hosted repository in Nexus and push all images there — dev builds, release candidates, stable releases, base images from Docker Hub, everything mixed together. There is no way to enforce promotion policies, apply different retention rules per environment, or grant different teams access to different image sets.</p>
+        <p><strong>Fix:</strong> Create separate repositories per lifecycle stage: <code>docker-dev</code> (short retention, allow overwrites, developer access), <code>docker-release</code> (immutable tags, write-once, CI access only), <code>docker-hub-proxy</code> (read-only proxy, no direct pushes). Use a Nexus Group repository that aggregates all three — developers point at the group for pulls and get everything in one endpoint.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>The registry is not a storage detail — it is a <strong>deployment control plane</strong>. How you structure your registry directly determines how much control you have over what reaches production. Three architectural principles to drive every registry decision:</p>
+        <ul>
+          <li><strong>The registry is the source of truth for deployable artifacts.</strong> Not Git, not CI artifacts, not S3 buckets — the registry. Everything in Kubernetes, Helm, and Argo CD references image tags in the registry. If an image is not in the registry, it cannot be deployed. This means the registry must be highly available, backed up, and access-controlled with the same rigour as your database.</li>
+          <li><strong>Promotion is a tag operation, not a build operation.</strong> Never rebuild an image to promote it. A "rebuild for production" is an invisible code path that was never tested. Instead: build once, tag with an immutable identifier (SHA + semver), promote by applying environment tags to the same image. The bits are identical. The metadata (tag) changes. This is the only model that guarantees "what you tested is what you deployed".</li>
+          <li><strong>Registry strategy must be decided before CI/CD strategy.</strong> Your registry choice constrains your CI/CD options. If you choose ECR, you are tied to AWS IAM for authentication — fine if you are all-in on AWS, problematic if you run hybrid deployments. If you choose Nexus, you need to operate it. If you choose Harbor, you need Kubernetes to run it. Make the registry decision first; it shapes everything downstream.</li>
+        </ul>
+        <p><strong>On Nexus specifically:</strong> Nexus is operationally heavier than a managed cloud registry, but for organizations with heterogeneous artifact needs (Docker + Maven + npm + Python + Helm + OS packages), it provides a level of consolidation that is genuinely valuable. One auth system, one backup job, one RBAC model, one monitoring target. The operational overhead is real but bounded; the consolidation value compounds over years. For pure cloud-native AWS shops with no polyglot artifact requirements, ECR is simpler and zero-ops. For everyone else, Nexus usually wins.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>Private registry is deployed and accessible only within the VPC / corporate network (never public-facing for production images)</li>
+        <li>TLS/HTTPS is configured on the registry — no production system uses HTTP for image transport</li>
+        <li>Separate repositories exist for dev snapshots, release candidates, and stable releases with appropriate write policies</li>
+        <li>Docker Hub proxy repository configured — no direct Docker Hub pulls from CI or production nodes</li>
+        <li>All image tags use semver + git SHA format — <code>:latest</code> is never used in Kubernetes manifests or Helm values</li>
+        <li>Release repository configured with <code>writePolicy: allow_once</code> — published tags cannot be overwritten</li>
+        <li>CI service account has push-only access to dev/release repositories; production nodes have pull-only access</li>
+        <li>Trivy (or equivalent) CVE scanning runs in CI as a pipeline gate — critical CVEs block the push step</li>
+        <li>Registry storage (Nexus blobstore) is on a durable volume (EBS, NFS) — not the container's ephemeral filesystem</li>
+        <li>Registry backup is automated and tested — a registry failure should not prevent deploying a hotfix from backup</li>
+        <li>Image retention policy configured — dev images expire after 30 days; release images retained for 1 year minimum</li>
+        <li>Kubernetes imagePullSecrets configured for all namespaces that pull from the private registry</li>
+        <li>Registry health is monitored — disk usage, pull latency, and availability alerts configured in Prometheus/Grafana</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Push user-service to a Local Nexus</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">🧪 Lab — Requires Docker Desktop + 4 GB free RAM for Nexus</span>
+
+        <p>This lab walks you through the complete image lifecycle: start a local Nexus, configure Docker to trust it, build the TicketFlow user-service image, push it, and verify it is stored correctly. Run each step in sequence.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Start a local Nexus registry</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a docker-compose.yml for the lab
+mkdir -p ~/ticketflow-lab && cd ~/ticketflow-lab
+
+cat > docker-compose.yml &lt;&lt;'EOF'
+version: "3.9"
+services:
+  nexus:
+    image: sonatype/nexus3:3.66.0
+    container_name: nexus-lab
+    ports:
+      - "8081:8081"   # Nexus web UI
+      - "5000:5000"   # Docker hosted repo
+    volumes:
+      - nexus-data:/nexus-data
+volumes:
+  nexus-data:
+EOF
+
+docker compose up -d nexus
+
+# Wait for Nexus to start (takes about 90 seconds)
+echo "Waiting for Nexus to start..."
+until curl -s http://localhost:8081/service/rest/v1/status | grep -q '"edition"'; do
+  printf '.'
+  sleep 5
+done
+echo ""
+echo "Nexus is up!"
+
+# Get the admin password
+echo "Admin password:"
+docker exec nexus-lab cat /nexus-data/admin.password</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Configure Nexus via the API</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Set the admin password to something known for this lab
+NEXUS_PASS="admin123"  # Change this for any real use!
+
+# Disable anonymous access (good practice)
+curl -s -u admin:$(docker exec nexus-lab cat /nexus-data/admin.password) \
+  -X PUT http://localhost:8081/service/rest/v1/security/anonymous \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# Create a Docker hosted repository on port 5000
+curl -s -u "admin:$(docker exec nexus-lab cat /nexus-data/admin.password)" \
+  -X POST http://localhost:8081/service/rest/v1/repositories/docker/hosted \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "docker-internal",
+    "online": true,
+    "storage": {
+      "blobStoreName": "default",
+      "strictContentTypeValidation": true,
+      "writePolicy": "allow"
+    },
+    "docker": {
+      "v1Enabled": false,
+      "forceBasicAuth": true,
+      "httpPort": 5000
+    }
+  }'
+
+echo "Docker hosted repository created on port 5000"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Configure Docker to trust the local registry</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Edit /etc/docker/daemon.json (Linux) or Docker Desktop settings (Mac/Windows)
+# Add: "insecure-registries": ["localhost:5000"]
+#
+# On Linux:
+sudo tee /etc/docker/daemon.json &gt; /dev/null &lt;&lt;'EOF'
+{
+  "insecure-registries": ["localhost:5000"]
+}
+EOF
+sudo systemctl restart docker
+
+# On Mac/Windows: Docker Desktop → Settings → Docker Engine → add the JSON above → Apply &amp; Restart
+
+# Verify Docker recognizes the insecure registry
+docker info 2>/dev/null | grep -A3 "Insecure Registries"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Create a minimal user-service image</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a minimal Node.js user-service for the lab
+mkdir -p ~/ticketflow-lab/user-service && cd ~/ticketflow-lab/user-service
+
+cat > app.js &lt;&lt;'EOF'
+const http = require('http');
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end(JSON.stringify({
+    service: 'user-service',
+    version: '1.4.2',
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  }));
+});
+server.listen(3000, () => console.log('user-service running on :3000'));
+EOF
+
+cat > Dockerfile &lt;&lt;'EOF'
+FROM node:18-alpine
+WORKDIR /app
+COPY app.js .
+EXPOSE 3000
+USER node
+CMD ["node", "app.js"]
+EOF
+
+# Build the image with the TicketFlow tagging convention
+GIT_SHA="abc1234"  # In CI this comes from: git rev-parse --short HEAD
+docker build \
+  -t localhost:5000/ticketflow/user-service:1.4.2 \
+  -t localhost:5000/ticketflow/user-service:1.4.2-${GIT_SHA} \
+  .
+
+echo "Images built:"
+docker images localhost:5000/ticketflow/user-service</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Push to local Nexus and verify</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Log in to the local Nexus registry
+NEXUS_ADMIN_PASS=$(docker exec nexus-lab cat /nexus-data/admin.password)
+echo "$NEXUS_ADMIN_PASS" | docker login localhost:5000 -u admin --password-stdin
+
+# Push both tags
+docker push localhost:5000/ticketflow/user-service:1.4.2
+docker push localhost:5000/ticketflow/user-service:1.4.2-abc1234
+
+# Verify the image exists in Nexus via the REST API
+curl -s -u "admin:${NEXUS_ADMIN_PASS}" \
+  "http://localhost:8081/service/rest/v1/components?repository=docker-internal" \
+  | python3 -m json.tool | grep -A3 '"name"'
+
+# Simulate a production pull — delete local image, pull from Nexus
+docker rmi localhost:5000/ticketflow/user-service:1.4.2
+docker pull localhost:5000/ticketflow/user-service:1.4.2
+
+# Run the pulled image and verify it works
+docker run -d -p 3000:3000 --name user-service-test \
+  localhost:5000/ticketflow/user-service:1.4.2
+curl http://localhost:3000
+docker stop user-service-test &amp;&amp; docker rm user-service-test</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Check what you built in the Nexus UI</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Open the Nexus UI in your browser
+echo "Open: http://localhost:8081"
+echo "Login: admin / $(docker exec nexus-lab cat /nexus-data/admin.password)"
+echo ""
+echo "Navigate to: Browse → docker-internal"
+echo "You should see: ticketflow/user-service with tags 1.4.2 and 1.4.2-abc1234"
+echo ""
+echo "Each tag shows: digest, size, creation date, and individual layer blobs"
+
+# Clean up the lab when done
+# docker compose -f ~/ticketflow-lab/docker-compose.yml down -v</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How long Nexus takes to start (2–3 minutes) — this is why production Nexus should always be running, not started on demand.</li>
+          <li>That pushing two tags for the same image is near-instant for the second push — the layers are already uploaded; only the manifest changes.</li>
+          <li>In the Nexus UI, notice that both tags point to the same layer blobs (same digest) — content-addressed deduplication at work.</li>
+          <li>The Nexus REST API returns the full image manifest including layer digests — you can use this to build image verification and promotion automation.</li>
+          <li>How the <code>docker pull</code> after deleting the local image fetches from Nexus exactly as it would from Docker Hub — the registry API is standardised (Docker Registry V2 / OCI Distribution Spec).</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked container registry questions in DevOps and software architect interviews. Each answer is production-grade — not a textbook definition.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is a container registry and how does it differ from Docker Hub?</summary>
+            <div class="answer-content">
+              <p>A <strong>container registry</strong> is a storage and distribution system for container images. It stores image layers (compressed tarballs) and manifests (JSON documents describing the layers) in a content-addressable store. The Docker Registry V2 API (now the OCI Distribution Spec) is the standard protocol — any compliant tool (Docker, Podman, Kubernetes, Helm) can push and pull from any compliant registry.</p>
+              <p><strong>Docker Hub</strong> (<code>hub.docker.com</code>) is one specific registry — the public default hosted by Docker Inc. It is the registry Docker uses when you run <code>docker pull nginx</code> with no hostname prefix. Docker Hub hosts millions of public images and is rate-limited (100 pulls/6h for anonymous, 200/6h for free authenticated accounts).</p>
+              <p>The distinction matters architecturally: Docker Hub is a public, third-party SaaS. In production, organizations run their own private registry (Nexus, Harbor, ECR, ACR) for security, reliability, and control. Pulling base images via a private proxy of Docker Hub eliminates rate-limit issues and ensures builds succeed even if Docker Hub has an outage.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: What is the difference between a tag and a digest when referencing a Docker image?</summary>
+            <div class="answer-content">
+              <p>A <strong>tag</strong> is a mutable human-readable pointer to a manifest. <code>user-service:1.4.2</code> is a tag — it currently points to a specific manifest, but a new push can overwrite it to point to a completely different manifest. If you push new bits under the same tag, anyone pulling that tag tomorrow gets different content than someone who pulled today.</p>
+              <p>A <strong>digest</strong> is an immutable content address — the SHA256 hash of the manifest file itself. <code>user-service@sha256:a8f3b2c1...</code> will always, forever, refer to the exact same bits. You cannot overwrite a digest because it is computed from the content. If the content changes, the digest changes.</p>
+              <p><strong>When to use each:</strong></p>
+              <ul>
+                <li><strong>Development and CI tagging</strong> — use tags like <code>1.4.2-abc1234</code>. Human-readable, version-controlled.</li>
+                <li><strong>Critical production workloads</strong> — use digests. Kubernetes manifests and Helm values can reference <code>image: registry/service@sha256:...</code>. This is the only truly immutable reference. Even if an attacker compromises the registry and overwrites a tag, a digest-pinned deployment is unaffected.</li>
+              </ul>
+              <p>Best practice: record the digest at build time (<code>docker inspect --format='{{index .RepoDigests 0}}'</code>), store it in your Helm chart or deployment manifest for production, and use the human-readable tag only for CI tooling and human communication.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: How would you implement an image promotion pipeline from dev to production?</summary>
+            <div class="answer-content">
+              <p>An image promotion pipeline has one core principle: <strong>build once, promote the same artifact through environments</strong>. Never rebuild for a higher environment.</p>
+              <p><strong>The pipeline:</strong></p>
+              <ol>
+                <li><strong>CI Build</strong> — On merge to main, build the image and tag it <code>&lt;semver&gt;-&lt;git-sha&gt;</code>. Run CVE scanning. If scanning passes, push to the <code>docker-dev</code> repository in Nexus. Apply a <code>dev</code> promotion tag.</li>
+                <li><strong>Dev deployment</strong> — Argo CD detects the updated <code>dev</code> tag and deploys to the dev namespace on EKS. Developers validate.</li>
+                <li><strong>Promote to staging</strong> — A promotion script (triggered manually or by a gate) calls the Nexus API to copy the manifest from <code>docker-dev</code> to <code>docker-release</code> with the tag <code>staging</code>. No rebuild. No new push from CI.</li>
+                <li><strong>Staging deployment and testing</strong> — Argo CD deploys. Integration tests and load tests run against staging. QA signs off.</li>
+                <li><strong>Promote to production</strong> — Same promotion script moves the image to the <code>stable</code> tag. Applies the final semver tag (e.g., <code>1.4.2</code>) as the official release marker. Argo CD deploys to production namespace.</li>
+                <li><strong>Rollback</strong> — If production breaks, re-apply the previous <code>stable</code> tag to the previous image manifest. Kubernetes pulls the previous image. Helm rollback handles the manifest changes.</li>
+              </ol>
+              <p>The key: promotions are tag operations in the registry, not re-executions of the build pipeline. This guarantees that what you tested in staging is byte-for-byte identical to what runs in production.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: Why would a large enterprise choose Nexus over Amazon ECR, even when running on AWS?</summary>
+            <div class="answer-content">
+              <p>ECR is excellent if your only artifact type is Docker images and your entire stack runs on AWS. But large enterprises typically have more complex requirements:</p>
+              <ul>
+                <li><strong>Polyglot artifacts</strong> — Java teams use Maven/Gradle and need a Maven repository. Node teams use npm. Python teams use PyPI (pip). Go teams use module proxies. Helm charts need a chart repository. All of these can live in Nexus, but not in ECR. Running a separate tool for each artifact type multiplies operational complexity.</li>
+                <li><strong>Data residency and air-gapped environments</strong> — regulated industries (finance, healthcare, government) may be unable to use cloud-managed services for artifact storage due to data sovereignty requirements or security classifications. Self-hosted Nexus runs in the corporate data centre with no external dependencies.</li>
+                <li><strong>Proxy caching</strong> — Nexus can proxy Docker Hub, Maven Central, npm registry, PyPI, and others — caching every dependency used by every team behind the corporate firewall. This eliminates external dependency on public repositories and prevents supply-chain attacks via dependency confusion. ECR cannot proxy non-ECR registries.</li>
+                <li><strong>Multi-cloud or on-premise workloads</strong> — if the organization runs workloads on-premise, on Azure, or on GCP alongside AWS, a single Nexus instance serves all of them. ECR is AWS-specific.</li>
+              </ul>
+              <p>The trade-off is real: Nexus requires operational investment (hardware, upgrades, backups, HA configuration). ECR is zero-ops for teams already on AWS. The decision ultimately comes down to the breadth of the artifact portfolio and the degree of cloud vendor commitment.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: A Kubernetes pod is stuck in ImagePullBackOff. How do you diagnose and fix it?</summary>
+            <div class="answer-content">
+              <p><code>ImagePullBackOff</code> means the Kubernetes node failed to pull the container image. It is one of the most common issues in Kubernetes deployments and has a handful of root causes:</p>
+              <ol>
+                <li><strong>Diagnose the exact error:</strong>
+                  <div class="code-wrapper" style="margin:0.5rem 0;">
+                    <pre><code class="language-bash">kubectl describe pod &lt;pod-name&gt; -n &lt;namespace&gt;
+# Look at "Events" section — the error message is specific</code></pre>
+                  </div>
+                </li>
+                <li><strong>Wrong image tag</strong> — the most common cause. The tag specified in the deployment manifest does not exist in the registry. Fix: verify the tag exists in Nexus (<code>curl -u ci:pass nexus.ticketflow.io:5000/v2/ticketflow/user-service/tags/list</code>) and correct the deployment manifest.</li>
+                <li><strong>Missing imagePullSecret</strong> — the namespace does not have credentials to pull from the private registry. Fix: create a Kubernetes Secret of type <code>kubernetes.io/dockerconfigjson</code> and reference it in the deployment's <code>imagePullSecrets</code>:
+                  <div class="code-wrapper" style="margin:0.5rem 0;">
+                    <pre><code class="language-bash">kubectl create secret docker-registry nexus-credentials \
+  --docker-server=nexus.ticketflow.io:5000 \
+  --docker-username=ci-deploy \
+  --docker-password=$NEXUS_PASSWORD \
+  -n &lt;namespace&gt;</code></pre>
+                  </div>
+                </li>
+                <li><strong>Registry unreachable from nodes</strong> — network policy or security group blocks EKS nodes from reaching <code>nexus.ticketflow.io:5000</code>. Fix: verify connectivity from a node (<code>kubectl run -it --rm debug --image=alpine -- wget -qO- nexus.ticketflow.io:5000/v2/</code>) and adjust security groups / network policies.</li>
+                <li><strong>TLS/certificate issue</strong> — Nexus uses a self-signed certificate or a cert from an internal CA that the node does not trust. Fix: configure the container runtime (<code>containerd</code> or <code>docker</code>) on the node with the CA certificate, or switch Nexus to a Let's Encrypt certificate.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: What is a Docker Hub proxy repository in Nexus and why is it important in production?</summary>
+            <div class="answer-content">
+              <p>A <strong>Docker Hub proxy repository</strong> in Nexus is a pass-through cache. When a developer or CI system pulls a public image (e.g., <code>node:18-alpine</code>), the request goes to Nexus instead of directly to Docker Hub. Nexus fetches the image from Docker Hub on the first request, caches all layers locally, and serves every subsequent request for the same image from the local cache — without any Docker Hub round-trip.</p>
+              <p><strong>Why this matters in production:</strong></p>
+              <ul>
+                <li><strong>Rate limit elimination</strong> — Docker Hub limits anonymous pulls to 100/6h and free authenticated pulls to 200/6h. A CI system rebuilding 20 services an hour easily exhausts these limits, causing builds to fail with <code>429 Too Many Requests</code>. With a proxy, the rate-limit budget is consumed only on cache misses — typically &lt;1% of pulls.</li>
+                <li><strong>Build speed</strong> — Local cache pulls at LAN speed (1 Gbps) vs Docker Hub (variable internet). A 200 MB base image pull from Docker Hub takes 10–30 seconds; from a local Nexus on the same network, under 1 second.</li>
+                <li><strong>Resilience</strong> — Docker Hub has periodic outages. Without a proxy, an outage stops all builds. With Nexus caching all previously used base images, builds continue unaffected. Your builds are not dependent on an external SaaS during deployments.</li>
+                <li><strong>Audit and policy enforcement</strong> — all base image pulls are logged in Nexus. Security teams can audit which base images are in use across the organisation, enforce policies (e.g., only Alpine-based images allowed), and detect if a team is pulling a base image with known critical CVEs.</li>
+              </ul>
+              <p>At TicketFlow, the Docker Hub proxy eliminated random CI build failures that were blamed on "flaky tests" for months — they were actually Docker Hub rate-limit failures. After configuring the proxy, those failures disappeared entirely.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

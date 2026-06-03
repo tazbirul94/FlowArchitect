@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Troubleshooting Playbook — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="23" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Operations → Troubleshooting Playbook</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 45 min read</span>
+          <span class="tag">Epic 6</span>
+        </div>
+        <h1 class="page-title">Troubleshooting Playbook</h1>
+        <p class="page-subtitle">Systematic methodologies and kubectl command references to diagnose and resolve Kubernetes production incidents fast.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind the Playbook</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🚨 2:47 AM — Production Is Down</span>
+        <p>The on-call alert fires. The TicketFlow payment-service is returning 503s. Revenue is bleeding. Your phone is ringing. You have no idea where to start.</p>
+        <p>The engineer who panics and clicks randomly through dashboards will take 90 minutes to resolve what should take 10. They'll restart the wrong pod, roll back the wrong deployment, and escalate three times before finding the actual cause: a misconfigured ConfigMap that prevents the pod from starting.</p>
+        <p>The engineer with a playbook opens a terminal and works through a systematic decision tree. Observe the symptoms. Isolate the scope. Form a hypothesis. Test it. Fix it. Within 8 minutes, the service is restored and a post-mortem is being drafted. The difference is not raw skill — it is methodology. A troubleshooting playbook converts chaos into procedure. This page is that playbook.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="methodology" class="section-title">The Debug Methodology</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>Think of debugging like a doctor diagnosing a patient. A good doctor doesn't immediately prescribe surgery. They observe symptoms (fever, pain location), narrow down the problem (blood test, X-ray), form a hypothesis (likely appendicitis), test it (confirm with imaging), then apply the precise fix (surgery — not chemotherapy). Randomly treating every possible disease wastes time and can make things worse. Kubernetes troubleshooting works exactly the same way.</p>
+      </div>
+
+      <p>Every Kubernetes incident should follow the same five-step scientific method. Skipping steps leads to misdiagnosis, wasted effort, and sometimes making the problem worse.</p>
+
+      <h3 class="subsection-title">Step 1: Observe — What exactly is broken?</h3>
+      <p>Start by gathering facts, not guessing. What does the monitoring say? Which service is affected? What is the exact error? Since when? How many pods are affected? Is it all pods or just some? Is traffic still partially routing? Never form a hypothesis before you have complete observations.</p>
+
+      <h3 class="subsection-title">Step 2: Isolate — What is the blast radius?</h3>
+      <p>Is the problem in one pod, one node, one namespace, or the whole cluster? Is it one deployment or multiple? Does it affect only one AZ? Isolation tells you whether you have an application bug, a node failure, a network partition, or a cluster-level issue. Each has a completely different fix path.</p>
+
+      <h3 class="subsection-title">Step 3: Hypothesize — What is the most likely cause?</h3>
+      <p>Based on your observations and blast radius, rank the most probable causes. A pod in CrashLoopBackOff most likely has an application error or misconfigured environment. A Pending pod is almost certainly a scheduling failure — resource starvation or affinity conflict. State a concrete hypothesis before you act.</p>
+
+      <h3 class="subsection-title">Step 4: Test — Confirm or refute the hypothesis</h3>
+      <p>Use read-only commands (<code>kubectl describe</code>, <code>kubectl logs</code>, <code>kubectl get events</code>) to confirm your hypothesis without making changes. Only escalate to making changes when you are confident in the diagnosis. Applying a fix before confirming the cause is how you create new incidents during an existing incident.</p>
+
+      <h3 class="subsection-title">Step 5: Fix — Apply the minimal targeted change</h3>
+      <p>Apply the smallest change that resolves the confirmed root cause. Document exactly what you changed and why. After fixing, verify the service has recovered and monitor for 5 minutes before standing down. Then write a post-mortem.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — POD STATES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pod-states" class="section-title">Pod States and What They Mean</h2>
+
+      <p>The pod status column in <code>kubectl get pods</code> is your first diagnostic signal. Each state tells a specific story about what is wrong.</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>What It Means</th>
+            <th>First Command to Run</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Pending</code></td>
+            <td>Pod is accepted but not yet scheduled to a node. Usually resource starvation, affinity rules, or taints.</td>
+            <td><code>kubectl describe pod &lt;name&gt;</code> — look at Events section</td>
+          </tr>
+          <tr>
+            <td><code>ContainerCreating</code></td>
+            <td>Pod is scheduled; container runtime is pulling image or mounting volumes. Slow image pull or PVC binding issue.</td>
+            <td><code>kubectl describe pod &lt;name&gt;</code> — check image pull events</td>
+          </tr>
+          <tr>
+            <td><code>Running</code></td>
+            <td>All containers started. Does NOT mean healthy — the app may be erroring internally. Check readiness.</td>
+            <td><code>kubectl logs &lt;pod&gt; -c &lt;container&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>CrashLoopBackOff</code></td>
+            <td>Container starts, crashes, Kubernetes retries with exponential backoff. Application crash or bad config.</td>
+            <td><code>kubectl logs &lt;pod&gt; --previous</code> — get logs before last crash</td>
+          </tr>
+          <tr>
+            <td><code>OOMKilled</code></td>
+            <td>Container exceeded its memory limit; kernel killed it. Memory leak or limit too low.</td>
+            <td><code>kubectl describe pod &lt;name&gt;</code> — check OOMKilled exit code</td>
+          </tr>
+          <tr>
+            <td><code>ImagePullBackOff</code></td>
+            <td>Cannot pull the container image. Wrong image name, missing tag, or registry auth failure.</td>
+            <td><code>kubectl describe pod &lt;name&gt;</code> — check Failed to pull image events</td>
+          </tr>
+          <tr>
+            <td><code>ErrImagePull</code></td>
+            <td>Same root cause as ImagePullBackOff — this is the initial error before backoff kicks in.</td>
+            <td><code>kubectl describe pod &lt;name&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>Terminating</code></td>
+            <td>Pod is being deleted. Stuck Terminating usually means a finalizer is blocking deletion or node is unresponsive.</td>
+            <td><code>kubectl get pod &lt;name&gt; -o yaml</code> — check finalizers</td>
+          </tr>
+          <tr>
+            <td><code>Completed</code></td>
+            <td>Container process exited with code 0. Normal for Jobs. Unexpected for Deployments (wrong CMD).</td>
+            <td><code>kubectl logs &lt;pod&gt;</code> — see what the process did before exiting</td>
+          </tr>
+          <tr>
+            <td><code>Error</code></td>
+            <td>Container exited with non-zero exit code. Application error, init container failure, or bad entrypoint.</td>
+            <td><code>kubectl logs &lt;pod&gt; --previous</code></td>
+          </tr>
+          <tr>
+            <td><code>Init:0/1</code></td>
+            <td>Init container has not completed. Dependency not ready (DB not up, secret not found, etc.).</td>
+            <td><code>kubectl logs &lt;pod&gt; -c &lt;init-container-name&gt;</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID: TROUBLESHOOTING DECISION TREE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="decision-tree" class="section-title">Troubleshooting Decision Tree</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    START([Pod Not Working]) --> STATUS{kubectl get pods\nWhat is STATUS?}
+
+    STATUS -->|Pending| PENDING{Check Events\nkubectl describe pod}
+    PENDING -->|Insufficient CPU/Memory| RESOURCES[Scale node group\nor reduce requests]
+    PENDING -->|No nodes match affinity| AFFINITY[Fix nodeSelector\nor tolerations]
+    PENDING -->|PVC not bound| PVC[Check StorageClass\nand PVC status]
+
+    STATUS -->|CrashLoopBackOff| CRASH{kubectl logs --previous\nWhat does the app say?}
+    CRASH -->|Config/env error| CONFIGFIX[Fix ConfigMap\nor Secret values]
+    CRASH -->|App exception/panic| APPFIX[Fix application bug\nor rollback deployment]
+    CRASH -->|Port already in use| PORTFIX[Check containerPort\nor duplicate pod]
+
+    STATUS -->|OOMKilled| OOM{Memory usage\npattern?}
+    OOM -->|Spike then killed| MEMLEAK[Fix memory leak\nor increase limit]
+    OOM -->|Steady growth| STEADYMEM[Tune JVM heap\nor increase limit]
+
+    STATUS -->|ImagePullBackOff| IMGPULL{Check image\nname and tag}
+    IMGPULL -->|Image does not exist| IMGNAME[Fix image name\nor push image to registry]
+    IMGPULL -->|Auth failure| IMGAUTH[Create imagePullSecret\nand attach to ServiceAccount]
+
+    STATUS -->|Running but 503s| SVC{kubectl get endpoints\nAny endpoints?}
+    SVC -->|No endpoints| LABELS[Fix pod labels\nto match Service selector]
+    SVC -->|Endpoints exist| READINESS[Check readiness probe\nand container port]
+
+    RESOURCES --> DONE([Resolved])
+    AFFINITY --> DONE
+    PVC --> DONE
+    CONFIGFIX --> DONE
+    APPFIX --> DONE
+    PORTFIX --> DONE
+    MEMLEAK --> DONE
+    STEADYMEM --> DONE
+    IMGNAME --> DONE
+    IMGAUTH --> DONE
+    LABELS --> DONE
+    READINESS --> DONE
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — CRASHLOOPBACKOFF
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="crashloopbackoff" class="section-title">CrashLoopBackOff — Causes and Fix</h2>
+
+      <p>CrashLoopBackOff is the most common Kubernetes failure mode. It means: the container starts, immediately exits with a non-zero code, Kubernetes restarts it, and the cycle repeats with exponential backoff (10s, 20s, 40s, up to 5 minutes between attempts).</p>
+
+      <h3 class="subsection-title">Common Root Causes</h3>
+      <ul>
+        <li><strong>Application crash at startup</strong> — the process throws an unhandled exception before it can bind to its port. Check <code>kubectl logs --previous</code> to see the stack trace from the last crash.</li>
+        <li><strong>Missing or wrong environment variable</strong> — the app tries to read <code>DB_HOST</code> or <code>JWT_SECRET</code> from the environment, finds it missing or wrong, and exits with code 1. The fix is in the ConfigMap or Secret, not the application.</li>
+        <li><strong>Wrong CMD / entrypoint</strong> — the Dockerfile CMD runs a script that does not exist in the image, or the entrypoint expects arguments that are not passed. The container exits immediately with "executable not found."</li>
+        <li><strong>Port conflict</strong> — the app tries to bind to a port already in use by another process in the same pod. Rare but possible with multi-container pods.</li>
+        <li><strong>Failing health check causing restart</strong> — a liveness probe fails immediately after startup because the probe is misconfigured (wrong path, wrong port, or initialDelaySeconds too short). Kubernetes restarts the pod thinking it is unhealthy.</li>
+        <li><strong>Permissions error</strong> — the container runs as a non-root user but tries to write to a directory owned by root. Fix with a securityContext fsGroup or initContainer that chowns the directory.</li>
+      </ul>
+
+      <h3 class="subsection-title">Diagnostic Commands</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># See current pod status and restart count
+kubectl get pods -n ticketflow
+
+# Get logs from the CURRENT (possibly running) container
+kubectl logs payment-service-7d4f8c9b-xr2pw -n ticketflow
+
+# CRITICAL: get logs from the PREVIOUS container (before the last crash)
+kubectl logs payment-service-7d4f8c9b-xr2pw -n ticketflow --previous
+
+# Describe the pod — look at Events section at the bottom
+# Shows exit codes, OOMKilled, image pull errors, probe failures
+kubectl describe pod payment-service-7d4f8c9b-xr2pw -n ticketflow
+
+# Check all pods' restart counts — high restarts = CrashLoop history
+kubectl get pods -n ticketflow --sort-by='.status.containerStatuses[0].restartCount'
+
+# Get the exact exit code of the last container termination
+kubectl get pod payment-service-7d4f8c9b-xr2pw -n ticketflow \
+  -o jsonpath='{.status.containerStatuses[0].lastState.terminated.exitCode}'
+
+# Temporarily override the entrypoint to debug interactively
+# (only works if the image has a shell — not scratch/distroless)
+kubectl run debug-payment --image=nexus.ticketflow.io:5000/payment-service:v2.3.1 \
+  --restart=Never --command -- sleep 3600 -n ticketflow
+kubectl exec -it debug-payment -n ticketflow -- /bin/sh</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Exit Code Reference</h3>
+      <table class="decision-table">
+        <thead>
+          <tr><th>Exit Code</th><th>Meaning</th><th>Typical Cause</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>Success — process completed normally</td><td>Wrong for a long-running service (should not exit); normal for a Job</td></tr>
+          <tr><td>1</td><td>General application error</td><td>Unhandled exception, config error, missing env var</td></tr>
+          <tr><td>2</td><td>Misuse of shell built-in</td><td>Bad shell script in entrypoint</td></tr>
+          <tr><td>126</td><td>Command not executable</td><td>Permission denied on entrypoint script</td></tr>
+          <tr><td>127</td><td>Command not found</td><td>Typo in CMD or entrypoint; binary not in image</td></tr>
+          <tr><td>128+N</td><td>Killed by signal N</td><td>137 = SIGKILL (OOMKilled); 143 = SIGTERM (graceful stop)</td></tr>
+          <tr><td>137</td><td>OOMKilled (128 + 9)</td><td>Memory limit exceeded; kernel killed the process</td></tr>
+          <tr><td>143</td><td>SIGTERM (128 + 15)</td><td>Normal graceful shutdown from kubectl stop or node drain</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — OOMKILLED
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="oomkilled" class="section-title">OOMKilled — Causes and Fix</h2>
+
+      <p>OOMKilled (Out of Memory Killed, exit code 137) means the container's process exceeded its configured memory limit and the Linux kernel's OOM killer terminated it. Kubernetes then reports the status as <code>OOMKilled</code> in the pod description.</p>
+
+      <h3 class="subsection-title">Common Root Causes</h3>
+      <ul>
+        <li><strong>Memory limit set too low</strong> — the application legitimately needs more memory than allocated. The JVM's default heap may exceed the container limit. Node.js V8 heap defaults can exceed container limits on high-traffic services.</li>
+        <li><strong>Memory leak</strong> — the application slowly leaks memory over time. Each request allocates objects that are never garbage collected. Memory grows steadily until the OOM killer fires. The fix is in the application, not the limit.</li>
+        <li><strong>JVM not container-aware</strong> — Java versions before JDK 8u191 / JDK 10 did not respect cgroup memory limits. The JVM saw the full host memory (e.g., 64 GB) and allocated a heap proportional to that, far exceeding the container's 512 MB limit.</li>
+        <li><strong>Sudden traffic spike</strong> — the service handles more concurrent requests than anticipated, each allocating in-memory caches or buffers, collectively exceeding the limit.</li>
+      </ul>
+
+      <h3 class="subsection-title">Diagnostic Commands</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Confirm OOMKilled and see which container was killed
+kubectl describe pod ticket-service-6c8b4d9f-p7kqm -n ticketflow
+# Look for: Last State: Terminated  Reason: OOMKilled  Exit Code: 137
+
+# Check current memory usage with metrics-server
+kubectl top pod -n ticketflow
+kubectl top pod ticket-service-6c8b4d9f-p7kqm -n ticketflow --containers
+
+# Check memory limits currently configured
+kubectl get pod ticket-service-6c8b4d9f-p7kqm -n ticketflow \
+  -o jsonpath='{.spec.containers[*].resources}'
+
+# View historical memory from Prometheus (if installed)
+# Example PromQL: container_memory_working_set_bytes{pod=~"ticket-service.*"}
+
+# Check if JVM is respecting container limits (Spring Boot actuator)
+kubectl exec -it ticket-service-6c8b4d9f-p7kqm -n ticketflow -- \
+  curl -s localhost:8080/actuator/metrics/jvm.memory.max</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Fix: Tune JVM for Containers (ticket-service is Spring Boot)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># deployment.yaml for ticket-service
+containers:
+- name: ticket-service
+  image: nexus.ticketflow.io:5000/ticket-service:v3.1.0
+  env:
+  # Tell JVM to use container memory limits (JDK 11+)
+  - name: JAVA_OPTS
+    value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"   # Increase limit if app legitimately needs more
+      cpu: "1000m"</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — IMAGEPULLBACKOFF
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="imagepullbackoff" class="section-title">ImagePullBackOff — Causes and Fix</h2>
+
+      <p>ImagePullBackOff means the kubelet on the node tried to pull the container image and failed. After the first failure (<code>ErrImagePull</code>), Kubernetes applies exponential backoff and the status changes to <code>ImagePullBackOff</code>.</p>
+
+      <h3 class="subsection-title">Common Root Causes</h3>
+      <ul>
+        <li><strong>Image does not exist</strong> — the image name or tag is wrong. A typo in the deployment manifest, or the image was never pushed to the registry, or the tag was deleted.</li>
+        <li><strong>Registry authentication failure</strong> — the node cannot authenticate to a private registry (Nexus, ECR). The imagePullSecret is missing, expired, or not attached to the ServiceAccount.</li>
+        <li><strong>Registry unreachable</strong> — the registry is down, the network policy blocks egress to the registry, or DNS for <code>nexus.ticketflow.io</code> is not resolving from the node.</li>
+        <li><strong>Image too large / node disk full</strong> — the kubelet cannot store the pulled image because the node's disk is full. Less common but devastating when it happens on all nodes simultaneously.</li>
+      </ul>
+
+      <h3 class="subsection-title">Diagnostic Commands</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Describe the pod — Events will show the exact error
+kubectl describe pod notification-service-5f9c7b8d-hx4nt -n ticketflow
+# Look for: Failed to pull image "nexus.ticketflow.io:5000/notification-service:v1.8.0"
+#           Error: pull access denied / manifest unknown / no such host
+
+# Verify the image exists in the registry
+# (from a machine with registry access)
+docker manifest inspect nexus.ticketflow.io:5000/notification-service:v1.8.0
+
+# Check if the imagePullSecret exists in the namespace
+kubectl get secret nexus-registry-secret -n ticketflow
+
+# Verify the ServiceAccount has the imagePullSecret attached
+kubectl get serviceaccount default -n ticketflow -o yaml
+kubectl get serviceaccount ticketflow-sa -n ticketflow -o yaml
+
+# Test registry connectivity from inside the cluster
+kubectl run registry-test --image=curlimages/curl --restart=Never -n ticketflow \
+  --command -- curl -v https://nexus.ticketflow.io:5000/v2/</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Fix: Create and Attach imagePullSecret</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Create the registry credential secret
+kubectl create secret docker-registry nexus-registry-secret \
+  --docker-server=nexus.ticketflow.io:5000 \
+  --docker-username=ci-bot \
+  --docker-password=$NEXUS_PASSWORD \
+  --docker-email=ci@ticketflow.io \
+  -n ticketflow
+
+# Option A: Attach to a specific deployment
+# In the deployment manifest:
+# spec.template.spec.imagePullSecrets:
+# - name: nexus-registry-secret
+
+# Option B: Attach to ServiceAccount (all pods in namespace use it automatically)
+kubectl patch serviceaccount default -n ticketflow \
+  -p '{"imagePullSecrets": [{"name": "nexus-registry-secret"}]}'</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — PENDING PODS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pending-pods" class="section-title">Pending Pods — Resource Starvation and Affinity</h2>
+
+      <p>A Pending pod means the Kubernetes scheduler cannot find a suitable node to run it. The pod exists in etcd but no kubelet has claimed it. It will stay Pending forever unless the underlying constraint is resolved.</p>
+
+      <h3 class="subsection-title">Root Cause 1: Insufficient Resources</h3>
+      <p>Every node has allocatable CPU and memory. When all nodes are at or near capacity, new pods cannot be scheduled. This is the most common cause of Pending in production — a traffic spike triggers HPA to scale up, but the cluster has no spare capacity.</p>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># See node resource capacity and what is already allocated
+kubectl describe nodes | grep -A5 "Allocated resources"
+
+# Or use a cleaner format:
+kubectl get nodes -o custom-columns=\
+"NAME:.metadata.name,CPU:.status.capacity.cpu,MEMORY:.status.capacity.memory,\
+CPU_ALLOC:.status.allocatable.cpu,MEM_ALLOC:.status.allocatable.memory"
+
+# See what is consuming resources on each node
+kubectl top nodes
+
+# See the scheduler's specific rejection reason
+kubectl describe pod order-service-84b6f9c5-tw3xp -n ticketflow
+# Look for Events: 0/3 nodes are available: 3 Insufficient memory
+
+# Check if Cluster Autoscaler is configured and scaling
+kubectl get events -n kube-system | grep -i "scaled up\|scale"
+kubectl logs -n kube-system -l app=cluster-autoscaler --tail=50</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Root Cause 2: Node Affinity / Taints and Tolerations</h3>
+      <p>A pod may require specific nodes (via nodeSelector or node affinity) that have no capacity, or the node has a taint the pod does not tolerate.</p>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Check the pod's scheduling constraints
+kubectl get pod user-service-9b4c7f2a-mn8vk -n ticketflow -o yaml | grep -A20 "affinity\|nodeSelector\|tolerations"
+
+# Check node labels — affinity rules reference these
+kubectl get nodes --show-labels
+
+# Check node taints — pods must tolerate them or they won't schedule
+kubectl describe nodes | grep -i taint
+
+# Example: EKS GPU nodes often have:
+# node.kubernetes.io/disk-pressure: NoSchedule
+# If your pod has no toleration for this, it won't schedule on that node
+
+# Verify which nodes match an affinity rule
+kubectl get nodes -l topology.kubernetes.io/zone=us-east-1a</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — SERVICE NOT ROUTING
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="service-not-routing" class="section-title">Service Not Routing — Endpoint Check</h2>
+
+      <p>A Service routes to pods by selecting pods whose labels match the Service's <code>selector</code>. If the selector does not match any pod labels, the Service has zero endpoints and all traffic returns 503.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Step 1: Check if the Service has any endpoints
+kubectl get endpoints api-gateway-svc -n ticketflow
+# ENDPOINTS column shows <none> = no matching pods = 503
+
+# Step 2: Compare Service selector to Pod labels
+kubectl get svc api-gateway-svc -n ticketflow -o yaml | grep -A5 selector
+# selector:
+#   app: api-gateway
+#   version: v2
+
+kubectl get pods -n ticketflow --show-labels | grep api-gateway
+# If pods are labelled app=api-gateway but missing version=v2
+# the selector does NOT match and endpoints will be empty
+
+# Step 3: Check if pods pass readiness probes
+# Kubernetes only adds a pod to endpoints if it is READY
+kubectl get pods -n ticketflow | grep api-gateway
+# READY column must show 1/1 (or N/N for multi-container pods)
+
+# Step 4: Describe the Service for full detail
+kubectl describe svc api-gateway-svc -n ticketflow
+
+# Step 5: Test connectivity directly to a pod IP (bypass the Service)
+POD_IP=$(kubectl get pod api-gateway-7d8b6c9f-wr4tz -n ticketflow \
+  -o jsonpath='{.status.podIP}')
+kubectl run curl-test --image=curlimages/curl --restart=Never -n ticketflow \
+  --command -- curl -v http://$POD_IP:80/health
+
+# Step 6: Check NetworkPolicy — may be blocking the Service's source
+kubectl get networkpolicy -n ticketflow
+kubectl describe networkpolicy allow-api-gateway -n ticketflow</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — NODE NOT READY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="node-not-ready" class="section-title">Node NotReady</h2>
+
+      <p>A NotReady node means the kubelet on that node has stopped posting heartbeats to the control plane. Kubernetes waits <code>node-monitor-grace-period</code> (default 40 seconds) before marking the node NotReady, then waits <code>pod-eviction-timeout</code> (default 5 minutes) before evicting pods to other nodes.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># See all nodes and their status
+kubectl get nodes
+# STATUS column shows NotReady for the unhealthy node
+
+# Full details of what is wrong
+kubectl describe node ip-10-0-1-234.ec2.internal
+# Look for:
+# - Conditions section: MemoryPressure, DiskPressure, PIDPressure, Ready
+# - Events: kubelet stopped posting heartbeat / node not reachable
+
+# Check kubelet logs on the node (requires SSH or SSM access)
+# On EKS managed nodes via SSM:
+aws ssm start-session --target i-0abc123def456789a
+sudo journalctl -u kubelet -n 200 --no-pager
+
+# Check what pods were on the problematic node
+kubectl get pods --all-namespaces \
+  --field-selector spec.nodeName=ip-10-0-1-234.ec2.internal
+
+# Force delete stuck Terminating pods from NotReady node (nuclear option)
+# Only use when node is truly gone and will never return
+kubectl delete pod &lt;pod-name&gt; -n ticketflow --grace-period=0 --force
+
+# Cordon the node (mark unschedulable but don't evict)
+kubectl cordon ip-10-0-1-234.ec2.internal
+
+# Drain the node (evict all pods gracefully, then cordon)
+kubectl drain ip-10-0-1-234.ec2.internal \
+  --ignore-daemonsets --delete-emptydir-data --force</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — KUBECTL DEBUG COMMAND REFERENCE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubectl-reference" class="section-title">kubectl Debug Command Reference</h2>
+
+      <p>These are the 20 most important commands for production troubleshooting. Master these and you can diagnose 95% of Kubernetes incidents.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># ── OBSERVE: Get the big picture ──────────────────────────────────────
+# All pods in a namespace with status and restart counts
+kubectl get pods -n ticketflow -o wide
+
+# All pods across all namespaces (cluster-wide view)
+kubectl get pods --all-namespaces
+
+# Watch pod status changes in real time
+kubectl get pods -n ticketflow -w
+
+# Recent events sorted by timestamp (the best "what just happened" command)
+kubectl get events -n ticketflow --sort-by='.lastTimestamp'
+
+# Events for a specific pod
+kubectl get events -n ticketflow \
+  --field-selector involvedObject.name=payment-service-5f9c7-xr2pw
+
+
+# ── ISOLATE: Inspect specific resources ───────────────────────────────
+# Describe a pod (full details: events, conditions, resource usage, probes)
+kubectl describe pod payment-service-5f9c7-xr2pw -n ticketflow
+
+# Describe a deployment
+kubectl describe deployment payment-service -n ticketflow
+
+# Describe a service (check selector and endpoints)
+kubectl describe svc payment-service-svc -n ticketflow
+
+# Get raw YAML of any resource
+kubectl get pod payment-service-5f9c7-xr2pw -n ticketflow -o yaml
+
+
+# ── LOGS: Application output ──────────────────────────────────────────
+# Current logs
+kubectl logs payment-service-5f9c7-xr2pw -n ticketflow
+
+# Previous container logs (after a crash — most important command)
+kubectl logs payment-service-5f9c7-xr2pw -n ticketflow --previous
+
+# Follow logs in real time
+kubectl logs payment-service-5f9c7-xr2pw -n ticketflow -f
+
+# Last 100 lines
+kubectl logs payment-service-5f9c7-xr2pw -n ticketflow --tail=100
+
+# All pods in a deployment (aggregated, great for multi-replica services)
+kubectl logs -n ticketflow -l app=payment-service --all-containers=true --prefix=true
+
+# Specific container in a multi-container pod
+kubectl logs payment-service-5f9c7-xr2pw -n ticketflow -c sidecar-proxy
+
+
+# ── EXEC: Get inside a running container ──────────────────────────────
+# Interactive shell
+kubectl exec -it user-service-7b4d6c8f-wr3kp -n ticketflow -- /bin/sh
+
+# Run a single command without interactive shell
+kubectl exec user-service-7b4d6c8f-wr3kp -n ticketflow -- env | grep DB_
+
+# Copy files from a pod (great for extracting heap dumps)
+kubectl cp ticketflow/ticket-service-6c8b4d9f-p7kqm:/tmp/heapdump.hprof ./heapdump.hprof
+
+
+# ── NETWORK: Debug connectivity ───────────────────────────────────────
+# Check service endpoints
+kubectl get endpoints -n ticketflow
+
+# Temporary debug pod with network tools
+kubectl run netdebug --image=nicolaka/netshoot --restart=Never -n ticketflow -it --rm
+
+# Port-forward to a pod directly (bypass Service, useful for isolation)
+kubectl port-forward pod/payment-service-5f9c7-xr2pw 8080:8080 -n ticketflow
+
+# Port-forward to a service
+kubectl port-forward svc/payment-service-svc 8080:80 -n ticketflow
+
+
+# ── RESOURCES: Check capacity ─────────────────────────────────────────
+# Node CPU/memory usage (requires metrics-server)
+kubectl top nodes
+
+# Pod CPU/memory usage
+kubectl top pods -n ticketflow
+
+# Sort by memory to find memory hogs
+kubectl top pods -n ticketflow --sort-by=memory
+
+
+# ── ROLLOUT: Deployment management ───────────────────────────────────
+# Check rollout status
+kubectl rollout status deployment/payment-service -n ticketflow
+
+# See rollout history
+kubectl rollout history deployment/payment-service -n ticketflow
+
+# Rollback to previous version
+kubectl rollout undo deployment/payment-service -n ticketflow
+
+# Rollback to specific revision
+kubectl rollout undo deployment/payment-service -n ticketflow --to-revision=3</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="os-specific" class="section-title">Platform-Specific Debugging Tips</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+          <button class="os-tab-btn" data-tab="eks">AWS EKS</button>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install kubectl autocompletion (bash)
+echo 'source <(kubectl completion bash)' >> ~/.bashrc
+source ~/.bashrc
+
+# Useful aliases for production speed
+alias k='kubectl'
+alias kg='kubectl get'
+alias kd='kubectl describe'
+alias kl='kubectl logs'
+alias ke='kubectl exec -it'
+alias kgp='kubectl get pods -o wide'
+alias kge='kubectl get events --sort-by=.lastTimestamp'
+
+# kubeconfig for multiple clusters
+export KUBECONFIG=~/.kube/config:~/.kube/eks-prod:~/.kube/eks-staging
+kubectl config get-contexts
+kubectl config use-context ticketflow-prod-eks
+
+# Watch multiple namespaces simultaneously (requires kubectx)
+kubens ticketflow  # set default namespace so -n is not needed every command
+
+# Quick log tailing across multiple pods with stern
+stern payment-service -n ticketflow --tail=20</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Install kubectl via winget
+winget install Kubernetes.kubectl
+
+# Set up autocompletion for PowerShell
+kubectl completion powershell | Out-String | Invoke-Expression
+
+# PowerShell aliases
+Set-Alias -Name k -Value kubectl
+function kgp { kubectl get pods -o wide @args }
+function kl { kubectl logs @args }
+
+# Switch kubeconfig context
+kubectl config use-context ticketflow-prod-eks
+
+# kubectl in WSL2 (recommended for serious Kubernetes work on Windows)
+# Access Windows kubeconfig from WSL2
+export KUBECONFIG=/mnt/c/Users/tazbirul/.kube/config
+
+# Port forwarding works the same
+kubectl port-forward svc/payment-service-svc 8080:80 -n ticketflow
+# Access at http://localhost:8080 in Windows browser</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="eks">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Update kubeconfig for EKS cluster
+aws eks update-kubeconfig \
+  --name ticketflow-prod \
+  --region us-east-1 \
+  --alias ticketflow-prod
+
+# Check EKS cluster health
+aws eks describe-cluster --name ticketflow-prod --region us-east-1 \
+  --query 'cluster.status'
+
+# Describe managed node group
+aws eks describe-nodegroup \
+  --cluster-name ticketflow-prod \
+  --nodegroup-name ticketflow-workers \
+  --region us-east-1
+
+# Access node logs via SSM (no SSH required with EKS managed nodes)
+aws ssm start-session --target i-0abc123def456789a --region us-east-1
+sudo journalctl -u kubelet -n 200 --no-pager
+
+# Check CloudWatch logs for EKS control plane
+aws logs get-log-events \
+  --log-group-name /aws/eks/ticketflow-prod/cluster \
+  --log-stream-name kube-controller-manager \
+  --region us-east-1
+
+# Cluster Autoscaler logs on EKS
+kubectl logs -n kube-system -l app=cluster-autoscaler --tail=100 -f</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — ENTERPRISE SCENARIO: TICKETFLOW INCIDENTS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow — 5 Real Incidents</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Incident 1 — payment-service CrashLoopBackOff (P1)</span>
+        <p><strong>Alert:</strong> payment-service pods restarting every 30 seconds. Checkout is broken. Revenue blocked.</p>
+        <p><strong>Observe:</strong> <code>kubectl get pods -n ticketflow</code> shows RESTARTS: 12 in 6 minutes. Status: CrashLoopBackOff.</p>
+        <p><strong>Isolate:</strong> Only payment-service pods affected. ticket-service and user-service are healthy. Problem is application-scoped, not node-scoped.</p>
+        <p><strong>Hypothesize:</strong> Recent deployment 8 minutes ago. Most likely a config change introduced a bad value.</p>
+        <p><strong>Test:</strong> <code>kubectl logs payment-service-7f8b9c-xr2pw -n ticketflow --previous</code> reveals: <code>ValueError: STRIPE_API_KEY must start with 'sk_' — got 'pk_live_...'</code>. A deploy used the publishable key instead of the secret key.</p>
+        <p><strong>Fix:</strong> <code>kubectl edit secret payment-secrets -n ticketflow</code>, correct the STRIPE_API_KEY value. <code>kubectl rollout restart deployment/payment-service -n ticketflow</code>. Pods come up healthy in 45 seconds.</p>
+        <p><strong>Post-mortem action:</strong> Add a startup validation check in payment-service that validates the API key format before binding to the port.</p>
+      </div>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Incident 2 — ticket-service OOMKilled (P2)</span>
+        <p><strong>Alert:</strong> ticket-service has restarted 4 times in 2 hours. Grafana shows memory climbing to 512Mi then dropping sharply (OOM kill).</p>
+        <p><strong>Observe:</strong> <code>kubectl describe pod ticket-service-6c8b4d9f-p7kqm -n ticketflow</code> shows Exit Code 137, Reason: OOMKilled.</p>
+        <p><strong>Isolate:</strong> Memory climbs steadily, not spikes. Pattern suggests memory leak, not traffic spike.</p>
+        <p><strong>Hypothesize:</strong> Spring Boot heap growing without bound. Hibernate L2 cache may be misconfigured (unbounded cache size).</p>
+        <p><strong>Test:</strong> Via actuator endpoint: <code>curl localhost:8080/actuator/metrics/jvm.memory.used</code>. Heap grows 50 MB per hour. Cache inspection shows Hibernate second-level cache has no eviction policy. 800k ticket objects cached indefinitely.</p>
+        <p><strong>Fix (immediate):</strong> Increase memory limit from 512Mi to 1Gi to stop OOM kills. <code>kubectl set resources deployment/ticket-service -n ticketflow --limits=memory=1Gi</code>.</p>
+        <p><strong>Fix (permanent):</strong> Add Caffeine cache size limits to Spring Boot config. Redeploy with <code>spring.cache.caffeine.spec=maximumSize=10000,expireAfterWrite=10m</code>.</p>
+      </div>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Incident 3 — notification-service ImagePullBackOff after CI deploy (P2)</span>
+        <p><strong>Alert:</strong> notification-service pods stuck in ImagePullBackOff after routine deploy.</p>
+        <p><strong>Observe:</strong> <code>kubectl describe pod notification-service-5f9c7b8d-hx4nt -n ticketflow</code> shows: <code>Failed to pull image "nexus.ticketflow.io:5000/notification-service:v1.9.0": rpc error: code = Unknown desc = failed to pull and unpack image: context deadline exceeded</code>.</p>
+        <p><strong>Isolate:</strong> Only new pods fail. Existing pods still running v1.8.0 are healthy. Problem is image pull from Nexus, not the application.</p>
+        <p><strong>Hypothesize:</strong> Nexus is overloaded or the image was never pushed despite the CI pipeline showing success.</p>
+        <p><strong>Test:</strong> <code>docker manifest inspect nexus.ticketflow.io:5000/notification-service:v1.9.0</code> times out. GitHub Actions log shows the push step succeeded but took 8 minutes (Nexus disk was 94% full and write throughput severely degraded).</p>
+        <p><strong>Fix (immediate):</strong> Rollback deployment to v1.8.0 to restore service. <code>kubectl rollout undo deployment/notification-service -n ticketflow</code>.</p>
+        <p><strong>Fix (permanent):</strong> Clean up old Nexus artifacts via Nexus cleanup policies. Add disk usage alert at 80%. Add post-push image pull verification step to CI pipeline.</p>
+      </div>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Incident 4 — order-service Pending during HPA scale-up (P3)</span>
+        <p><strong>Alert:</strong> order-service response time climbing. HPA scaled from 3 to 8 replicas but only 3 are Running; 5 are Pending for 15 minutes.</p>
+        <p><strong>Observe:</strong> <code>kubectl describe pod order-service-84b6f9c5-tw3xp -n ticketflow</code> Events: <code>0/3 nodes are available: 1 Insufficient cpu, 2 node(s) didn't match Pod's node affinity/selector</code>.</p>
+        <p><strong>Isolate:</strong> Cluster is on EKS with Cluster Autoscaler. New nodes should have launched automatically. CA logs show: <code>Scale-up inhibited: no node group can increase size</code> — the Auto Scaling Group hit its max size of 3 nodes.</p>
+        <p><strong>Hypothesize:</strong> HPA is trying to scale beyond what the cluster can physically accommodate. ASG max size is too low for the load pattern.</p>
+        <p><strong>Fix (immediate):</strong> Increase ASG max capacity from 3 to 8 in AWS console. Cluster Autoscaler detects this and provisions 5 new nodes within 3 minutes. Pending pods schedule and go Running.</p>
+        <p><strong>Fix (permanent):</strong> Right-size HPA maxReplicas to align with ASG max capacity. Add CloudWatch alarm when ASG approaches max size. Review capacity planning quarterly.</p>
+      </div>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Incident 5 — api-gateway 503 after ConfigMap update (P1)</span>
+        <p><strong>Alert:</strong> 100% of requests to api-gateway returning 503. All TicketFlow services unreachable externally.</p>
+        <p><strong>Observe:</strong> api-gateway pods are Running and READY 1/1. No restarts. Endpoints exist. Problem is inside the running container, not at the Kubernetes layer.</p>
+        <p><strong>Isolate:</strong> Internal service-to-service calls via ClusterIP work fine. Only external ingress through api-gateway fails. Problem is isolated to NGINX configuration.</p>
+        <p><strong>Hypothesize:</strong> ConfigMap update 10 minutes ago changed NGINX config. Config may have a syntax error that NGINX accepted on reload but is causing 503 at runtime.</p>
+        <p><strong>Test:</strong> <code>kubectl exec -it api-gateway-7d8b6c9f-wr4tz -n ticketflow -- nginx -t</code> — NGINX reports configuration test OK. But log check: <code>kubectl logs api-gateway-7d8b6c9f-wr4tz -n ticketflow --tail=50</code> shows: <code>connect() failed (111: Connection refused) while connecting to upstream, upstream: "http://user-service:3000/"</code>. The ConfigMap update changed the upstream port from 3000 to 3001 which no service listens on.</p>
+        <p><strong>Fix:</strong> Revert ConfigMap to previous version. <code>kubectl rollout undo configmap api-gateway-config -n ticketflow</code> (if using Argo CD) or manually patch the ConfigMap. <code>kubectl rollout restart deployment/api-gateway -n ticketflow</code> to pick up the corrected ConfigMap. Service restored in 90 seconds.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How does CrashLoopBackOff exponential backoff actually work?</summary>
+        <div class="answer-content">
+          <p>When a container crashes, the kubelet tracks consecutive failures in the pod's <code>containerStatuses</code>. After the first crash, it waits 10 seconds before restarting. If the container crashes again, it waits 20 seconds. Then 40s, 80s, 160s, 320s, and then it caps at 300 seconds (5 minutes). This is the full backoff sequence.</p>
+          <p>The purpose of this backoff is to protect the node from thrashing — a container that crashes immediately consuming CPU in a tight restart loop would prevent the node from running other workloads. Exponential backoff gives operators time to react and makes the failure visible (you can see the RESTARTS counter increasing) without hammering the system.</p>
+          <p>The backoff resets to 10 seconds if the container stays up for more than 10 minutes. This means if you have a service that crashes after 15 minutes due to a memory leak, the backoff restarts from 10 seconds every time, and the RESTARTS counter may stay low even though there is a recurring failure.</p>
+          <p><strong>Key insight:</strong> A pod in CrashLoopBackOff at 300 seconds interval may show only 3–4 restarts in an hour. Do not use the restart count alone to assess severity — check the events and the time of the last restart.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why does a Service with endpoints still return 503?</summary>
+        <div class="answer-content">
+          <p>There are several scenarios where <code>kubectl get endpoints</code> shows pod IPs but traffic still fails:</p>
+          <ul>
+            <li><strong>Pod is Ready but not actually healthy</strong> — the readiness probe passes (maybe it only checks <code>GET /</code>) but the pod is throwing 500s on the actual business endpoint. The Service correctly routes to it, but the app returns an error.</li>
+            <li><strong>NetworkPolicy blocking traffic</strong> — a NetworkPolicy exists that allows the Service selector to work but blocks traffic from the actual source (e.g., the ingress controller's namespace). <code>kubectl get networkpolicy -n ticketflow</code> and inspect each policy's ingress rules.</li>
+            <li><strong>Service port mismatch</strong> — the Service's <code>targetPort</code> does not match the container's actual listening port. <code>kubectl describe svc</code> shows TargetPort: 8080/TCP but the container is listening on 3000.</li>
+            <li><strong>kube-proxy not syncing</strong> — in rare cases, kube-proxy on a node may have stale iptables rules and fail to route to new endpoints. Restarting the kube-proxy DaemonSet pod on the affected node resolves this.</li>
+            <li><strong>Headless Service and DNS</strong> — if using a headless Service (ClusterIP: None), DNS returns the pod IP directly. If the pod's IP changed (pod restarted) but a client has the old IP cached, it will connect to nothing. Check <code>nslookup service-name.namespace.svc.cluster.local</code> from inside a pod.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does the Kubernetes scheduler decide which node to place a pod on?</summary>
+        <div class="answer-content">
+          <p>The scheduler works in two phases: <strong>filtering</strong> and <strong>scoring</strong>.</p>
+          <p><strong>Filtering</strong> eliminates nodes that cannot run the pod. The scheduler checks: Does the node have enough allocatable CPU and memory? Does the node have all required taints tolerated by the pod? Does the node match the pod's nodeSelector and nodeAffinity rules? Is the node healthy (Ready condition)? Are the required ports available? If a node fails any filter, it is eliminated.</p>
+          <p><strong>Scoring</strong> ranks the remaining nodes. The scheduler runs a set of scoring plugins on each candidate node. Key scoring factors include: LeastAllocated (prefer nodes with more free resources to spread load), NodeAffinity (prefer nodes that match preferred affinity rules), SpreadsConstraints (honor topologySpreadConstraints to spread pods across zones), and BalancedAllocation (avoid nodes where CPU is free but memory is near-full, or vice versa).</p>
+          <p>The node with the highest aggregate score wins and the pod is bound to it. If multiple nodes tie, one is chosen arbitrarily.</p>
+          <p><strong>Why this matters for troubleshooting:</strong> If a pod is Pending and the events say "0/5 nodes are available: 5 node(s) didn't match node affinity," it means ALL nodes failed the filtering phase — not just one. Check whether your affinity rules are overly restrictive.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Restarting Pods Before Reading Logs</span>
+        <p>The instinct is to "just restart it." But <code>kubectl rollout restart</code> destroys the crashing container and its logs. You lose the crash evidence. The pod may restart successfully (masking the issue) and crash again in 2 hours when you have less context.</p>
+        <p><strong>Fix:</strong> Always run <code>kubectl logs --previous</code> and <code>kubectl describe pod</code> BEFORE making any changes. Collect evidence first. Restarts come later, after diagnosis.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Ignoring the Events Section in kubectl describe</span>
+        <p>Engineers read the top half of <code>kubectl describe pod</code> (the metadata, labels, container config) and miss the Events section at the very bottom. The Events section is the most valuable part — it shows exactly what Kubernetes tried to do, in chronological order, with specific error messages.</p>
+        <p><strong>Fix:</strong> Scroll to the bottom of every <code>kubectl describe</code> output. The Events section is where the root cause usually announces itself. Alternatively, use <code>kubectl get events --sort-by=.lastTimestamp -n ticketflow</code> for a global event feed.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Confusing Container Running State with Application Health</span>
+        <p>A pod showing <code>Running</code> and <code>1/1</code> in READY does NOT mean the application is working correctly. It means the container process is running and readiness probes are passing. The app could be serving 500s on every request, logging thousands of errors, or stuck in a degraded state that readiness probes don't catch.</p>
+        <p><strong>Fix:</strong> Always cross-reference pod status with application metrics (Prometheus error rate, Grafana dashboards) and application logs. Running is a necessary but not sufficient condition for health.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Setting Memory Requests = Memory Limits (Burstable vs Guaranteed QoS)</span>
+        <p>Setting requests equal to limits gives the pod the <strong>Guaranteed</strong> QoS class, meaning it will never be OOM-evicted (unless it exceeds its own limit). But if the limit is set too low, the pod gets OOMKilled by its own limit instead of being gracefully evicted. Many teams set requests=limits without understanding this trade-off.</p>
+        <p><strong>Fix:</strong> For services with variable memory patterns, set requests lower than limits (Burstable QoS). This allows the container to burst when needed while ensuring baseline resources are reserved. For critical services where predictability matters more than efficiency, Guaranteed QoS is appropriate — but ensure the limit is actually sufficient.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Rolling Back a Deployment Without Checking If the Previous Version Is Also Broken</span>
+        <p>During an incident, the reflex is "rollback!" But if the previous version also had a latent bug that was triggered by a database migration or config change that happened independently, rolling back won't help — you'll just have a different broken version.</p>
+        <p><strong>Fix:</strong> Before rolling back, verify that the previous version was actually healthy. Check the rollout history (<code>kubectl rollout history</code>) and correlate with monitoring — was the error rate zero before the deploy? If yes, rollback is safe. If the error rate was already elevated, rollback is not the fix.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 16 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>A mature troubleshooting capability is a system design concern, not just an operational concern. The best on-call engineers are fast not because they are smarter — they are fast because they designed observability into the system before it went to production.</p>
+        <ul>
+          <li><strong>Structured logging wins incidents.</strong> A log line that says <code>{"level":"error","msg":"DB connection failed","host":"postgres-primary.ticketflow.svc","port":5432,"retry":3,"duration_ms":5002}</code> tells you the root cause instantly. A log line that says <code>ERROR: connection failed</code> tells you nothing. Design logs as machine-parseable structured events with context fields, not human-readable sentences.</li>
+          <li><strong>Readiness probes are incident prevention.</strong> A well-tuned readiness probe (<code>GET /health/ready</code> that checks DB connectivity, cache reachability, and external dependencies) prevents traffic from routing to a pod that is technically running but cannot serve requests. This converts cascading failures into isolated pod failures — a 10x reduction in blast radius.</li>
+          <li><strong>Resource requests are SLO commitments.</strong> Setting correct resource requests is not about frugality — it is about guaranteeing that the scheduler places pods on nodes with the resources they actually need. Underspecified requests lead to node overcommit, OOMKills, and unpredictable latency spikes. Profile your services under peak load and set requests at P95 steady-state usage.</li>
+          <li><strong>Runbooks are leverage.</strong> A 2-page runbook per critical service that documents the 5 most likely failure modes, the exact commands to diagnose each, and the fix steps multiplies the incident resolution capability of your entire team. The best runbooks are tested quarterly by having engineers follow them cold on a staging incident.</li>
+          <li><strong>Post-mortems are the compounding return.</strong> The incident itself has a negative ROI. The post-mortem has a positive compounding ROI if acted on. Every post-mortem should produce at minimum: one alert tuned to detect this failure class earlier, one runbook update, and one architectural change that reduces the probability or blast radius of the next incident.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 17 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Troubleshooting Readiness Checklist</h2>
+
+      <p>Before a production incident happens, ensure these are in place so you can debug fast when it does.</p>
+
+      <ul class="checklist">
+        <li>Readiness probes configured on all Deployments — checks DB, cache, and upstream dependencies, not just HTTP 200</li>
+        <li>Liveness probes configured with appropriate initialDelaySeconds (avoid premature kills during startup)</li>
+        <li>Memory and CPU limits set on all containers — prevents noisy-neighbor OOM kills and resource starvation</li>
+        <li>Structured (JSON) logging in all services — parseable by Loki, Elasticsearch, and CloudWatch Logs Insights</li>
+        <li>Application logs include trace IDs — correlate logs across services during distributed incidents</li>
+        <li>Prometheus metrics exported from all services — at minimum: error rate, latency p95, active connections</li>
+        <li>PodDisruptionBudgets defined for all critical Deployments — prevents full service outage during node drains</li>
+        <li>Cluster Autoscaler configured with appropriate min/max node counts aligned with HPA maxReplicas</li>
+        <li>imagePullSecrets created and attached to ServiceAccounts in every namespace that uses private images</li>
+        <li>Resource quotas set on all namespaces — prevents a single team's runaway Deployment from starving the whole cluster</li>
+        <li>kubectl access configured for all on-call engineers with appropriate RBAC (read-only for most, exec for senior SREs)</li>
+        <li>Runbooks exist and are linked from PagerDuty/Opsgenie alerts — not buried in Confluence</li>
+        <li>kubectl debug / ephemeral containers enabled on the cluster for production pod debugging without redeployment</li>
+        <li>Termination grace period set appropriately per service (Spring Boot needs 30s+; Go services may only need 5s)</li>
+        <li>Events retention configured — default 1h is too short; use Grafana Loki or a custom event logger for historical events</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 18 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Debug a Broken Deployment</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires: minikube or kind cluster, kubectl configured</span>
+
+        <p>This lab deploys three intentionally broken applications and walks you through diagnosing and fixing each one using the systematic methodology.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Setup: Deploy the Broken Applications</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Start minikube (if not already running)
+minikube start --cpus=2 --memory=4096
+
+# Create the lab namespace
+kubectl create namespace lab-ticketflow
+
+# Apply all three broken deployments at once
+cat &lt;&lt;'EOF' | kubectl apply -f -
+# ── Broken App 1: Missing environment variable ──────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-payment-service
+  namespace: lab-ticketflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lab-payment-service
+  template:
+    metadata:
+      labels:
+        app: lab-payment-service
+    spec:
+      containers:
+      - name: payment
+        image: busybox:1.36
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "Starting payment-service..."
+          if [ -z "$STRIPE_API_KEY" ]; then
+            echo "FATAL: STRIPE_API_KEY is not set. Exiting."
+            exit 1
+          fi
+          echo "Stripe key found. Service running."
+          while true; do sleep 30; done
+        resources:
+          requests: { cpu: "50m", memory: "32Mi" }
+          limits: { cpu: "100m", memory: "64Mi" }
+---
+# ── Broken App 2: Wrong image tag (ImagePullBackOff) ───────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-notification-service
+  namespace: lab-ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lab-notification-service
+  template:
+    metadata:
+      labels:
+        app: lab-notification-service
+    spec:
+      containers:
+      - name: notification
+        image: nginx:99.99.99-does-not-exist
+        resources:
+          requests: { cpu: "50m", memory: "32Mi" }
+          limits: { cpu: "100m", memory: "64Mi" }
+---
+# ── Broken App 3: Service selector mismatch (503) ──────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-user-service
+  namespace: lab-ticketflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lab-user-service
+  template:
+    metadata:
+      labels:
+        app: lab-user-service
+        version: v1   # <-- note the version label
+    spec:
+      containers:
+      - name: user
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests: { cpu: "50m", memory: "32Mi" }
+          limits: { cpu: "100m", memory: "64Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-user-service-svc
+  namespace: lab-ticketflow
+spec:
+  selector:
+    app: lab-user-service
+    version: v2   # <-- MISMATCH: selects v2, pods are labelled v1
+  ports:
+  - port: 80
+    targetPort: 80
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Challenge 1: Fix the CrashLoopBackOff (payment-service)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Observe
+kubectl get pods -n lab-ticketflow
+
+# Step 1: Check the logs (what is the exact error message?)
+kubectl logs -l app=lab-payment-service -n lab-ticketflow
+
+# Step 2: Confirm with --previous
+kubectl logs -l app=lab-payment-service -n lab-ticketflow --previous
+
+# Step 3: Fix — add the missing environment variable
+kubectl set env deployment/lab-payment-service \
+  STRIPE_API_KEY=sk_test_abc123 \
+  -n lab-ticketflow
+
+# Verify fix
+kubectl rollout status deployment/lab-payment-service -n lab-ticketflow
+kubectl get pods -n lab-ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Challenge 2: Fix the ImagePullBackOff (notification-service)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Observe
+kubectl describe pod -l app=lab-notification-service -n lab-ticketflow
+# Read the Events section — what exact error do you see?
+
+# Fix — update the image to a valid tag
+kubectl set image deployment/lab-notification-service \
+  notification=nginx:1.25-alpine \
+  -n lab-ticketflow
+
+# Verify fix
+kubectl rollout status deployment/lab-notification-service -n lab-ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Challenge 3: Fix the Service Endpoint Mismatch (user-service)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Observe
+kubectl get endpoints lab-user-service-svc -n lab-ticketflow
+# Should show: <none> — no endpoints
+
+# Diagnose: compare Service selector vs Pod labels
+kubectl get svc lab-user-service-svc -n lab-ticketflow -o yaml | grep -A5 selector
+kubectl get pods -n lab-ticketflow --show-labels | grep user-service
+
+# Fix Option A: Update the Service selector to match existing pod labels
+kubectl patch svc lab-user-service-svc -n lab-ticketflow \
+  -p '{"spec":{"selector":{"app":"lab-user-service","version":"v1"}}}'
+
+# Verify fix
+kubectl get endpoints lab-user-service-svc -n lab-ticketflow
+# Should now show pod IPs
+
+# Test connectivity
+kubectl run curltest --image=curlimages/curl --restart=Never -n lab-ticketflow \
+  --command -- curl -s lab-user-service-svc.lab-ticketflow.svc.cluster.local
+kubectl logs curltest -n lab-ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Cleanup</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Delete everything created in this lab
+kubectl delete namespace lab-ticketflow</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key skills practiced in this lab:</strong></p>
+        <ol>
+          <li>Reading CrashLoopBackOff logs — both current and --previous</li>
+          <li>Diagnosing ImagePullBackOff from Events section of describe</li>
+          <li>Comparing Service selectors to pod labels to find endpoint mismatches</li>
+          <li>Using kubectl patch to fix a Service without editing YAML directly</li>
+          <li>Testing connectivity from inside the cluster using a temporary curl pod</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 19 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions are asked in senior SRE, DevOps engineer, and platform engineer interviews. Each answer demonstrates both conceptual understanding and hands-on experience.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: A pod is in CrashLoopBackOff. Walk me through your exact diagnostic process.</summary>
+            <div class="answer-content">
+              <p>My process is methodical before making any changes. First, I run <code>kubectl get pods -n &lt;namespace&gt;</code> to confirm the status and check the restart count. Then I immediately run <code>kubectl logs &lt;pod&gt; --previous</code> to get the logs from the crashed container — not the current one. This is the single most important command: it shows what the process printed to stdout/stderr before it died.</p>
+              <p>Next I run <code>kubectl describe pod &lt;pod&gt;</code> and scroll to the Events section. This tells me the exit code (<code>137</code> = OOMKilled, <code>1</code> = application error, <code>127</code> = command not found), any image pull failures, and liveness probe failures.</p>
+              <p>Based on what I find: if it is an exit code 1 with an application error in logs, I check ConfigMaps and Secrets for misconfigured values. If it is exit code 137, I check memory limits and investigate for memory leaks. If it is exit code 127, I check the Dockerfile CMD for a missing binary. Only after identifying the root cause do I apply a fix and verify with <code>kubectl rollout status</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: A pod shows Running but the Service returns 503. What do you check?</summary>
+            <div class="answer-content">
+              <p>Running does not mean healthy. I work through a systematic checklist. First: <code>kubectl get endpoints &lt;service-name&gt; -n &lt;namespace&gt;</code>. If the Endpoints column shows <code>&lt;none&gt;</code>, the Service has no backend pods. I then compare the Service's <code>selector</code> to pod labels with <code>kubectl describe svc</code> and <code>kubectl get pods --show-labels</code> — a label mismatch is the most common cause.</p>
+              <p>If endpoints exist, I check whether the pods are passing readiness probes: <code>kubectl get pods</code> must show READY as <code>1/1</code> (or N/N). A pod in <code>Running</code> state with readiness failing will not be added to endpoints. I check the readiness probe configuration with <code>kubectl describe pod</code>.</p>
+              <p>If endpoints exist and pods are ready, I check the Service's <code>targetPort</code> against the actual container port the app is listening on — a port mismatch causes 503. Then I check NetworkPolicy for rules that might block traffic from the ingress source to the service. Finally, I port-forward directly to a pod IP to test whether the issue is in the Service layer or the application layer itself.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: What is the difference between OOMKilled and Evicted, and when does each happen?</summary>
+            <div class="answer-content">
+              <p><strong>OOMKilled</strong> happens when a container exceeds its configured memory <code>limit</code>. The Linux kernel's OOM killer sends SIGKILL (exit code 137) to the process. This is enforced at the container level by cgroups. The pod status shows <code>OOMKilled</code> in the container's last state. The fix is either to increase the memory limit or fix the memory leak in the application.</p>
+              <p><strong>Evicted</strong> happens at the node level when the node itself is under memory pressure — not when a single container exceeds its limit. When node memory falls below the eviction threshold (by default, when less than 100Mi is available on the node), the kubelet evicts pods according to their QoS class: BestEffort pods first, then Burstable pods, and finally Guaranteed pods are never evicted due to memory pressure (they may only be OOMKilled if they exceed their own limit).</p>
+              <p>In short: OOMKilled is about the container exceeding its own limit. Eviction is about the node protecting itself from memory exhaustion by removing lower-priority pods. You can distinguish them by the pod status: <code>OOMKilled</code> shows in <code>kubectl describe pod</code> under container last state; evicted pods show <code>STATUS: Evicted</code> in <code>kubectl get pods</code> with a reason in the pod status.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: A pod is Pending. How do you diagnose whether it is a resource issue or an affinity issue?</summary>
+            <div class="answer-content">
+              <p>The answer is always in <code>kubectl describe pod &lt;pod-name&gt;</code>, specifically the Events section. Kubernetes gives precise messages. For resource starvation: <code>0/5 nodes are available: 5 Insufficient memory</code> or <code>3 Insufficient cpu, 2 node(s) had untolerated taint</code>. For affinity: <code>0/5 nodes are available: 5 node(s) didn't match Pod's node affinity/selector</code>.</p>
+              <p>For resource issues, I then run <code>kubectl describe nodes | grep -A5 "Allocated resources"</code> to see how full each node is. If all nodes are near capacity, the fix is to add more nodes or reduce the pod's resource requests. For a production cluster, I also check Cluster Autoscaler — it should add nodes automatically unless the ASG max is reached.</p>
+              <p>For affinity issues, I get the pod's affinity rules with <code>kubectl get pod -o yaml | grep -A30 affinity</code> and compare to actual node labels with <code>kubectl get nodes --show-labels</code>. The affinity rule may reference a label that no node has, or may require a zone that is at capacity. The fix is either to update the affinity rule or to add the required labels to existing nodes.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: How do you debug a pod that you cannot exec into because it uses a distroless image with no shell?</summary>
+            <div class="answer-content">
+              <p>Distroless images (which contain only the application binary and its dependencies) have no shell, no package manager, and often no common debugging tools. There are three approaches.</p>
+              <p><strong>Option 1: kubectl debug with ephemeral containers</strong> (Kubernetes 1.23+). Run <code>kubectl debug -it &lt;pod-name&gt; --image=busybox --target=&lt;container-name&gt;</code>. This injects a temporary debug container into the existing pod that shares the same PID namespace. You get a full shell and can inspect the process, network, and filesystem of the distroless container from the debug sidecar. This is the cleanest approach and does not require redeploying the pod.</p>
+              <p><strong>Option 2: Copy the pod spec with a debug image</strong>. Run <code>kubectl debug -it &lt;pod-name&gt; --image=busybox --copy-to=debug-pod</code>. This creates a new pod with the same spec but replaces the container image with busybox. Useful when the pod is not running at all (so ephemeral containers cannot attach).</p>
+              <p><strong>Option 3: Use logs and metrics</strong>. If you cannot exec in, rely on structured logs (<code>kubectl logs</code>), Prometheus metrics, and distributed traces. A well-instrumented distroless container rarely needs exec debugging because the application emits all the diagnostic information you need externally. This is the argument for making observability a design requirement, not an afterthought.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How would you investigate a gradual memory leak in the ticket-service Spring Boot application running on Kubernetes?</summary>
+            <div class="answer-content">
+              <p>A gradual memory leak manifests as steadily increasing memory usage over hours, eventually triggering OOMKilled. Investigating it requires both Kubernetes-level and application-level tools.</p>
+              <p><strong>Step 1: Confirm the pattern.</strong> Pull the Prometheus metric <code>container_memory_working_set_bytes{pod=~"ticket-service.*"}</code> in Grafana and look at the 24-hour trend. A sawtooth pattern (steady growth, sharp drop at OOMKill, growth resumes) is the signature of a leak.</p>
+              <p><strong>Step 2: Identify which memory region is leaking.</strong> Spring Boot Actuator exposes JVM metrics. Use <code>kubectl port-forward</code> to access <code>/actuator/metrics/jvm.memory.used</code> and compare heap vs off-heap. Check <code>jvm.gc.memory.promoted</code> — if old-gen is growing across GC cycles, that is a heap leak. If off-heap is growing (Metaspace or direct buffers), that is a different problem class.</p>
+              <p><strong>Step 3: Trigger a heap dump.</strong> During a live pod (before it OOMKills): <code>kubectl exec ticket-service-6c8b4d9f-p7kqm -- java -jar jcmd.jar &lt;PID&gt; GC.heap_dump /tmp/heapdump.hprof</code>. Then copy it out: <code>kubectl cp ticketflow/ticket-service-6c8b4d9f-p7kqm:/tmp/heapdump.hprof ./heapdump.hprof</code>.</p>
+              <p><strong>Step 4: Analyze the heap dump.</strong> Open in Eclipse Memory Analyzer (MAT). Use the "Leak Suspects" report. In my experience with Spring Boot, the most common causes are: an unbounded Hibernate L2 cache, an in-memory event queue that is not drained, or an EhCache/Caffeine cache without expiration policies.</p>
+              <p><strong>Step 5: Immediate mitigation while the fix is developed.</strong> Set a slightly higher memory limit to reduce OOMKill frequency. Add a Kubernetes CronJob to restart the pod every 24 hours as a temporary circuit breaker. This keeps the service running while the proper fix is deployed.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: A Node is NotReady. What is your runbook — step by step?</summary>
+            <div class="answer-content">
+              <p>A NotReady node is a potential data loss and availability event. I move through this runbook in order:</p>
+              <p><strong>Step 1: Assess blast radius.</strong> <code>kubectl get nodes</code> — is it one node or multiple? One node is likely an instance issue. Multiple nodes simultaneously suggests a network partition, AZ outage, or control plane problem. <code>kubectl get pods --all-namespaces --field-selector spec.nodeName=&lt;node-name&gt;</code> — see which pods are affected and how critical they are.</p>
+              <p><strong>Step 2: Check node conditions.</strong> <code>kubectl describe node &lt;node-name&gt;</code> — look at the Conditions section. MemoryPressure, DiskPressure, or PIDPressure true indicates resource exhaustion. NotReady due to kubelet heartbeat timeout means the control plane lost contact with the node.</p>
+              <p><strong>Step 3: Attempt recovery.</strong> If on EKS, check if the EC2 instance is reachable via SSM. If the instance is running but kubelet is stopped: <code>sudo systemctl restart kubelet</code>. Check kubelet logs: <code>journalctl -u kubelet -n 100</code> for the failure reason.</p>
+              <p><strong>Step 4: If node is unrecoverable.</strong> Cordon the node (<code>kubectl cordon &lt;node&gt;</code>) to prevent new scheduling. Drain it (<code>kubectl drain &lt;node&gt; --ignore-daemonsets --delete-emptydir-data</code>) to evict existing pods to healthy nodes. Verify all pods reschedule successfully. On EKS, terminate the instance — the Auto Scaling Group will replace it with a fresh node automatically.</p>
+              <p><strong>Step 5: Post-mortem.</strong> Check CloudWatch metrics for the instance: CPU, memory, disk, and network. Was there a kernel panic? A disk I/O saturation event? A runaway process? Create a CloudWatch alarm for node conditions to catch future cases earlier.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

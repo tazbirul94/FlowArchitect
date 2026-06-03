@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Helm — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="16" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Helm &amp; GitOps → Helm</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 5</span>
+        </div>
+        <h1 class="page-title">Helm: The Kubernetes Package Manager</h1>
+        <p class="page-subtitle">Package, version, and deploy Kubernetes applications at scale — from chart structure to enterprise release management with helmfile.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Helm</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">📦 The Kubernetes YAML Explosion</span>
+        <p>A startup adopts Kubernetes and deploys their first microservice. The engineer writes a Deployment YAML, a Service YAML, a ConfigMap, an HorizontalPodAutoscaler, an Ingress, and a ServiceAccount. Six files for one service. Simple enough — for now.</p>
+        <p>Six months later, the platform has twelve microservices, three environments (dev, staging, production), and a new requirement: every deployment must have resource limits, pod disruption budgets, and network policies. That's twelve services × three environments × nine YAML files each = 324 YAML files to maintain. Changing the image tag for a rollout means finding and editing the right file. Deploying the same service to staging and production means duplicating YAML and manually substituting values. Engineers start copy-pasting and drift creeps in — production has a different replica count than staging because someone edited the wrong file eight months ago.</p>
+        <p>Helm solves this with a concept borrowed from Linux package managers like apt and yum: the <strong>chart</strong>. A chart is a parameterised, versioned, distributable package for Kubernetes resources. You define the shape of your deployment once, supply environment-specific values, and Helm renders and deploys the whole thing as a named <em>release</em>. Rollback, upgrade, and diff are built-in primitives.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-helm" class="section-title">What is Helm?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>Think of Helm like a cooking recipe book. The recipe (the <strong>chart</strong>) describes how to make a dish — what ingredients, what quantities, what steps. The recipe itself is generic. When you actually cook it, you fill in specifics: two cups of flour for the small version, four cups for the large. The final cooked dish served on a specific date is the <strong>release</strong>. You can make the same recipe on Monday (v1) and again on Friday with different spices (v2). If Friday's version is terrible, you can roll back to Monday's without starting from scratch.</p>
+        <p>In Helm: the chart is the recipe, <code>values.yaml</code> is where you fill in quantities, and a release is the running application installed from that chart at a specific version.</p>
+      </div>
+
+      <p>Helm is the official CNCF package manager for Kubernetes. It does four things that raw <code>kubectl apply</code> cannot:</p>
+      <ul>
+        <li><strong>Templating</strong> — write Kubernetes YAML once with placeholders; supply environment-specific values at deploy time.</li>
+        <li><strong>Release management</strong> — every deployment is tracked as a named release with a version history. You can upgrade, rollback, or diff with a single command.</li>
+        <li><strong>Packaging and distribution</strong> — charts are tarballs stored in repositories (Artifact Hub, Nexus, S3, GitHub Pages). Pull and deploy any published chart in one command.</li>
+        <li><strong>Dependency management</strong> — a chart can declare dependencies on other charts (e.g., your app chart depends on the official PostgreSQL chart), and Helm resolves them automatically.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — CHART STRUCTURE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="chart-structure" class="section-title">Chart Structure</h2>
+
+      <p>Every Helm chart is a directory (or a tarball of that directory) with a mandatory layout. Understanding each file's role is the foundation of everything else:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-text">user-service/                  # Chart root — named after the application
+├── Chart.yaml                 # Chart metadata: name, version, appVersion
+├── values.yaml                # Default configuration values
+├── values-staging.yaml        # Optional: staging overrides (not Helm standard, loaded via -f)
+├── values-production.yaml     # Optional: production overrides
+├── charts/                    # Unpacked dependency charts (managed by helm dependency update)
+├── templates/                 # Kubernetes manifest templates
+│   ├── _helpers.tpl           # Named template definitions (not rendered as manifests)
+│   ├── deployment.yaml        # Deployment resource template
+│   ├── service.yaml           # Service resource template
+│   ├── ingress.yaml           # Ingress resource template
+│   ├── configmap.yaml         # ConfigMap resource template
+│   ├── hpa.yaml               # HorizontalPodAutoscaler template
+│   ├── serviceaccount.yaml    # ServiceAccount template
+│   └── NOTES.txt              # Post-install instructions printed to the user
+└── .helmignore                # Files to exclude when packaging the chart</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Chart.yaml — The Identity File</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v2                    # Helm 3 uses v2; Helm 2 used v1
+name: user-service                # Chart name — must match the directory name
+description: TicketFlow user authentication and profile management service
+type: application                 # "application" (deployable) or "library" (helpers only)
+version: 1.4.2                    # Chart version — increment when the chart itself changes
+appVersion: "2.8.0"               # Version of the application being packaged (informational)
+keywords:
+  - nodejs
+  - ticketflow
+  - microservice
+maintainers:
+  - name: Platform Team
+    email: platform@ticketflow.io
+dependencies:
+  - name: redis                   # This chart depends on the official Redis chart
+    version: ">=17.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled       # Only install if redis.enabled=true in values</code></pre>
+      </div>
+
+      <p><strong>Key distinction:</strong> <code>version</code> is the chart version — bump it when you change templates or defaults. <code>appVersion</code> is the application version — it's informational only and typically matches your Docker image tag. They version independently: you can release chart v1.4.3 that still deploys appVersion 2.8.0 because you only fixed a template bug.</p>
+
+      <h3 class="subsection-title">values.yaml — The Configuration Contract</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Default values for user-service Helm chart.
+# These are the "safe defaults" — always deployable, always sane.
+# Override per environment with -f values-{env}.yaml or --set key=value
+
+replicaCount: 2
+
+image:
+  repository: nexus.ticketflow.io:5000/ticketflow/user-service
+  tag: "2.8.0"                    # Overridden by CI/CD pipeline at deploy time
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false                  # Disabled by default; enabled per environment
+  className: "nginx"
+  host: ""
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3000"
+  LOG_LEVEL: info
+
+redis:
+  enabled: true                   # Installs the Redis dependency chart
+
+postgresql:
+  host: ""                        # External — must be set per environment
+  port: 5432
+  database: users
+
+imagePullSecrets:
+  - name: nexus-pull-secret
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+  prometheus.io/path: "/metrics"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}</code></pre>
+      </div>
+
+      <h3 class="subsection-title">templates/_helpers.tpl — Named Templates</h3>
+      <p>The <code>_helpers.tpl</code> file (any file starting with underscore is not rendered as a manifest) defines reusable named templates using the <code>define</code> action. These are called across your other templates with <code>include</code>:</p>
+      <div class="code-wrapper">
+        <pre><code class="language-go">{{/*
+  Expand the name of the chart.
+  Usage: {{ include "user-service.name" . }}
+*/}}
+{{- define "user-service.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+  Create a default fully qualified app name.
+  Truncates to 63 chars because Kubernetes DNS component max length is 63.
+  Usage: {{ include "user-service.fullname" . }}
+*/}}
+{{- define "user-service.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+  Common labels applied to every resource.
+  Usage: {{ include "user-service.labels" . | nindent 4 }}
+*/}}
+{{- define "user-service.labels" -}}
+helm.sh/chart: {{ include "user-service.chart" . }}
+{{ include "user-service.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+  Selector labels for Deployments and Services (must be stable — never change after first deploy).
+*/}}
+{{- define "user-service.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "user-service.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — TEMPLATING SYNTAX
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="templating" class="section-title">Templating Syntax</h2>
+
+      <p>Helm uses the Go <code>text/template</code> engine, augmented with the Sprig library (over 100 helper functions). Templates are delimited by <code>{{</code> and <code>}}</code>. The leading dash <code>{{-</code> trims whitespace before the action; the trailing dash <code>-}}</code> trims whitespace after. This matters for YAML indentation.</p>
+
+      <h3 class="subsection-title">Built-in Objects</h3>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Object</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>.Values</code></td>
+            <td>Values from values.yaml and -f overrides</td>
+            <td><code>{{ .Values.image.tag }}</code></td>
+          </tr>
+          <tr>
+            <td><code>.Release</code></td>
+            <td>Information about the current release</td>
+            <td><code>{{ .Release.Name }}</code>, <code>{{ .Release.Namespace }}</code></td>
+          </tr>
+          <tr>
+            <td><code>.Chart</code></td>
+            <td>Contents of Chart.yaml</td>
+            <td><code>{{ .Chart.Version }}</code>, <code>{{ .Chart.AppVersion }}</code></td>
+          </tr>
+          <tr>
+            <td><code>.Files</code></td>
+            <td>Access non-template files in the chart</td>
+            <td><code>{{ .Files.Get "config/app.conf" }}</code></td>
+          </tr>
+          <tr>
+            <td><code>.Capabilities</code></td>
+            <td>Kubernetes API capabilities of the cluster</td>
+            <td><code>{{ .Capabilities.KubeVersion.GitVersion }}</code></td>
+          </tr>
+          <tr>
+            <td><code>.Template</code></td>
+            <td>Current template name and base path</td>
+            <td><code>{{ .Template.Name }}</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">A Real Deployment Template</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "user-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "user-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "user-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "user-service.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "user-service.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: DB_HOST
+              value: {{ .Values.postgresql.host | required "postgresql.host is required" | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "user-service.fullname" . }}-db-secret
+                  key: password
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="release-lifecycle" class="section-title">Helm Release Lifecycle</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> Pending: helm install
+
+    state "Pending Install" as Pending
+    state "Deployed" as Deployed
+    state "Pending Upgrade" as PendingUpgrade
+    state "Superseded" as Superseded
+    state "Pending Rollback" as PendingRollback
+    state "Failed" as Failed
+
+    Pending --> Deployed: Resources created successfully
+    Pending --> Failed: Kubernetes rejected resources\nor timeout exceeded
+
+    Deployed --> PendingUpgrade: helm upgrade
+    PendingUpgrade --> Deployed: Upgrade succeeded\n(new revision becomes active)
+    PendingUpgrade --> Failed: Upgrade failed\n(old revision stays active)
+    Deployed --> Superseded: Previous revision after upgrade\n(kept in history)
+
+    Deployed --> PendingRollback: helm rollback
+    PendingRollback --> Deployed: Rollback succeeded\n(rolled-back revision re-activated)
+
+    Failed --> Deployed: helm rollback\nor manual fix + upgrade
+
+    Deployed --> [*]: helm uninstall
+        </div>
+      </div>
+
+      <p>Key insight: Helm maintains a full release history in Kubernetes Secrets (one Secret per revision, in the same namespace as the release). This is how rollback works without any external state — Helm reads the previous revision's manifest from the Secret and re-applies it.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow Platform — Six Services, Three Environments</span>
+        <p>TicketFlow runs six microservices on AWS EKS across three environments (<code>dev</code>, <code>staging</code>, <code>production</code>). Before Helm, the DevOps team maintained 18 separate directories of YAML files — one per service per environment. A routine change to add a Prometheus scrape annotation required 18 manual edits. Release coordination was done via a shared spreadsheet tracking which YAML had been updated.</p>
+        <p>After migrating to Helm:</p>
+        <ul>
+          <li>Each service has one chart in the <code>charts/</code> directory of the TicketFlow monorepo</li>
+          <li>Each environment has one override values file (<code>values-staging.yaml</code>, <code>values-production.yaml</code>)</li>
+          <li>Adding a Prometheus annotation means editing <code>_helpers.tpl</code> once — all 18 environments pick it up on next deploy</li>
+          <li>GitHub Actions builds the image, pushes to Nexus, then calls <code>helm upgrade --install --set image.tag=$GIT_SHA</code></li>
+          <li>Argo CD watches the Helm chart repository and auto-syncs to production on chart version bump</li>
+        </ul>
+      </div>
+
+      <h3 class="subsection-title">TicketFlow Chart Repository Layout</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">ticketflow-charts/
+├── charts/
+│   ├── user-service/
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-staging.yaml
+│   │   ├── values-production.yaml
+│   │   └── templates/
+│   ├── ticket-service/
+│   ├── payment-service/
+│   ├── order-service/
+│   ├── notification-service/
+│   └── api-gateway/
+├── helmfile.yaml               # Multi-chart orchestration (see helmfile section)
+└── environments/
+    ├── dev.yaml
+    ├── staging.yaml
+    └── production.yaml</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Production Values Override</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># values-production.yaml — overrides applied on top of defaults
+replicaCount: 4
+
+image:
+  tag: ""           # Always set by CI/CD — never hardcoded here
+
+ingress:
+  enabled: true
+  host: "api.ticketflow.io"
+  tls:
+    - secretName: ticketflow-tls
+      hosts:
+        - api.ticketflow.io
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 4
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 65
+
+postgresql:
+  host: "ticketflow-prod.cluster-abc123.eu-west-1.rds.amazonaws.com"
+  database: users_prod
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+  prometheus.io/path: "/metrics"
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: user-service
+        topologyKey: kubernetes.io/hostname   # Spread across different nodes</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — RELEASE MANAGEMENT COMMANDS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="release-management" class="section-title">Release Management</h2>
+
+      <p>Helm's release management commands form the core workflow for deploying and operating applications:</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="install-upgrade">Install / Upgrade</button>
+          <button class="os-tab-btn" data-tab="inspect">Inspect</button>
+          <button class="os-tab-btn" data-tab="rollback">Rollback</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="install-upgrade">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install a new release (fails if release already exists)
+helm install user-service ./charts/user-service \
+  --namespace ticketflow-prod \
+  --create-namespace \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=a3f9c2d
+
+# Upgrade an existing release (fails if release does not exist)
+helm upgrade user-service ./charts/user-service \
+  --namespace ticketflow-prod \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=b7e4a1c
+
+# The canonical CI/CD command: install if missing, upgrade if exists
+# --atomic: rolls back automatically if upgrade fails
+# --timeout: time to wait for pods to become ready
+helm upgrade --install user-service ./charts/user-service \
+  --namespace ticketflow-prod \
+  --create-namespace \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=$IMAGE_TAG \
+  --atomic \
+  --timeout 5m \
+  --wait
+
+# Preview what Helm WOULD apply without actually deploying (dry run)
+helm upgrade --install user-service ./charts/user-service \
+  --namespace ticketflow-prod \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=$IMAGE_TAG \
+  --dry-run
+
+# Render templates locally without a cluster (useful in CI for validation)
+helm template user-service ./charts/user-service \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=$IMAGE_TAG \
+  | kubectl apply --dry-run=client -f -</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="inspect">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># List all releases in a namespace
+helm list --namespace ticketflow-prod
+
+# List releases across all namespaces
+helm list --all-namespaces
+
+# Show full release status and last deployment notes
+helm status user-service --namespace ticketflow-prod
+
+# Show the full release history (revision numbers are key for rollback)
+helm history user-service --namespace ticketflow-prod
+# REVISION  UPDATED                  STATUS     CHART              APP VERSION  DESCRIPTION
+# 1         2024-01-15 09:00:00      superseded user-service-1.3.0  2.7.0       Install complete
+# 2         2024-01-20 14:30:00      superseded user-service-1.4.0  2.7.5       Upgrade complete
+# 3         2024-02-01 11:00:00      deployed   user-service-1.4.2  2.8.0       Upgrade complete
+
+# Show the values currently deployed for a release
+helm get values user-service --namespace ticketflow-prod
+
+# Show all values (including defaults) — useful for debugging
+helm get values user-service --namespace ticketflow-prod --all
+
+# Show the rendered manifests for the currently deployed revision
+helm get manifest user-service --namespace ticketflow-prod
+
+# Diff current deployed vs pending upgrade (requires helm-diff plugin)
+helm diff upgrade user-service ./charts/user-service \
+  --namespace ticketflow-prod \
+  -f charts/user-service/values-production.yaml \
+  --set image.tag=$NEW_IMAGE_TAG</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="rollback">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Roll back to the previous revision (most common case)
+helm rollback user-service --namespace ticketflow-prod
+
+# Roll back to a specific revision (check revision numbers with helm history)
+helm rollback user-service 2 --namespace ticketflow-prod
+
+# Roll back with wait: block until rollback pods are healthy
+helm rollback user-service --namespace ticketflow-prod --wait --timeout 3m
+
+# Roll back all TicketFlow services to specific revisions after bad deploy
+helm rollback ticket-service 5 --namespace ticketflow-prod --wait
+helm rollback payment-service 3 --namespace ticketflow-prod --wait
+helm rollback order-service 4 --namespace ticketflow-prod --wait
+
+# Uninstall a release (removes all resources AND the release history)
+helm uninstall user-service --namespace ticketflow-prod
+
+# Uninstall but keep history (useful for auditing — can still see past revisions)
+helm uninstall user-service --namespace ticketflow-prod --keep-history</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — HELM REPOS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="helm-repos" class="section-title">Helm Repositories</h2>
+
+      <p>Helm charts are distributed through repositories — HTTP servers that serve a repository index file (<code>index.yaml</code>) and chart tarballs. There are three types you will encounter in practice:</p>
+
+      <h3 class="subsection-title">1. Artifact Hub (Public)</h3>
+      <p>Artifact Hub (<code>artifacthub.io</code>) is the official aggregator for public Helm charts, including charts from Bitnami, Prometheus Community, Grafana, and hundreds of others. Use it to find community charts for infrastructure dependencies:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Add commonly used repositories
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add cert-manager https://charts.jetstack.io
+
+# Update all repo indexes (like apt-get update)
+helm repo update
+
+# Search for charts across all added repositories
+helm search repo postgresql
+helm search repo redis --versions
+
+# Pull a chart locally (without installing) to inspect or customize
+helm pull bitnami/postgresql --version 12.5.8
+helm pull bitnami/redis --untar --destination ./charts/vendor/</code></pre>
+      </div>
+
+      <h3 class="subsection-title">2. Nexus as a Private Helm Repository</h3>
+      <p>TicketFlow uses Nexus at <code>nexus.ticketflow.io</code> as the private Helm repository for internal charts. Nexus supports Helm repositories natively — it hosts the <code>index.yaml</code> and serves chart tarballs.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Add the TicketFlow Nexus Helm repository (credentials from env vars)
+helm repo add ticketflow \
+  https://nexus.ticketflow.io/repository/helm-releases/ \
+  --username $NEXUS_USER \
+  --password $NEXUS_PASSWORD
+
+# Package a chart into a tarball for upload
+helm package ./charts/user-service
+# Produces: user-service-1.4.2.tgz
+
+# Upload the packaged chart to Nexus via curl (Nexus REST API)
+curl -u "$NEXUS_USER:$NEXUS_PASSWORD" \
+  --upload-file user-service-1.4.2.tgz \
+  https://nexus.ticketflow.io/repository/helm-releases/
+
+# After uploading, update local index and verify
+helm repo update
+helm search repo ticketflow/user-service --versions
+
+# Deploy from the Nexus repository
+helm upgrade --install user-service ticketflow/user-service \
+  --version 1.4.2 \
+  --namespace ticketflow-prod \
+  -f values-production.yaml \
+  --set image.tag=$IMAGE_TAG</code></pre>
+      </div>
+
+      <h3 class="subsection-title">3. OCI Registries (Modern Standard)</h3>
+      <p>Since Helm 3.8, charts can be stored as OCI artifacts in any OCI-compliant registry — including Nexus, AWS ECR, GHCR, and Docker Hub. This is the direction the ecosystem is moving: one registry for both Docker images and Helm charts.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Login to Nexus OCI endpoint
+helm registry login nexus.ticketflow.io:5000 \
+  --username $NEXUS_USER \
+  --password $NEXUS_PASSWORD
+
+# Push chart as OCI artifact (no separate index.yaml needed)
+helm push user-service-1.4.2.tgz oci://nexus.ticketflow.io:5000/ticketflow/charts
+
+# Install directly from OCI registry
+helm upgrade --install user-service \
+  oci://nexus.ticketflow.io:5000/ticketflow/charts/user-service \
+  --version 1.4.2 \
+  --namespace ticketflow-prod \
+  --set image.tag=$IMAGE_TAG</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — HELMFILE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="helmfile" class="section-title">Helmfile: Multi-Chart Deployments</h2>
+
+      <p>Helm manages one release at a time. Deploying all six TicketFlow services means running six separate <code>helm upgrade --install</code> commands — in the right order, with the right values, to the right namespaces. <strong>Helmfile</strong> is a declarative wrapper that orchestrates multiple Helm releases as a single unit.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># helmfile.yaml — TicketFlow full-stack deployment definition
+
+environments:
+  dev:
+    values:
+      - environments/dev.yaml
+  staging:
+    values:
+      - environments/staging.yaml
+  production:
+    values:
+      - environments/production.yaml
+
+repositories:
+  - name: ticketflow
+    url: https://nexus.ticketflow.io/repository/helm-releases/
+    username: "{{ requiredEnv \"NEXUS_USER\" }}"
+    password: "{{ requiredEnv \"NEXUS_PASSWORD\" }}"
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+
+releases:
+  # Deploy ingress controller first (other services depend on it)
+  - name: ingress-nginx
+    namespace: ingress-nginx
+    chart: ingress-nginx/ingress-nginx
+    version: "4.8.3"
+    needs:
+      - kube-system/cert-manager
+
+  # Deploy cert-manager before ingress
+  - name: cert-manager
+    namespace: kube-system
+    chart: cert-manager/cert-manager
+    version: "v1.13.3"
+    set:
+      - name: installCRDs
+        value: "true"
+
+  # TicketFlow microservices — deployed after infrastructure
+  - name: user-service
+    namespace: ticketflow
+    chart: ticketflow/user-service
+    version: "1.4.2"
+    values:
+      - charts/user-service/values.yaml
+      - charts/user-service/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.tag
+        value: "{{ requiredEnv \"USER_SERVICE_IMAGE_TAG\" }}"
+    needs:
+      - ingress-nginx/ingress-nginx
+
+  - name: ticket-service
+    namespace: ticketflow
+    chart: ticketflow/ticket-service
+    version: "2.1.0"
+    values:
+      - charts/ticket-service/values.yaml
+      - charts/ticket-service/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.tag
+        value: "{{ requiredEnv \"TICKET_SERVICE_IMAGE_TAG\" }}"
+    needs:
+      - user-service
+
+  - name: payment-service
+    namespace: ticketflow
+    chart: ticketflow/payment-service
+    version: "1.8.1"
+    values:
+      - charts/payment-service/values.yaml
+      - charts/payment-service/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.tag
+        value: "{{ requiredEnv \"PAYMENT_SERVICE_IMAGE_TAG\" }}"
+    needs:
+      - user-service
+      - ticket-service
+
+  - name: order-service
+    namespace: ticketflow
+    chart: ticketflow/order-service
+    version: "3.0.4"
+    values:
+      - charts/order-service/values.yaml
+      - charts/order-service/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.tag
+        value: "{{ requiredEnv \"ORDER_SERVICE_IMAGE_TAG\" }}"
+    needs:
+      - payment-service
+
+  - name: notification-service
+    namespace: ticketflow
+    chart: ticketflow/notification-service
+    version: "1.2.7"
+    values:
+      - charts/notification-service/values.yaml
+      - charts/notification-service/values-{{ .Environment.Name }}.yaml
+    set:
+      - name: image.tag
+        value: "{{ requiredEnv \"NOTIFICATION_SERVICE_IMAGE_TAG\" }}"
+    needs:
+      - order-service
+
+  - name: api-gateway
+    namespace: ticketflow
+    chart: ticketflow/api-gateway
+    version: "2.4.0"
+    values:
+      - charts/api-gateway/values.yaml
+      - charts/api-gateway/values-{{ .Environment.Name }}.yaml
+    needs:
+      - user-service
+      - ticket-service
+      - payment-service
+      - order-service
+      - notification-service</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Deploy all releases to staging
+helmfile -e staging sync
+
+# Preview diff for all releases before deploying to production
+helmfile -e production diff
+
+# Apply only changed releases (helmfile detects drift and skips unchanged releases)
+helmfile -e production apply
+
+# Target a specific release within helmfile
+helmfile -e production -l name=user-service sync
+
+# Destroy all releases (caution: irreversible in production)
+helmfile -e staging destroy</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — CHART VERSIONING
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="chart-versioning" class="section-title">Chart Versioning Strategy</h2>
+
+      <p>Helm charts follow <a href="https://semver.org/" target="_blank">Semantic Versioning</a> (SemVer). The convention for when to bump each component:</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Change Type</th>
+            <th>Version Bump</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Breaking change: removed/renamed values, changed resource types</td>
+            <td>Major (1.x.x → 2.0.0)</td>
+            <td>Renamed <code>replicaCount</code> to <code>replicas</code></td>
+          </tr>
+          <tr>
+            <td>New optional feature: new values with defaults, new optional resources</td>
+            <td>Minor (1.3.x → 1.4.0)</td>
+            <td>Added optional PodDisruptionBudget support</td>
+          </tr>
+          <tr>
+            <td>Backward-compatible fix: template bug, label correction</td>
+            <td>Patch (1.4.1 → 1.4.2)</td>
+            <td>Fixed wrong indentation in NOTES.txt</td>
+          </tr>
+          <tr>
+            <td>Application update only (new image, no chart changes)</td>
+            <td>appVersion bump, no chart version change</td>
+            <td>appVersion: 2.8.0 → 2.9.0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>In practice, TicketFlow's CI/CD pipeline auto-increments chart patch version on every merge to main, and bumps minor/major versions via PR labels (using <code>helm-chart-testing</code> and <code>chart-releaser-action</code>).</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — CI/CD INTEGRATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="cicd-integration" class="section-title">CI/CD Integration</h2>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># .github/workflows/deploy-user-service.yml
+name: Deploy user-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/user-service/**'
+      - 'charts/user-service/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+      - name: Build and push image to Nexus
+        run: |
+          docker login nexus.ticketflow.io:5000 \
+            -u ${{ secrets.NEXUS_USER }} \
+            -p ${{ secrets.NEXUS_PASSWORD }}
+          docker build -t nexus.ticketflow.io:5000/ticketflow/user-service:$IMAGE_TAG \
+            services/user-service/
+          docker push nexus.ticketflow.io:5000/ticketflow/user-service:$IMAGE_TAG
+
+      - name: Configure kubectl for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region eu-west-1 \
+            --name ticketflow-production
+
+      - name: Helm lint (fail fast on template errors)
+        run: |
+          helm lint ./charts/user-service \
+            -f charts/user-service/values-production.yaml \
+            --set image.tag=$IMAGE_TAG
+
+      - name: Deploy to staging
+        run: |
+          helm upgrade --install user-service ./charts/user-service \
+            --namespace ticketflow-staging \
+            --create-namespace \
+            -f charts/user-service/values-staging.yaml \
+            --set image.tag=$IMAGE_TAG \
+            --atomic \
+            --timeout 5m \
+            --wait
+
+      - name: Run smoke tests against staging
+        run: ./scripts/smoke-test-user-service.sh staging
+
+      - name: Deploy to production
+        if: success()
+        run: |
+          helm upgrade --install user-service ./charts/user-service \
+            --namespace ticketflow-prod \
+            --create-namespace \
+            -f charts/user-service/values-production.yaml \
+            --set image.tag=$IMAGE_TAG \
+            --atomic \
+            --timeout 8m \
+            --wait
+
+      - name: Notify on failure (rollback is automatic via --atomic)
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -d "{\"text\":\"user-service deploy FAILED for $IMAGE_TAG — rolled back automatically\"}"</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when you run <code>helm upgrade --install user-service ./charts/user-service</code>?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>Helm reads the chart directory: loads <code>Chart.yaml</code>, <code>values.yaml</code>, all <code>-f</code> override files, and <code>--set</code> flags. It merges values in order: <code>values.yaml</code> &lt; <code>-f</code> files (left to right) &lt; <code>--set</code> flags. Later values override earlier ones.</li>
+            <li>Helm checks for existing release state in the namespace. It queries Kubernetes Secrets with label <code>owner=helm</code> and <code>name=user-service</code>. If none exist, this is an install; if one exists, this is an upgrade.</li>
+            <li>Helm renders the templates using the Go <code>text/template</code> engine + Sprig, producing raw Kubernetes YAML manifests. Named templates from <code>_helpers.tpl</code> are resolved. The output is the same as <code>helm template</code>.</li>
+            <li>If this is an upgrade: Helm performs a three-way strategic merge — current cluster state, previous release manifest, and new release manifest — to compute a minimal diff. Only resources that changed are sent to the Kubernetes API server.</li>
+            <li>Helm calls the Kubernetes API server to create/update/delete resources. This happens in a deterministic order: Namespaces first, then CRDs, then RBAC resources, then Deployments/Services/etc.</li>
+            <li>If <code>--wait</code> is set: Helm polls until all Deployments have their desired replica count ready and all Jobs have completed successfully. If <code>--timeout</code> is exceeded, Helm marks the release as FAILED.</li>
+            <li>If <code>--atomic</code> is set and the release fails or times out: Helm automatically runs a rollback to the previous revision, then marks the release FAILED. Without <code>--atomic</code>, a failed upgrade leaves the cluster in a partially updated state.</li>
+            <li>Helm serializes the final rendered manifests and the values used into a Kubernetes Secret (base64+gzip encoded, ~10KB typical). This Secret is the release revision record and is what powers <code>helm history</code> and <code>helm rollback</code>.</li>
+          </ol>
+          <p>Note: Helm does <em>not</em> need any server-side component (unlike Helm 2's Tiller). All state is stored in Kubernetes Secrets. Helm itself is a purely client-side tool that talks directly to the Kubernetes API server.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does <code>helm rollback</code> actually work?</summary>
+        <div class="answer-content">
+          <p>When you run <code>helm rollback user-service 2</code>:</p>
+          <ol>
+            <li>Helm fetches the release Secret for revision 2 from Kubernetes (label <code>version=2</code>).</li>
+            <li>It decodes and decompresses the stored manifests — these are the exact rendered templates from when revision 2 was deployed.</li>
+            <li>Helm performs a three-way merge between the current cluster state, the current revision's manifest, and the target revision (2) manifest.</li>
+            <li>It applies the diff — effectively re-applying revision 2's resources. Kubernetes Deployment controller detects the spec change and performs a rolling update to replace current pods with the revision 2 pods.</li>
+            <li>Helm creates a <em>new</em> revision record (revision 4 in this case) describing the rollback, pointing back to the configuration of revision 2. The revision history is append-only — rollback does not delete history.</li>
+          </ol>
+          <p>This is why <code>--atomic</code> is so valuable in CI/CD: a failed upgrade triggers an automatic rollback within the same command, without any external orchestration or error-handling logic in your pipeline script.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Helm store state? (No Tiller — Helm 3 difference)</summary>
+        <div class="answer-content">
+          <p>Helm 2 required a server-side component called <strong>Tiller</strong> running in the cluster, which held all release state in its own data store and had cluster-admin privileges — a major security problem.</p>
+          <p>Helm 3 eliminated Tiller entirely. Release state is now stored as Kubernetes Secrets in the same namespace as the release, with labels like <code>owner=helm</code>, <code>name=&lt;release-name&gt;</code>, <code>version=&lt;revision&gt;</code>. Each Secret contains the compressed manifests of that revision.</p>
+          <p>This design has several benefits:</p>
+          <ul>
+            <li>No special cluster-admin privileges for Helm — it uses your current <code>kubectl</code> context's RBAC permissions.</li>
+            <li>Release state lives with the workload in the same namespace — namespace deletion also deletes release history.</li>
+            <li>Multiple Helm clients can safely manage releases in different namespaces without conflict.</li>
+            <li>Release history is visible via <code>kubectl get secrets -l owner=helm</code> — no special tools needed to inspect state.</li>
+          </ul>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 1: Hardcoding Values in Templates</span>
+        <p>Engineers new to Helm write <code>replicas: 3</code> directly in <code>deployment.yaml</code> instead of <code>replicas: {{ .Values.replicaCount }}</code>. The template works, but it becomes a maintenance trap: changing replica counts requires editing template files rather than value overrides, breaking the entire point of parameterisation. Worse, hardcoded values make the chart useless for other teams or environments.</p>
+        <p><strong>Fix:</strong> Treat <code>values.yaml</code> as your chart's public API. Every value that could differ between environments or between users of the chart must be expressed as a <code>.Values</code> reference in the template. Even values you think will "always" be the same — resource limits, port numbers, health check paths — should be values. The cost of parameterisation is near-zero; the cost of hardcoding is a future refactor under pressure.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 2: Deploying Without --atomic in CI/CD</span>
+        <p>A CI/CD pipeline runs <code>helm upgrade --install user-service ...</code> without <code>--atomic</code>. The new image has a startup bug — pods crash-loop. Helm reports the upgrade as "in progress" and eventually times out, but the cluster is now in a broken state: some pods are on the old image, some on the broken new image. Traffic is split between working and broken instances. The on-call engineer has to manually identify and fix the state.</p>
+        <p><strong>Fix:</strong> Always use <code>--atomic --wait --timeout 5m</code> in production CI/CD pipelines. <code>--atomic</code> guarantees that a failed upgrade is always followed by an automatic rollback, leaving the cluster in the last known-good state. Combined with <code>--wait</code>, Helm will not declare success until all pods are actually healthy.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 3: Using --set for Secrets in CI/CD</span>
+        <p>Engineers pass database passwords via <code>--set postgresql.password=supersecret</code> in CI/CD commands. The password is now stored in: shell history, CI/CD logs (if commands are printed), Helm release Secrets in the cluster (the full rendered manifest including the password is stored base64-encoded in the Secret). Multiple exposure vectors for a single misconfiguration.</p>
+        <p><strong>Fix:</strong> Never use <code>--set</code> for secrets. Store secrets in a dedicated system (AWS Secrets Manager, HashiCorp Vault, Kubernetes External Secrets Operator) and reference them in your chart via <code>secretKeyRef</code>. The chart should reference an already-existing Kubernetes Secret by name, not contain the secret value itself. This way, Helm never sees the secret value.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 4: Not Bumping Chart Version After Template Changes</span>
+        <p>An engineer fixes a template bug in <code>deployment.yaml</code> but forgets to increment <code>version</code> in <code>Chart.yaml</code>. They package and push the chart to Nexus. The old chart tarball at version 1.4.2 is overwritten (if the repo allows it). Other teams running <code>helm upgrade</code> with the same version constraint get the silent fix — or if using <code>--reuse-values</code>, get confusing mixed behaviour because they think they have the same chart they tested with.</p>
+        <p><strong>Fix:</strong> Treat chart version changes as immutable. Configure your Helm repository (Nexus or otherwise) to reject overwriting existing versions. Make chart version bumping part of your PR checklist. Better: use CI automation (like <code>helm-chart-releaser-action</code>) that auto-bumps chart version on any template change merged to main.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 5: Ignoring selector label immutability</span>
+        <p>A chart uses <code>matchLabels: { app: user-service }</code> in the Deployment selector. An engineer later refactors to use the recommended <code>app.kubernetes.io/name</code> label. They update the chart. The upgrade fails with a cryptic error: <code>field is immutable</code>. Kubernetes does not allow Deployment selector labels to be changed after creation because they link the Deployment to its ReplicaSets.</p>
+        <p><strong>Fix:</strong> Selector labels in <code>matchLabels</code> and pod <code>metadata.labels</code> (the intersection) must never change after first deployment. Use the standard labels recommended by the Helm docs from day one. If you must change them, you need to delete the old Deployment and re-create it — which means a brief downtime or a blue-green swap.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>Helm solves the YAML management problem, but it also introduces a new class of architectural concerns that architects must design around:</p>
+        <ul>
+          <li><strong>Chart as API contract</strong> — <code>values.yaml</code> is the public API between your platform team (who owns the chart) and your application teams (who supply values). Design it deliberately: document every value, provide sensible defaults, use <code>required</code> for values that must be supplied, and version the schema with JSON Schema validation (<code>values.schema.json</code>). A breaking change to a chart is a major version bump, same as any API.</li>
+          <li><strong>The single-chart anti-pattern</strong> — some teams create one giant "platform chart" that deploys all services together. This is convenient until it is not: you cannot upgrade one service without potentially affecting others, rollback scope is all-or-nothing, and chart testing complexity explodes. Prefer one chart per deployable service with helmfile for orchestration.</li>
+          <li><strong>Helm + Argo CD = GitOps</strong> — Helm alone is imperative: an engineer runs a command. The recommended production pattern is to commit all Helm values into Git and let Argo CD detect and apply changes automatically. The Git repo becomes the single source of truth for cluster state. No human should run <code>helm upgrade</code> against production directly.</li>
+          <li><strong>Library charts for shared patterns</strong> — when multiple application charts repeat the same patterns (standard labels, standard probes, standard resource structures), extract those into a library chart (<code>type: library</code> in Chart.yaml). Library charts define named templates but are never deployed directly. Application charts declare the library as a dependency and <code>include</code> its templates. This eliminates cross-chart drift.</li>
+          <li><strong>Drift detection</strong> — Helm does not continuously reconcile cluster state. If someone runs <code>kubectl edit deployment</code> directly in production, Helm has no idea. The cluster drifts from the Helm-managed state. Argo CD or Flux solve this by continuously comparing desired (Git/Helm) state to actual (cluster) state and alerting or auto-correcting on drift.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>All environment-varying values are in <code>values.yaml</code> — no hardcoded values in templates</li>
+        <li><code>values.schema.json</code> exists to validate values against JSON Schema on install/upgrade</li>
+        <li>Secrets are referenced via <code>secretKeyRef</code> or External Secrets Operator — never in <code>values.yaml</code></li>
+        <li>CI/CD deploys use <code>--atomic --wait --timeout</code> — automatic rollback on failure is guaranteed</li>
+        <li>Chart version is incremented for every template or default change</li>
+        <li>Private charts are stored in Nexus and access is restricted by RBAC</li>
+        <li><code>helm lint</code> runs in CI on every PR that changes a chart</li>
+        <li>Selector labels use stable <code>app.kubernetes.io/</code> standard labels — confirmed never changed after initial deploy</li>
+        <li><code>helm get values</code> and <code>helm history</code> are used for incident investigation — not ad hoc <code>kubectl describe</code></li>
+        <li>Argo CD or Flux manages production deploys from Git — no manual <code>helm upgrade</code> in production</li>
+        <li>Helmfile (or equivalent) coordinates multi-service deploys with explicit dependency ordering</li>
+        <li>At least 30 days of release history is retained (<code>--history-max 30</code> in Helm config)</li>
+        <li>Resource requests and limits are set in values — no chart deploys pods with unbounded resources</li>
+        <li>Chart dependencies are pinned to specific versions in <code>Chart.yaml</code> — no floating ranges for production</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 16 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Create and Deploy a Helm Chart</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">🧪 Lab — Requires Helm 3 and a local Kubernetes cluster (kind, minikube, or k3d)</span>
+
+        <p>This lab walks through creating a complete Helm chart for a simplified <code>user-service</code> and deploying it to a local Kubernetes cluster.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Install Helm and verify</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Install Helm (macOS)
+brew install helm
+
+# Install Helm (Linux)
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install Helm (Windows with Chocolatey)
+choco install kubernetes-helm
+
+# Verify
+helm version
+# version.BuildInfo{Version:"v3.13.x", ...}
+
+# Confirm you have a cluster running
+kubectl cluster-info</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Scaffold a new chart</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create the scaffold (helm create generates a complete working example chart)
+helm create user-service
+
+# Inspect the generated structure
+ls -la user-service/
+ls -la user-service/templates/
+
+# The scaffold uses nginx as a placeholder. We will customise it.
+cat user-service/Chart.yaml</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Customise Chart.yaml</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># Edit user-service/Chart.yaml
+apiVersion: v2
+name: user-service
+description: TicketFlow user authentication service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Update values.yaml to use a real image</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># Edit user-service/values.yaml — update the image section:
+image:
+  repository: nginx            # Using nginx as a stand-in for user-service
+  pullPolicy: IfNotPresent
+  tag: "1.25-alpine"
+
+service:
+  type: ClusterIP
+  port: 80
+
+replicaCount: 1</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Lint and template-render the chart</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Lint: checks for syntax errors and best-practice violations
+helm lint ./user-service
+# ==> Linting ./user-service
+# [INFO] Chart.yaml: icon is recommended
+# 1 chart(s) linted, 0 chart(s) failed
+
+# Render templates without deploying — inspect the output YAML
+helm template my-user-service ./user-service \
+  --set replicaCount=2 \
+  --namespace ticketflow
+
+# Observe: .Release.Name = "my-user-service", all templates rendered</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Install the release</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create namespace
+kubectl create namespace ticketflow
+
+# Install
+helm install my-user-service ./user-service \
+  --namespace ticketflow \
+  --set replicaCount=2
+
+# Check release status
+helm status my-user-service --namespace ticketflow
+
+# Verify pods are running
+kubectl get pods -n ticketflow
+kubectl get svc -n ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 7: Upgrade and rollback</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Upgrade: change replica count and image tag
+helm upgrade my-user-service ./user-service \
+  --namespace ticketflow \
+  --set replicaCount=3 \
+  --set image.tag=1.24-alpine
+
+# Check history
+helm history my-user-service --namespace ticketflow
+# REVISION  STATUS     DESCRIPTION
+# 1         superseded Install complete
+# 2         deployed   Upgrade complete
+
+# Roll back to revision 1
+helm rollback my-user-service 1 --namespace ticketflow
+
+# Verify rollback
+helm history my-user-service --namespace ticketflow
+# REVISION  STATUS     DESCRIPTION
+# 1         superseded Install complete
+# 2         superseded Upgrade complete
+# 3         deployed   Rollback to 1</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 8: Package and simulate push to Nexus</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Package the chart into a distributable tarball
+helm package ./user-service
+# Successfully packaged chart and saved it to: ./user-service-0.1.0.tgz
+
+# Inspect the tarball contents
+tar -tzf user-service-0.1.0.tgz
+
+# Simulate an index file (what Nexus generates for a Helm repo)
+helm repo index . --url https://nexus.ticketflow.io/repository/helm-releases/
+cat index.yaml
+
+# Clean up
+helm uninstall my-user-service --namespace ticketflow
+kubectl delete namespace ticketflow</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How <code>helm template</code> renders the exact YAML that will be applied — use this to validate before deploying.</li>
+          <li>The revision numbers in <code>helm history</code> — rollback creates a new revision, not undo the old ones.</li>
+          <li>The Kubernetes Secret Helm created to store the release state: <code>kubectl get secrets -n ticketflow -l owner=helm</code>.</li>
+          <li>That the packaged tarball contains the full chart and can be pushed to any HTTP server to become a Helm repo.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 17 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions cover both the conceptual understanding and hands-on practical knowledge interviewers test for Helm in senior engineering and DevOps roles.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is Helm and why is it used instead of plain kubectl apply?</summary>
+            <div class="answer-content">
+              <p>Helm is the Kubernetes package manager. It packages related Kubernetes resources — Deployments, Services, Ingresses, ConfigMaps, HPAs — into a single versioned unit called a <strong>chart</strong>. You parameterise the chart with values and deploy it as a named <strong>release</strong>.</p>
+              <p>The problems with plain <code>kubectl apply</code> that Helm solves:</p>
+              <ul>
+                <li><strong>No templating</strong> — with kubectl, you need separate YAML files per environment or resort to sed/envsubst hacks to substitute values. Helm provides a proper templating engine with conditionals, loops, and functions.</li>
+                <li><strong>No release history</strong> — kubectl has no concept of "this is version 3 of the user-service deployment." Helm tracks every deployment as a revision and allows you to see history, diff revisions, and roll back to any previous revision with one command.</li>
+                <li><strong>No dependency management</strong> — if your app needs PostgreSQL, you either manually deploy it or write a custom script. Helm charts declare dependencies that are resolved and deployed automatically.</li>
+                <li><strong>No atomic rollback</strong> — with kubectl, a failed rolling update leaves you manually reverting changes across potentially many resources. Helm's <code>--atomic</code> flag automatically rolls back all resources if any part of the upgrade fails.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: Explain the structure of a Helm chart and the role of each key file.</summary>
+            <div class="answer-content">
+              <p>A Helm chart is a directory with a mandatory layout:</p>
+              <ul>
+                <li><strong><code>Chart.yaml</code></strong> — chart metadata: name, <code>version</code> (the chart's own SemVer), <code>appVersion</code> (the application version being packaged), dependencies. The <code>version</code> field is what Helm uses for release management.</li>
+                <li><strong><code>values.yaml</code></strong> — default configuration values. Think of this as the chart's public API. All configurable parameters should be expressed here with sensible defaults. Users override these per environment with <code>-f</code> override files or <code>--set</code>.</li>
+                <li><strong><code>templates/</code></strong> — Kubernetes manifest templates using Go <code>text/template</code> syntax. Helm renders these files by injecting values from <code>.Values</code>, release metadata from <code>.Release</code>, and chart metadata from <code>.Chart</code>.</li>
+                <li><strong><code>templates/_helpers.tpl</code></strong> — named template definitions (files starting with underscore are not rendered as Kubernetes manifests). Contains reusable template snippets for names, labels, and selectors that are <code>include</code>d across other templates.</li>
+                <li><strong><code>charts/</code></strong> — unpacked dependency charts downloaded by <code>helm dependency update</code>.</li>
+                <li><strong><code>templates/NOTES.txt</code></strong> — post-install instructions printed to the user's terminal after a successful install or upgrade.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: How does Helm handle rollbacks, and how does it store release state?</summary>
+            <div class="answer-content">
+              <p>Helm stores release state as Kubernetes Secrets (since Helm 3 — no more Tiller). Each revision of a release is stored as a separate Secret in the release's namespace, labelled with <code>owner=helm</code>, <code>name=&lt;release-name&gt;</code>, and <code>version=&lt;revision-number&gt;</code>. The Secret contains the full rendered manifests and values for that revision, compressed and base64-encoded.</p>
+              <p>When you run <code>helm rollback user-service 2</code>:</p>
+              <ol>
+                <li>Helm fetches the revision 2 Secret and decodes the stored manifests.</li>
+                <li>It performs a three-way merge (current cluster state + current revision manifest + target revision manifest) to compute the diff.</li>
+                <li>It applies the diff to Kubernetes — Deployments detect spec changes and perform rolling updates back to the old version.</li>
+                <li>A new revision record (e.g., revision 4) is appended to the history describing the rollback. History is always append-only.</li>
+              </ol>
+              <p>Key implication: rollback always creates a new revision. If revision 3 was the latest, after rolling back to revision 2, you have revision 4 which is functionally identical to revision 2. You can see the full audit trail of what happened and when.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is the difference between <code>version</code> and <code>appVersion</code> in Chart.yaml?</summary>
+            <div class="answer-content">
+              <p><code>version</code> is the Helm chart's own semantic version. It describes the chart itself — the templates, the defaults, the dependencies. Helm uses this field for release tracking, repository indexing, and dependency resolution. You bump it when you change the chart.</p>
+              <p><code>appVersion</code> describes the version of the application the chart deploys — typically the Docker image tag. It is <strong>informational only</strong>: Helm itself does not use <code>appVersion</code> for any logic. It appears in <code>helm list</code> output for human reference. By convention, it should match the <code>image.tag</code> default in <code>values.yaml</code>.</p>
+              <p>They version independently, which is the key point interviewers want to hear:</p>
+              <ul>
+                <li>You can release chart 1.4.3 (fixed a template label bug) that still deploys appVersion 2.8.0 — because the fix was chart-only.</li>
+                <li>You can deploy a new appVersion 2.9.0 without changing the chart — by passing <code>--set image.tag=2.9.0</code> or updating the CI/CD pipeline. Some teams never bump the chart version for application image changes; they always pass the tag at deploy time.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What is the risk of using <code>--set</code> for secrets in Helm, and what is the correct approach?</summary>
+            <div class="answer-content">
+              <p>Using <code>--set db.password=supersecret</code> has multiple security exposure points:</p>
+              <ul>
+                <li>Shell history on the machine that ran the command stores the plain-text password.</li>
+                <li>CI/CD systems often log the full command being run — the password appears in logs accessible to any developer with CI read access.</li>
+                <li>Helm stores the full rendered manifest (including the secret value) in a Kubernetes Secret as a base64-encoded string. Anyone with read access to Secrets in that namespace can decode and read it. Base64 is not encryption.</li>
+              </ul>
+              <p>The correct approaches, in order of maturity:</p>
+              <ol>
+                <li><strong>Reference existing Secrets</strong> — the chart should reference a pre-existing Kubernetes Secret by name using <code>secretKeyRef</code>. The Secret is created separately (by the platform team, an operator, or the app's own init), and Helm never sees the value. This is the minimum acceptable production pattern.</li>
+                <li><strong>External Secrets Operator (ESO)</strong> — a Kubernetes operator that syncs secrets from AWS Secrets Manager, HashiCorp Vault, or Azure Key Vault into Kubernetes Secrets automatically. The chart declares an ExternalSecret resource (a custom resource) specifying what to pull from the external store. No human ever sees the secret value in transit.</li>
+                <li><strong>Vault Agent Sidecar / CSI Provider</strong> — injects secrets directly into the pod's filesystem at runtime, without ever creating a Kubernetes Secret. The application reads the secret from a mounted file. Maximum security isolation.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: What is helmfile, and when would you use it over plain Helm?</summary>
+            <div class="answer-content">
+              <p>Helmfile is a declarative, YAML-based tool that manages multiple Helm releases as a unit. Where a <code>Helmfile.yaml</code> describes all the releases that should exist in a cluster (charts, versions, values, namespaces, dependencies between releases), Helm itself only manages one release at a time.</p>
+              <p>Use helmfile when you have:</p>
+              <ul>
+                <li><strong>Multiple services</strong> that need to be deployed together in dependency order (e.g., infrastructure charts before application charts).</li>
+                <li><strong>Multi-environment configuration</strong> — helmfile's <code>environments</code> block selects different value files per environment cleanly, reducing the amount of scripting needed in CI/CD.</li>
+                <li><strong>Drift detection at scale</strong> — <code>helmfile diff</code> shows you all changes across all releases before applying, similar to a <code>terraform plan</code>. This is very hard to achieve with a series of individual <code>helm diff</code> commands.</li>
+                <li><strong>Declarative intent</strong> — the helmfile.yaml in Git is the single source of truth for "what should be running in this cluster." This is the foundation for GitOps with Helm (before adopting a full GitOps operator like Argo CD).</li>
+              </ul>
+              <p>For very simple deployments (one or two services), helmfile adds complexity without much benefit. Adopt it when managing three or more releases that have inter-dependencies.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: How do you design a Helm chart for reuse across multiple teams and environments?</summary>
+            <div class="answer-content">
+              <p>Designing a reusable Helm chart is fundamentally an API design problem. The chart is the interface; values.yaml is the contract. Principles for reusable charts:</p>
+              <ul>
+                <li><strong>Maximise parameterisation</strong> — every value that could differ should be in <code>values.yaml</code> with a sensible default. Use <code>required "error message"</code> for values that have no safe default and must be explicitly provided (e.g., <code>{{ .Values.postgresql.host | required "postgresql.host is required" }}</code>).</li>
+                <li><strong>Use conditional blocks for optional resources</strong> — wrap optional resources (Ingress, HPA, ServiceAccount) in <code>{{- if .Values.ingress.enabled }}</code> guards so teams that don't need them don't get them. This one chart can serve both minimal and full deployments.</li>
+                <li><strong>Validate with JSON Schema</strong> — create a <code>values.schema.json</code> file that defines the expected types, required fields, and allowed values for your chart's values. Helm validates user-supplied values against this schema before rendering — type errors are caught at install time, not at runtime.</li>
+                <li><strong>Document values thoroughly</strong> — every value in <code>values.yaml</code> should have a comment explaining its purpose, valid range, and impact. The <code>helm-docs</code> tool generates documentation from these comments automatically.</li>
+                <li><strong>Provide a library chart for shared helpers</strong> — if you manage multiple application charts that share label structures, naming conventions, or resource patterns, extract them into a library chart. Application charts declare it as a dependency and <code>include</code> the shared templates. Changes to shared patterns propagate to all charts on the next dependency update.</li>
+                <li><strong>Semantic versioning with strict immutability</strong> — configure your Nexus repo to reject re-pushing an existing chart version. Establish a clear breaking-change policy: major version for any breaking values change, minor for additive changes, patch for fixes. Document this in your platform team's runbook.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

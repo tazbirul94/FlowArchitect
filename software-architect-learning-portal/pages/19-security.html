@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Security — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="19" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Expert Topics → Kubernetes Security</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 45 min read</span>
+          <span class="tag">Epic 5</span>
+        </div>
+        <h1 class="page-title">Kubernetes Security</h1>
+        <p class="page-subtitle">Defense-in-depth for production clusters: RBAC, NetworkPolicy, Pod Security Standards, image scanning, runtime threat detection, and secrets management.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Kubernetes Security</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">A Production Cluster Breach — The Story Nobody Wants to Live</span>
+        <p>In 2018, Tesla's Kubernetes dashboard was left exposed to the public internet without authentication. Attackers found it, created a pod with no resource limits, and used it to mine cryptocurrency for weeks. The breach was eventually discovered not through any security alert — but because someone noticed an unusual AWS bill.</p>
+        <p>The scary part is not that this happened to Tesla. It is that most Kubernetes clusters in the wild share the same root cause: default configurations that prioritize getting things running over keeping them safe. A freshly created EKS cluster allows all pods to talk to all other pods. Every service account has a token that can query the Kubernetes API. Containers run as root by default. There is no runtime monitoring watching for crypto-mining processes or unexpected network connections.</p>
+        <p>Kubernetes security is not one thing — it is a series of layers, each one making an attacker's job harder. No single layer is sufficient. Together, they create something called <strong>defense-in-depth</strong>: the principle that even if one control fails, the others still hold. This page walks you through every layer: from who can talk to the API server, to who can talk to your pods, to what your container processes are allowed to do, to whether the images you are running have known CVEs, to catching attacker behaviour at runtime.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="beginner" class="section-title">Security Concepts for Beginners</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">Beginner Analogy — The Office Building</span>
+        <p>Think of a Kubernetes cluster as a large office building with many rooms (pods) and many employees (service accounts).</p>
+        <ul>
+          <li><strong>RBAC</strong> is the badge system. Not every employee can enter every room. The security team issues badges that grant specific access: "Alice can enter the server room but not accounting. Bob can enter accounting but not HR." Without RBAC, everyone has a master key.</li>
+          <li><strong>NetworkPolicy</strong> is the internal phone system and door locks between rooms. Even if Alice has badge access, she might not be allowed to call Bob's desk directly. Some rooms are only reachable from specific other rooms.</li>
+          <li><strong>Pod Security Standards</strong> are the building safety codes. No one is allowed to weld in the open office. No one is allowed to bring in their own electrical supply. These rules exist before anyone enters the building.</li>
+          <li><strong>Image scanning</strong> is the security screening at reception. Every package delivered to the building is X-rayed before it is allowed inside.</li>
+          <li><strong>Falco</strong> is the security camera system with AI. It watches what everyone does all day and raises an alarm if someone starts doing something suspicious — like copying files to a USB drive at midnight.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="technical" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">RBAC — Role-Based Access Control</h3>
+      <p>RBAC controls which Kubernetes identities (users, groups, service accounts) can perform which operations on which resources. It is implemented through four API objects that form two conceptual pairs:</p>
+
+      <ul>
+        <li><strong>Role</strong> — a set of permissions scoped to a single namespace. Can grant <code>get</code>, <code>list</code>, <code>watch</code>, <code>create</code>, <code>update</code>, <code>patch</code>, <code>delete</code> on specific resource types (pods, services, deployments, etc.).</li>
+        <li><strong>ClusterRole</strong> — identical to Role but cluster-scoped. Grants permissions across all namespaces or on cluster-scoped resources like nodes, persistent volumes, and namespaces themselves. Also used to grant the same namespace-level permissions in every namespace via ClusterRoleBinding.</li>
+        <li><strong>RoleBinding</strong> — binds a Role (or ClusterRole) to one or more subjects (user, group, or serviceAccount) within a specific namespace.</li>
+        <li><strong>ClusterRoleBinding</strong> — binds a ClusterRole to subjects cluster-wide. Use sparingly; most application permissions should be namespace-scoped via RoleBinding.</li>
+      </ul>
+
+      <p>The principle of least privilege is the guiding rule: grant only the permissions that are actually required for a workload to function. A CI service account that only deploys to the <code>production</code> namespace should have update rights on Deployments in that namespace — nothing more.</p>
+
+      <h3 class="subsection-title">NetworkPolicy</h3>
+      <p>By default, Kubernetes allows all pod-to-pod communication within a cluster. A compromised <code>notification-service</code> pod can reach the <code>payment-service</code> database on its internal port. NetworkPolicy objects change this model from allow-all to explicit allow.</p>
+      <p>NetworkPolicy specs define:</p>
+      <ul>
+        <li><strong>podSelector</strong> — which pods in the current namespace this policy applies to. An empty podSelector (<code>{}</code>) matches all pods in the namespace.</li>
+        <li><strong>policyTypes</strong> — Ingress, Egress, or both. A policy that only specifies Ingress does not affect egress traffic from the selected pods.</li>
+        <li><strong>ingress rules</strong> — which sources (by podSelector, namespaceSelector, or CIDR block) are allowed to send traffic, and on which ports.</li>
+        <li><strong>egress rules</strong> — which destinations are allowed, and on which ports.</li>
+      </ul>
+      <p>A foundational pattern is "deny all, then allow specific": apply a default-deny policy to a namespace, then add explicit allow policies for each legitimate traffic path. NetworkPolicy requires a CNI plugin that enforces it — Calico, Cilium, and Weave Net all support NetworkPolicy; the default AWS VPC CNI does not enforce it without additional configuration.</p>
+
+      <h3 class="subsection-title">Pod Security Standards</h3>
+      <p>Pod Security Standards (PSS) replaced the deprecated PodSecurityPolicy in Kubernetes 1.25+. They define three profiles applied at the namespace level via a label:</p>
+      <ul>
+        <li><strong>Privileged</strong> — unrestricted. Allows all pod configurations. Use only for system workloads like CNI plugins and log agents that genuinely need host access.</li>
+        <li><strong>Baseline</strong> — prevents privilege escalation, host namespaces, and host path mounts. A reasonable default for most application workloads. Allows running as root.</li>
+        <li><strong>Restricted</strong> — most secure profile. Requires non-root execution, drops all capabilities, requires seccomp, requires read-only root filesystem where possible. Use for untrusted or internet-facing workloads.</li>
+      </ul>
+      <p>Apply the profile to a namespace using labels: <code>pod-security.kubernetes.io/enforce: restricted</code>. Three modes are available: <code>enforce</code> (reject non-compliant pods), <code>audit</code> (log violations but allow), and <code>warn</code> (show admission warnings).</p>
+
+      <h3 class="subsection-title">Image Scanning with Trivy</h3>
+      <p>Trivy is an open-source vulnerability scanner from Aqua Security. It scans container images, filesystems, Git repositories, and Kubernetes manifests for CVEs (Common Vulnerabilities and Exposures), misconfigurations, and exposed secrets. In a CI pipeline, Trivy runs after the image build and before the push to the registry. A scan that finds CRITICAL or HIGH severity CVEs with available fixes should fail the build — forcing the team to update the affected base image or library before the image reaches production.</p>
+
+      <h3 class="subsection-title">Falco — Runtime Threat Detection</h3>
+      <p>Trivy catches known vulnerabilities at build time. Falco catches suspicious behaviour at runtime. Falco is a CNCF project that uses eBPF (or kernel module) to monitor system calls made by container processes. It ships with a library of rules that detect attack patterns: a shell spawning inside a production container, a process writing to <code>/etc/passwd</code>, unexpected network connections to external IPs, privilege escalation attempts, and more. When a rule matches, Falco emits an alert to stdout, syslog, or an HTTP endpoint (to be consumed by your SIEM or PagerDuty).</p>
+
+      <h3 class="subsection-title">Secret Management</h3>
+      <p>Kubernetes Secrets store sensitive data (API keys, database passwords, TLS certificates). By default they are base64-encoded but not encrypted at rest in etcd. Best practices for secrets in production clusters:</p>
+      <ul>
+        <li>Enable encryption at rest for etcd (EncryptionConfiguration with AES-GCM or KMS provider).</li>
+        <li>Limit secret read access with RBAC — most application service accounts should only be able to <code>get</code> specific named secrets, not <code>list</code> all secrets.</li>
+        <li>Use an external secrets manager (AWS Secrets Manager, HashiCorp Vault) with the External Secrets Operator or the Vault Secrets Operator to synchronize secrets into Kubernetes at runtime, avoiding long-lived static credentials.</li>
+        <li>Never mount secrets as environment variables if you can avoid it — environment variables are visible to every process in the container and in crash dumps. Mount as files when possible.</li>
+        <li>Rotate secrets regularly and use short-lived credentials with automatic renewal.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="defense-in-depth" class="section-title">Defense-in-Depth Layers</h2>
+
+      <p>Kubernetes security is not a single gate — it is a series of concentric layers. An attacker who defeats one layer still faces the next. The diagram below shows each layer of control that must be compromised to reach a sensitive workload.</p>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    INTERNET["Internet / External Traffic"]
+    WAF["WAF / AWS Shield\n(DDoS, Layer 7 filtering)"]
+    INGRESS["Ingress Controller\n(TLS termination, auth)"]
+    NP["NetworkPolicy\n(Pod-to-pod isolation)"]
+    RBAC["RBAC\n(API server access control)"]
+    PSS["Pod Security Standards\n(Container constraints)"]
+    SECCOMP["Seccomp / AppArmor\n(Syscall filtering)"]
+    RUNTIME["Falco Runtime Detection\n(Behavioural alerts)"]
+    SECRETS["Secrets Encryption\n(etcd at-rest + Vault)"]
+    SCAN["Image Scan\n(Trivy CVE gate in CI)"]
+
+    INTERNET --> WAF
+    WAF --> INGRESS
+    INGRESS --> NP
+    NP --> RBAC
+    RBAC --> PSS
+    PSS --> SECCOMP
+    SECCOMP --> RUNTIME
+    RUNTIME --> SECRETS
+
+    SCAN -.->|"Build-time gate"| INGRESS
+
+    style WAF fill:#1e3a5f,color:#fff
+    style INGRESS fill:#1e3a5f,color:#fff
+    style NP fill:#1a4731,color:#fff
+    style RBAC fill:#1a4731,color:#fff
+    style PSS fill:#4a2020,color:#fff
+    style SECCOMP fill:#4a2020,color:#fff
+    style RUNTIME fill:#4a1a4a,color:#fff
+    style SECRETS fill:#4a1a4a,color:#fff
+    style SCAN fill:#4a3a00,color:#fff
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">TicketFlow — Hardening the EKS Cluster</span>
+        <p>TicketFlow's platform runs six microservices on AWS EKS: <code>user-service</code> (Node.js), <code>ticket-service</code> (Spring Boot), <code>payment-service</code> (Python), <code>order-service</code> (Go), <code>notification-service</code> (Node.js), and <code>api-gateway</code> (NGINX). After a security audit found that any compromised pod could reach the payment-service database directly, the platform team implemented a full security hardening plan.</p>
+
+        <p><strong>RBAC for the GitHub Actions CI service account:</strong> The CI pipeline needed to update Deployments in the <code>production</code> namespace when new images are pushed. Previously, the team had given the CI service account <code>cluster-admin</code> — it was easy and it worked. After the audit, they created a minimal Role granting only <code>update</code> on <code>deployments</code> and <code>get</code>/<code>list</code> on <code>pods</code>, bound to a dedicated <code>github-actions-deploy</code> ServiceAccount in the <code>production</code> namespace.</p>
+
+        <p><strong>NetworkPolicy — isolating payment-service:</strong> The team applied a default-deny policy to the <code>production</code> namespace, then added specific allow rules. The <code>payment-service</code> could only receive ingress traffic from <code>order-service</code> and <code>api-gateway</code>. Its egress was restricted to the PostgreSQL service port and AWS Secrets Manager endpoints. All other traffic — including access from <code>notification-service</code> and <code>user-service</code> — was dropped.</p>
+
+        <p><strong>Pod Security Standards:</strong> The <code>production</code> namespace was labelled with <code>enforce: restricted</code>. All service pods were updated to run as non-root users, drop all Linux capabilities, and use read-only root filesystems with <code>tmpfs</code> mounts for writable directories. The <code>kube-system</code> namespace retained the <code>privileged</code> profile for CNI and monitoring agents.</p>
+
+        <p><strong>Trivy in CI:</strong> The GitHub Actions workflow now builds each image, runs Trivy against it, and fails the pipeline on any CRITICAL CVE with an available fix. <code>nexus.ticketflow.io:5000</code> is configured as a proxy cache — Trivy results are cached so repeat scans of unchanged base layers complete in seconds rather than minutes.</p>
+
+        <p><strong>Falco:</strong> Deployed as a DaemonSet, Falco monitored system calls across all nodes. In the first week, it caught a developer who had accidentally left a <code>kubectl exec</code> shell running inside a <code>payment-service</code> pod — a pattern that matches Falco's "terminal shell in container" rule. The alert triggered a Slack notification to the security channel within seconds.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">RBAC — CI Service Account for TicketFlow</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># serviceaccount.yaml — dedicated identity for the CI pipeline
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: github-actions-deploy
+  namespace: production
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+
+---
+# role.yaml — minimal permissions: update deployments, read pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deployment-updater
+  namespace: production
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Only allow reading specific secrets required for image pull
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["nexus-pull-secret"]
+    verbs: ["get"]
+
+---
+# rolebinding.yaml — bind the role to the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-deployment-updater
+  namespace: production
+subjects:
+  - kind: ServiceAccount
+    name: github-actions-deploy
+    namespace: production
+roleRef:
+  kind: Role
+  name: deployment-updater
+  apiGroup: rbac.authorization.k8s.io</code></pre>
+      </div>
+
+      <h3 class="subsection-title">RBAC — Read-Only Role for Monitoring (Prometheus)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># ClusterRole for Prometheus to scrape metrics across all namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-scraper
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/metrics", "nodes/proxy"]
+    verbs: ["get"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-scraper-binding
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: prometheus-scraper
+  apiGroup: rbac.authorization.k8s.io</code></pre>
+      </div>
+
+      <h3 class="subsection-title">NetworkPolicy — Default Deny All in Production Namespace</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># default-deny.yaml — block all ingress and egress by default
+# Apply this FIRST before any allow policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}     # matches ALL pods in the namespace
+  policyTypes:
+    - Ingress
+    - Egress</code></pre>
+      </div>
+
+      <h3 class="subsection-title">NetworkPolicy — Allow payment-service Traffic Only From order-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># payment-service-netpol.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-service-allow
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service       # applies to payment-service pods
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Allow from order-service (port 8080)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow from api-gateway (port 8080)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+
+  egress:
+    # Allow to PostgreSQL (payment-db service)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: payment-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow DNS resolution (required for all egress)
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow to AWS Secrets Manager endpoint (HTTPS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443</code></pre>
+      </div>
+
+      <h3 class="subsection-title">NetworkPolicy — Allow notification-service to Reach External SMTP</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># notification-service-netpol.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: notification-service-allow
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ticket-service to trigger notifications
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ticket-service
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # Allow to external SMTP relay (AWS SES)
+    - ports:
+        - protocol: TCP
+          port: 587
+    # Allow DNS
+    - ports:
+        - protocol: UDP
+          port: 53</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Pod Security Standards — Namespace Label</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># namespace.yaml — enforce restricted security for production workloads
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    # Enforce: reject non-compliant pods at admission
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.29
+    # Audit: log violations in the audit log (even for compliant pods)
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: v1.29
+    # Warn: show admission warnings for violations
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.29</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Secure Pod Spec — payment-service (Non-Root, Read-Only Filesystem)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># payment-service deployment with full restricted profile compliance
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      serviceAccountName: payment-service-sa   # dedicated SA with minimal RBAC
+      automountServiceAccountToken: false       # disable auto-mounting if not needed
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault               # use the container runtime's default seccomp profile
+
+      containers:
+        - name: payment-service
+          image: nexus.ticketflow.io:5000/payment-service:3.1.4
+          imagePullPolicy: Always
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true      # container cannot write to its own filesystem
+            capabilities:
+              drop: ["ALL"]                  # drop every Linux capability
+
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: DB_HOST
+              value: payment-db.production.svc.cluster.local
+
+          # Mount secrets as files, not env vars — less exposure
+          volumeMounts:
+            - name: db-credentials
+              mountPath: /run/secrets/db
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp                # tmpfs for any temp writes the app needs
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+      volumes:
+        - name: db-credentials
+          secret:
+            secretName: payment-db-credentials
+        - name: tmp
+          emptyDir:
+            medium: Memory                   # in-memory tmpfs, not disk</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Trivy Image Scanning in GitHub Actions CI</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># .github/workflows/build-and-scan.yml
+name: Build, Scan, and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, ticket-service, payment-service, order-service, notification-service]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t nexus.ticketflow.io:5000/${{ matrix.service }}:${{ github.sha }} \
+            ./services/${{ matrix.service }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: nexus.ticketflow.io:5000/${{ matrix.service }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          # Fail the build on CRITICAL or HIGH CVEs with available fixes
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true        # skip vulnerabilities without a fix yet
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Push to Nexus (only if scan passed)
+        run: |
+          echo ${{ secrets.NEXUS_PASSWORD }} | \
+            docker login nexus.ticketflow.io:5000 -u ${{ secrets.NEXUS_USER }} --password-stdin
+          docker push nexus.ticketflow.io:5000/${{ matrix.service }}:${{ github.sha }}</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Trivy CLI — Scanning a Local Image</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Install Trivy
+curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Scan a built image — summary output
+trivy image nexus.ticketflow.io:5000/payment-service:3.1.4
+
+# Show only CRITICAL and HIGH, fail on findings
+trivy image --severity CRITICAL,HIGH --exit-code 1 \
+  nexus.ticketflow.io:5000/payment-service:3.1.4
+
+# Scan a Kubernetes manifest for misconfigurations
+trivy config ./k8s/
+
+# Scan the live cluster for misconfig and RBAC issues
+trivy k8s --report summary cluster</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Falco — Custom Rule for TicketFlow</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># falco-rules-ticketflow.yaml — custom Falco rules
+# Deploy as a ConfigMap mounted into the Falco DaemonSet
+- rule: Shell spawned in production container
+  desc: >
+    Alert when a shell process is started inside any TicketFlow production pod.
+    Legitimate apps should never spawn shells at runtime — this is a strong
+    indicator of an attacker performing reconnaissance or lateral movement.
+  condition: >
+    spawned_process
+    and container
+    and container.label[io.kubernetes.pod.namespace] = "production"
+    and proc.name in (shell_binaries)
+    and not proc.pname in (known_shell_spawn_binaries)
+  output: >
+    Shell spawned in production container
+    (user=%user.name user_loginuid=%user.loginuid
+     pod=%k8s.pod.name ns=%k8s.ns.name
+     container=%container.name
+     shell=%proc.name parent=%proc.pname
+     cmdline=%proc.cmdline)
+  priority: CRITICAL
+  tags: [container, shell, ticketflow]
+
+- rule: Unexpected write to /etc directory in container
+  desc: Writing to /etc inside a container may indicate credential tampering.
+  condition: >
+    open_write
+    and container
+    and fd.name startswith /etc
+    and not proc.name in (trusted_config_writers)
+  output: >
+    Write to /etc in container
+    (pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name
+     proc=%proc.name cmdline=%proc.cmdline)
+  priority: WARNING
+  tags: [container, filesystem, ticketflow]
+
+- rule: Outbound connection to unexpected destination from payment-service
+  desc: payment-service should only connect to the DB and AWS Secrets Manager.
+  condition: >
+    outbound
+    and container.label[app] = "payment-service"
+    and not fd.sip in (payment_db_ips)
+    and not fd.sport in (443, 53)
+  output: >
+    Unexpected outbound from payment-service
+    (pod=%k8s.pod.name dest=%fd.rip:%fd.rport proc=%proc.name)
+  priority: ERROR
+  tags: [network, payment-service, ticketflow]</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="os-commands" class="section-title">Platform-Specific Commands</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Check who can perform an action (audit RBAC)
+kubectl auth can-i update deployments --namespace production \
+  --as system:serviceaccount:production:github-actions-deploy
+
+# List all RoleBindings in production namespace
+kubectl get rolebindings -n production -o wide
+
+# Check effective permissions for a service account
+kubectl auth can-i --list --namespace production \
+  --as system:serviceaccount:production:payment-service-sa
+
+# Apply Pod Security Standards label to namespace
+kubectl label namespace production \
+  pod-security.kubernetes.io/enforce=restricted
+
+# View Falco logs in real time (DaemonSet pod on a node)
+kubectl logs -n falco -l app.kubernetes.io/name=falco -f
+
+# Verify NetworkPolicy is applied
+kubectl get networkpolicies -n production
+
+# Test network connectivity between pods (should be blocked after deny-all)
+kubectl run test-pod --image=busybox --rm -it --restart=Never -n production \
+  -- wget -qO- --timeout=2 http://payment-service:8080 || echo "BLOCKED"
+
+# Describe a specific NetworkPolicy
+kubectl describe networkpolicy payment-service-allow -n production</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Check who can perform an action (audit RBAC)
+kubectl auth can-i update deployments --namespace production `
+  --as system:serviceaccount:production:github-actions-deploy
+
+# List all RoleBindings in production namespace
+kubectl get rolebindings -n production -o wide
+
+# Check effective permissions for a service account
+kubectl auth can-i --list --namespace production `
+  --as system:serviceaccount:production:payment-service-sa
+
+# Apply Pod Security Standards label to namespace
+kubectl label namespace production `
+  pod-security.kubernetes.io/enforce=restricted
+
+# View Falco logs in real time
+kubectl logs -n falco -l app.kubernetes.io/name=falco -f
+
+# Verify NetworkPolicy is applied
+kubectl get networkpolicies -n production
+
+# Install Trivy on Windows (via Chocolatey)
+choco install trivy
+
+# Scan a local image with Trivy
+trivy image `
+  --severity CRITICAL,HIGH `
+  nexus.ticketflow.io:5000/payment-service:3.1.4</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How does the Kubernetes API server enforce RBAC?</summary>
+        <div class="answer-content">
+          <p>Every request to the Kubernetes API server passes through a three-stage pipeline: <strong>Authentication</strong>, <strong>Authorization</strong>, and <strong>Admission Control</strong>.</p>
+          <ol>
+            <li><strong>Authentication:</strong> The API server verifies <em>who</em> is making the request. It checks the bearer token (from a ServiceAccount JWT), client certificate, or OIDC token. If authentication fails, the request is rejected with HTTP 401.</li>
+            <li><strong>Authorization:</strong> The API server checks <em>whether</em> the authenticated identity is allowed to perform the requested action on the requested resource. For RBAC, it looks up RoleBindings and ClusterRoleBindings that reference the identity, then checks whether any bound Role or ClusterRole grants the requested verb on the resource type. If no binding grants the permission, the request is rejected with HTTP 403.</li>
+            <li><strong>Admission Control:</strong> Even if authorization passes, admission controllers run final checks. The <code>PodSecurity</code> admission controller enforces Pod Security Standards here — it inspects the pod spec against the namespace's PSS label before allowing the pod to be created.</li>
+          </ol>
+          <p>Service account tokens are automatically mounted into pods at <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>. This is a short-lived, audience-bound JWT (since Kubernetes 1.21 with Bound Service Account Token Volume). Every in-cluster process that makes API server requests uses this token automatically — which is why RBAC for service accounts is critical.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Falco monitor container syscalls without modifying the container?</summary>
+        <div class="answer-content">
+          <p>Falco works by hooking into the Linux kernel's system call interface using one of two mechanisms:</p>
+          <ul>
+            <li><strong>Kernel module (legacy):</strong> Falco installs a custom kernel module (<code>falco.ko</code>) that intercepts system calls at the kernel level. Highly performant but requires matching the kernel version and recompiling on kernel updates.</li>
+            <li><strong>eBPF probe (modern, recommended):</strong> Falco uses an eBPF program loaded into the kernel. eBPF is a sandboxed bytecode VM in the kernel that can safely observe system calls without the instability risk of a kernel module. Does not require kernel headers or recompilation on most distributions.</li>
+          </ul>
+          <p>Either way, Falco sees <em>every</em> system call made by every container on the node: <code>execve</code> (process execution), <code>open</code>/<code>openat</code> (file access), <code>connect</code> (network connections), <code>socket</code> (socket creation), etc. It enriches each event with Kubernetes metadata (pod name, namespace, labels) using the Kubernetes API and its own container metadata cache. Rules are written in a domain-specific filter language that can match on any combination of syscall parameters and container metadata.</p>
+          <p>Because Falco operates at the kernel level, it cannot be evaded by the container itself — the container's processes have no way to disable or circumvent it without root access to the host node.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What does Trivy actually scan and how does it find CVEs?</summary>
+        <div class="answer-content">
+          <p>Trivy scans container images by extracting their layers and examining:</p>
+          <ul>
+            <li><strong>OS packages:</strong> packages installed via <code>apt</code>, <code>apk</code>, <code>yum</code>, <code>dnf</code>. It detects the package manager's database (e.g., <code>/var/lib/dpkg/status</code> for Debian) and cross-references each installed package version against its vulnerability databases.</li>
+            <li><strong>Language runtime dependencies:</strong> <code>package-lock.json</code> / <code>yarn.lock</code> for Node.js, <code>requirements.txt</code> / <code>Pipfile.lock</code> for Python, <code>pom.xml</code> / <code>build.gradle</code> for Java, <code>go.sum</code> for Go, <code>Gemfile.lock</code> for Ruby.</li>
+            <li><strong>Exposed secrets:</strong> API keys, private keys, and credentials in filesystem files, using entropy analysis and pattern matching.</li>
+          </ul>
+          <p>CVE data comes from multiple sources: the NVD (National Vulnerability Database), OS-specific advisory databases (Debian Security Advisory, Red Hat OVAL, Alpine secDB, Amazon Linux Security Advisories), and language-ecosystem databases (GitHub Advisory Database, OSV). Trivy downloads and caches these databases locally, updating them on each scan run (or from a pre-warmed cache in air-gapped environments).</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Using cluster-admin for CI/CD Service Accounts</span>
+        <p>The most common RBAC mistake in real clusters. Teams grant <code>cluster-admin</code> to their GitHub Actions or Argo CD service account because it is easy and it works. If this service account is compromised (leaked token, misconfigured webhook), the attacker has full cluster control — they can read all secrets, create privileged pods, mount any host path, and exfiltrate everything.</p>
+        <p><strong>Fix:</strong> Create a Role with only the verbs and resources the CI pipeline actually needs (typically: <code>update</code> on <code>deployments</code> in specific namespaces, <code>get</code>/<code>list</code> on <code>pods</code>). Bind it with a RoleBinding, not a ClusterRoleBinding. Review and tighten permissions annually.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: NetworkPolicy Without a Default-Deny</span>
+        <p>Teams add NetworkPolicy rules to allow specific traffic, but forget that without a default-deny policy, all the unlisted traffic is <em>still allowed</em>. Adding an allow policy without a prior default-deny provides zero protection — it is purely additive.</p>
+        <p><strong>Fix:</strong> Always apply a default-deny-all NetworkPolicy to every namespace before adding allow rules. Apply this as part of namespace bootstrapping so new namespaces are born secure.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Kubernetes Secrets Are Not Encrypted By Default</span>
+        <p>Teams assume that creating a Kubernetes Secret means the data is encrypted. It is not. By default, Kubernetes stores Secret data as base64-encoded strings in etcd — base64 is encoding, not encryption. Anyone with read access to the etcd database (or the etcd backup files in S3) can decode every secret in the cluster with a single command.</p>
+        <p><strong>Fix:</strong> Enable encryption at rest for etcd using the <code>EncryptionConfiguration</code> API. For production clusters on AWS EKS, enable the KMS encryption envelope option. For the highest security, use an external secrets manager (AWS Secrets Manager, HashiCorp Vault) and the External Secrets Operator so secrets never need to exist in etcd at all.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Mounting Service Account Tokens in Pods That Don't Need Them</span>
+        <p>Kubernetes automatically mounts a service account token into every pod by default. Most application pods never make Kubernetes API calls — they just serve HTTP requests or process queues. But any process in the container can read this token from <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>. A compromised application container can use this token to query the Kubernetes API and potentially escalate privileges if RBAC is too permissive.</p>
+        <p><strong>Fix:</strong> Set <code>automountServiceAccountToken: false</code> in the pod spec or service account definition for any workload that does not need to call the Kubernetes API. This is particularly important for user-facing services like <code>api-gateway</code>, <code>user-service</code>, and <code>ticket-service</code>.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Running Containers as Root in Production</span>
+        <p>Docker and Kubernetes both run container processes as root (UID 0) by default. If an attacker exploits a vulnerability in the application and achieves remote code execution, they are executing as root inside the container. Container escapes are rare but real — a root process in a container has a much higher chance of successfully exploiting a kernel vulnerability to break out to the host.</p>
+        <p><strong>Fix:</strong> Always specify <code>runAsNonRoot: true</code> and a specific non-zero <code>runAsUser</code> in the pod's <code>securityContext</code>. Build application images with a dedicated non-root user (<code>USER 1000</code> in Dockerfile). Enforce this cluster-wide with Pod Security Standards <code>restricted</code> profile, which rejects root containers at admission.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Security is not a feature you add at the end — it is a property of the system's design. By the time you are hardening a production cluster, the easiest and highest-leverage decisions have already been made (or missed) in the architecture phase. Here is how experienced architects think about cluster security:</p>
+        <ul>
+          <li><strong>Blast radius reduction is the primary goal.</strong> Perfect prevention is impossible. Assume breach and design every control to minimize what an attacker can do after they get in. RBAC limits their API access. NetworkPolicy limits their lateral movement. Non-root containers limit their privilege escalation paths. Falco limits their dwell time before detection. Each layer independently reduces blast radius.</li>
+          <li><strong>RBAC is organisational design.</strong> Your RBAC structure mirrors your team structure. One namespace per team with RoleBindings to team service accounts is a clean model. Multi-tenant clusters need strict RBAC at the namespace boundary — a team's service account should never be able to read another team's secrets. Design RBAC alongside your namespace strategy, not after.</li>
+          <li><strong>NetworkPolicy is your microsegmentation boundary.</strong> In a zero-trust network model, every service-to-service connection must be explicitly authorized. NetworkPolicy is the Kubernetes-native way to enforce this. The overhead of writing NetworkPolicy manifests is real — invest in tooling (Cilium's policy editor, network-policy-viewer) to make it manageable at scale.</li>
+          <li><strong>Shift security left but acknowledge its limits.</strong> Trivy in CI catches known CVEs in images you control. It does not catch zero-days. It does not catch misconfigurations in YAML. It does not catch attackers who use only legitimate system binaries (living-off-the-land attacks). Runtime detection (Falco) and network monitoring (Cilium Hubble) cover the gaps that static scanning cannot.</li>
+          <li><strong>The External Secrets Operator changes the secrets story.</strong> Instead of Kubernetes Secrets in etcd, ESO synchronizes secrets from AWS Secrets Manager, HashiCorp Vault, or Azure Key Vault into Kubernetes Secrets just-in-time. The secrets are ephemeral and auto-rotate. The source of truth is an IAM-controlled vault — not a Kubernetes cluster that dozens of engineers have access to.</li>
+          <li><strong>Cost of security controls vs. cost of a breach.</strong> Implementing restricted Pod Security Standards requires updating every deployment manifest — one or two days of engineering work for a team of five. The average cost of a data breach in 2023 was $4.45 million (IBM report). The math is straightforward. The difficulty is organisational, not technical: building a culture where security work is planned, funded, and prioritized before an incident rather than after.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>RBAC least-privilege review completed — no service account has cluster-admin unless explicitly required</li>
+        <li>Dedicated ServiceAccount per workload — no workloads share a ServiceAccount</li>
+        <li><code>automountServiceAccountToken: false</code> on all pods that do not call the Kubernetes API</li>
+        <li>Default-deny NetworkPolicy applied to all production namespaces</li>
+        <li>Explicit NetworkPolicy allow rules for every known service-to-service traffic path</li>
+        <li>Pod Security Standards <code>restricted</code> enforced on production namespaces</li>
+        <li>All container images run as non-root (<code>runAsNonRoot: true</code>, <code>runAsUser</code> set)</li>
+        <li>All containers have <code>allowPrivilegeEscalation: false</code></li>
+        <li>All containers drop all Linux capabilities (<code>capabilities.drop: ["ALL"]</code>)</li>
+        <li>Read-only root filesystems enabled where possible; tmpfs mounts for writable dirs</li>
+        <li>Trivy image scanning in CI pipeline — CRITICAL/HIGH CVEs block image promotion</li>
+        <li>Falco deployed as DaemonSet with custom rules for TicketFlow workloads</li>
+        <li>etcd encryption at rest enabled (KMS provider on EKS)</li>
+        <li>Kubernetes Secrets replaced with External Secrets Operator + AWS Secrets Manager for sensitive credentials</li>
+        <li>RBAC audit policy configured to log all API server access to CloudWatch</li>
+        <li>Node security groups restrict direct access to kubelet API (port 10250)</li>
+        <li>EKS control plane logging enabled: audit, authenticator, API, scheduler, controller-manager</li>
+        <li>Image pull policy set to <code>Always</code> for all production deployments (ensures latest scan result)</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Write a NetworkPolicy</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires a running Kubernetes cluster (minikube or kind)</span>
+
+        <p>In this lab you will harden a two-service setup: a <code>frontend</code> service and a <code>backend</code> service. Initially all traffic is allowed. You will apply a default-deny policy, verify it blocks traffic, then add a targeted allow rule.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Create the test namespace and deploy services</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a dedicated test namespace
+kubectl create namespace netpol-lab
+
+# Deploy a simple backend service
+kubectl run backend --image=nginx:1.25-alpine \
+  --labels="app=backend" -n netpol-lab --port=80
+
+# Expose the backend as a ClusterIP service
+kubectl expose pod backend --port=80 --name=backend-svc -n netpol-lab
+
+# Deploy a frontend pod (will make requests to backend)
+kubectl run frontend --image=busybox:1.35 \
+  --labels="app=frontend" -n netpol-lab \
+  -- sleep 3600
+
+# Verify both are running
+kubectl get pods -n netpol-lab</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Confirm traffic is allowed (before any NetworkPolicy)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Test from frontend pod to backend — should succeed
+kubectl exec -n netpol-lab frontend -- wget -qO- --timeout=3 http://backend-svc
+# Expected output: nginx welcome page HTML</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Apply a default-deny-all policy</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># Save this as default-deny-lab.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: netpol-lab
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress</code></pre>
+        </div>
+        <div class="code-wrapper">
+          <pre><code class="language-bash">kubectl apply -f default-deny-lab.yaml
+
+# Test again — should now FAIL (connection refused or timeout)
+kubectl exec -n netpol-lab frontend -- wget -qO- --timeout=3 http://backend-svc
+# Expected output: timeout or wget: bad address / connection refused</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Add a targeted allow rule for frontend to backend</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># Save this as allow-frontend-to-backend.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-backend
+  namespace: netpol-lab
+spec:
+  podSelector:
+    matchLabels:
+      app: backend          # this policy applies to backend pods
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend # only frontend can send traffic to backend
+      ports:
+        - protocol: TCP
+          port: 80</code></pre>
+        </div>
+        <div class="code-wrapper">
+          <pre><code class="language-bash">kubectl apply -f allow-frontend-to-backend.yaml
+
+# Test again — frontend to backend should now SUCCEED
+kubectl exec -n netpol-lab frontend -- wget -qO- --timeout=3 http://backend-svc
+# Expected output: nginx HTML
+
+# Also allow DNS egress from frontend so wget can resolve names
+# (If still failing, the DNS egress is being blocked — add this policy)
+cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: netpol-lab
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Verify isolation — a third pod should NOT reach backend</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Launch a rogue pod without the frontend label
+kubectl run rogue --image=busybox:1.35 -n netpol-lab -- sleep 3600
+
+# Test from rogue pod — should FAIL (no matching allow rule)
+kubectl exec -n netpol-lab rogue -- wget -qO- --timeout=3 http://backend-svc
+# Expected: timeout — rogue has no ingress allow rule to backend
+
+# Clean up the lab
+kubectl delete namespace netpol-lab</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key observations from this lab:</strong></p>
+        <ol>
+          <li>Without any NetworkPolicy, all pod-to-pod traffic within a namespace is allowed.</li>
+          <li>A default-deny policy with an empty podSelector blocks ALL traffic — even DNS resolution. You must explicitly allow DNS egress (UDP/TCP port 53) for pods that need name resolution.</li>
+          <li>Allow policies are additive. The default-deny is not overwritten by the allow rule — both exist simultaneously. Traffic must match an allow rule to pass.</li>
+          <li>Label selectors are the mechanism for targeting specific pods. Labels must match exactly. Typos in labels silently allow all traffic through.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked Kubernetes security questions in senior engineering and platform engineering interviews. Click each question to reveal a complete answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is the difference between a Role and a ClusterRole in Kubernetes RBAC?</summary>
+            <div class="answer-content">
+              <p>Both define a set of permissions (verbs on resources), but they differ in scope.</p>
+              <p>A <strong>Role</strong> is namespace-scoped. It can only grant access to resources in the namespace it is created in. A Role binding (<code>RoleBinding</code>) applies those permissions to a subject within that same namespace.</p>
+              <p>A <strong>ClusterRole</strong> is cluster-scoped. It can grant access to namespaced resources across all namespaces, or to cluster-scoped resources that do not exist in namespaces at all: <code>nodes</code>, <code>persistentvolumes</code>, <code>namespaces</code>, <code>clusterroles</code>, etc. A ClusterRole is bound with either a <code>ClusterRoleBinding</code> (cluster-wide) or a <code>RoleBinding</code> (limits it to a specific namespace even though the ClusterRole is cluster-scoped).</p>
+              <p><strong>When to use which:</strong> Use a Role for application service accounts that only need access to resources in their own namespace. Use a ClusterRole for platform components like Prometheus (needs to read pods and nodes across all namespaces) or for granting the same set of namespace-level permissions in multiple namespaces via individual RoleBindings.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: How does a Kubernetes NetworkPolicy work, and what CNI plugins enforce it?</summary>
+            <div class="answer-content">
+              <p>A NetworkPolicy is a Kubernetes API object that specifies traffic rules for selected pods. It uses label selectors to target pods and defines allowed ingress and egress connections by pod labels, namespace labels, or IP CIDR blocks.</p>
+              <p>Critically, NetworkPolicy is a declarative specification — the Kubernetes API server stores it, but it does not enforce it. Enforcement is the responsibility of the CNI (Container Network Interface) plugin running on each node. The CNI plugin watches for NetworkPolicy objects and programs the actual traffic rules into the kernel (using iptables, eBPF, or OVS depending on the plugin).</p>
+              <p>CNI plugins that enforce NetworkPolicy: <strong>Calico</strong> (most widely used in production), <strong>Cilium</strong> (eBPF-based, also supports L7 policies), <strong>Weave Net</strong>, <strong>Antrea</strong>.</p>
+              <p>CNI plugins that do NOT enforce NetworkPolicy: the default <strong>AWS VPC CNI</strong> (flannel-based) does not enforce NetworkPolicy out of the box. On EKS you must either switch to Calico or Cilium, or enable the VPC CNI Network Policy Controller (available since mid-2023).</p>
+              <p>If no NetworkPolicy selects a pod, the pod is non-isolated and accepts all traffic. Once any NetworkPolicy selects a pod, only the traffic explicitly allowed by that policy (plus any other policies selecting the same pod) is permitted.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: What are Kubernetes Pod Security Standards and how do they replace PodSecurityPolicy?</summary>
+            <div class="answer-content">
+              <p>PodSecurityPolicy (PSP) was a Kubernetes admission controller that enforced security constraints on pod specs. It was removed in Kubernetes 1.25 because it was complex to configure correctly, had confusing RBAC interactions, and was widely misconfigured in practice — granting unintended privileged access through overly permissive PSPs.</p>
+              <p>Pod Security Standards (PSS) replaced it with a simpler, label-based model. Three profiles are defined:</p>
+              <ul>
+                <li><strong>Privileged:</strong> no restrictions. Equivalent to no PSP. For trusted system workloads only.</li>
+                <li><strong>Baseline:</strong> prevents known privilege escalations (host namespaces, host paths, privileged containers) but still allows running as root. Suitable for most application workloads.</li>
+                <li><strong>Restricted:</strong> requires non-root execution, drops all capabilities, requires seccomp. Suitable for security-sensitive workloads.</li>
+              </ul>
+              <p>PSS is applied to a namespace via labels with three mode options: <code>enforce</code> (reject violations), <code>audit</code> (log violations), and <code>warn</code> (warn but allow). This allows progressive adoption: start with <code>audit</code> to discover violations, then move to <code>warn</code> to alert teams, then enforce once all workloads are compliant.</p>
+              <p>The key improvement over PSP: PSS does not use RBAC. It applies to every pod in the namespace without any binding, eliminating the common PSP footgun where a permissive PSP was accessible because a service account had a broad ClusterRole.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: Are Kubernetes Secrets actually secret? How would you improve their security?</summary>
+            <div class="answer-content">
+              <p>No — not by default. Kubernetes Secrets are stored as base64-encoded strings in etcd. Base64 is encoding, not encryption. Anyone with read access to the etcd backup, the etcd API, or the node's filesystem (where etcd persists data) can decode every Secret in the cluster trivially.</p>
+              <p>Additionally, any pod in a namespace with RBAC that allows <code>get</code> on <code>secrets</code> can read all secrets in that namespace. The default RBAC in some cluster distributions is permissive enough that many service accounts can list secrets.</p>
+              <p><strong>Improvements in order of increasing security:</strong></p>
+              <ol>
+                <li><strong>RBAC restriction:</strong> Limit Secret access to specific service accounts that actually need them. Use <code>resourceNames</code> in the RBAC rule to grant access to specific named secrets only, not all secrets.</li>
+                <li><strong>etcd encryption at rest:</strong> Enable <code>EncryptionConfiguration</code> with AES-GCM-256 or a KMS provider (AWS KMS on EKS). Encrypts secrets in etcd so backup files are not plaintext.</li>
+                <li><strong>External Secrets Operator:</strong> Store secrets in AWS Secrets Manager, HashiCorp Vault, or Azure Key Vault. ESO synchronizes them into Kubernetes Secrets just-in-time. The cluster never holds the canonical secret — it holds a time-limited copy. Rotate the upstream secret and ESO propagates the rotation automatically.</li>
+                <li><strong>Vault Agent injection:</strong> Secrets are injected directly into pods as mounted files by the Vault Agent sidecar, bypassing Kubernetes Secrets entirely. The secret never touches etcd.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What does Trivy scan, and at what point in the CI/CD pipeline should it run?</summary>
+            <div class="answer-content">
+              <p>Trivy is a comprehensive security scanner that can scan:</p>
+              <ul>
+                <li><strong>Container images:</strong> OS packages (dpkg, apk, rpm), language dependencies (npm, pip, go modules, Maven), and exposed secrets in image layers.</li>
+                <li><strong>Filesystems and Git repos:</strong> Scan the local source tree for vulnerabilities in dependency lock files and misconfigured infrastructure-as-code.</li>
+                <li><strong>Kubernetes manifests:</strong> Detect misconfigurations in YAML manifests (missing securityContext, running as root, host path mounts, etc.).</li>
+                <li><strong>Live Kubernetes cluster:</strong> <code>trivy k8s cluster</code> queries the Kubernetes API and scans all running workloads for CVEs and misconfigurations.</li>
+              </ul>
+              <p><strong>Optimal CI/CD placement — multiple gates:</strong></p>
+              <ol>
+                <li><strong>Pre-commit hook (developer machine):</strong> <code>trivy config ./k8s/</code> to catch manifest misconfigurations before they are pushed. Fast, runs on local files only.</li>
+                <li><strong>CI pipeline — after build, before push:</strong> <code>trivy image --exit-code 1 --severity CRITICAL,HIGH</code> on the freshly built image. Fails the pipeline if unfixed CRITICAL or HIGH CVEs are found. This is the primary gate that prevents vulnerable images from reaching the registry.</li>
+                <li><strong>Registry scan (continuous):</strong> Configure Nexus or ECR to continuously rescan stored images. A clean image today might have a new CVE tomorrow if a vulnerability is published against its base layer. Registry-side scanning alerts teams proactively even between CI builds.</li>
+              </ol>
+              <p>Use <code>--ignore-unfixed</code> to skip CVEs that have no available fix — they would only add noise and cannot be actioned. Focus the CI gate on CRITICAL and HIGH severity with available fixes.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: Explain the principle of least privilege and give three concrete examples in a Kubernetes context.</summary>
+            <div class="answer-content">
+              <p>The principle of least privilege (PoLP) states that every identity, process, or component should have access to exactly what it needs to perform its function — and nothing more. The goal is to minimise blast radius: if an identity is compromised, the attacker can only do what that identity was allowed to do, limiting the damage.</p>
+              <p><strong>Example 1 — CI Service Account RBAC:</strong> A GitHub Actions workflow that updates Deployments in the production namespace should have a Role with <code>update</code> on <code>deployments</code> and <code>get</code>/<code>list</code> on <code>pods</code> in that namespace only. It does not need to read secrets, create new namespaces, or access any other namespace. Granting cluster-admin "because it's easier" violates PoLP and creates a critical attack vector if the CI token is leaked.</p>
+              <p><strong>Example 2 — Container Capabilities:</strong> The Linux kernel grants processes a set of capabilities (root-like permissions broken into granular rights): CAP_NET_BIND_SERVICE (bind ports below 1024), CAP_SYS_PTRACE (trace other processes), CAP_NET_ADMIN (configure network interfaces), etc. Most application containers need none of these. Setting <code>capabilities.drop: ["ALL"]</code> in the security context removes every capability. If the application genuinely needs a specific one (e.g., CAP_NET_BIND_SERVICE to bind port 80), add only that one back with <code>capabilities.add: ["NET_BIND_SERVICE"]</code>.</p>
+              <p><strong>Example 3 — NetworkPolicy Egress:</strong> A <code>payment-service</code> pod needs to connect to its PostgreSQL database and to AWS Secrets Manager. It does not need to connect to the internet, to other services in the cluster, or to other namespaces. An egress NetworkPolicy that allows only port 5432 to the DB pod and port 443 to the Secrets Manager IP range — and blocks everything else — enforces PoLP at the network layer. If the payment-service is compromised, the attacker cannot use it to reach the notification-service database or exfiltrate data to an external server.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: What is Falco and how does it complement static image scanning?</summary>
+            <div class="answer-content">
+              <p>Falco is a CNCF project for runtime security threat detection in containers and Kubernetes. It monitors system calls made by container processes using an eBPF probe and evaluates them against a library of detection rules.</p>
+              <p>Static image scanning (Trivy) and runtime detection (Falco) address fundamentally different threat categories:</p>
+              <table style="width:100%;border-collapse:collapse;margin-top:0.5rem;">
+                <thead>
+                  <tr style="background:rgba(99,102,241,0.1);">
+                    <th style="padding:6px;border:1px solid rgba(128,128,128,0.3);text-align:left;">Aspect</th>
+                    <th style="padding:6px;border:1px solid rgba(128,128,128,0.3);text-align:left;">Trivy (Static)</th>
+                    <th style="padding:6px;border:1px solid rgba(128,128,128,0.3);text-align:left;">Falco (Runtime)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">When</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Build time / before deployment</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">During execution, in production</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Detects</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Known CVEs, exposed secrets in layers</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Behavioural anomalies, attacker activity</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Zero-days</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">No — only known CVEs in databases</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Yes — detects suspicious behaviour regardless of CVE</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Impact on live systems</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">None — runs offline against image</td>
+                    <td style="padding:6px;border:1px solid rgba(128,128,128,0.3);">Small overhead per syscall event (~1–3% CPU)</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p style="margin-top:0.75rem;">Falco detects attacks that Trivy cannot: a compromised application binary that was CVE-free at build time but exploits a logic bug, an insider threat using a legitimate container with normal packages, living-off-the-land attacks that use pre-installed system binaries (curl, bash, nc), and credential theft from memory rather than files.</p>
+              <p>In a mature security posture, both tools are required. Trivy prevents known-vulnerable images from reaching production. Falco catches attackers who get in anyway — and reduces the mean time to detect from weeks (Tesla's case) to seconds.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

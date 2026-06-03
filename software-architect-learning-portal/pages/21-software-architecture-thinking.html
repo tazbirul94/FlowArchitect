@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Architecture Thinking — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="21" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Architecture → Software Architecture Thinking</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 45 min read</span>
+          <span class="tag">Epic 6</span>
+        </div>
+        <h1 class="page-title">Software Architecture Thinking</h1>
+        <p class="page-subtitle">How seasoned architects reason about trade-offs, document decisions, and design systems that survive contact with reality.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story: When Architecture Is Invisible, Failure Is Inevitable</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">The Architecture That Nobody Wrote Down</span>
+        <p>In 2017, a fast-growing e-commerce startup had a perfectly functional monolith. Revenue was climbing, the team was growing, and a VP declared: "We need to move to microservices — everyone at the conference said that's the future." Six months and $2 million in engineering time later, they had 47 microservices, three distributed deadlocks, no consistent approach to data consistency, and a on-call rotation that averaged four incidents per week.</p>
+        <p>Nobody had written down <em>why</em> decisions were made. The team that designed the event bus left. The team that built the order-service and ticket-service had different assumptions about what "eventual consistency" meant. When things broke, engineers argued about intent instead of diagnosing causes. Every post-mortem ended with "we should document this" — and nobody did.</p>
+        <p>The difference between that team and a high-performing one is not intelligence, tooling, or salary. It is <strong>architectural thinking</strong>: the discipline of making trade-offs explicit, documenting decisions while context is fresh, understanding fundamental constraints before choosing patterns, and knowing when not to solve a problem with more complexity.</p>
+        <p>This page teaches the mental models that distinguish architects from engineers who happen to work at a large scale.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="beginner-concepts" class="section-title">Core Concepts in Plain English</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">Beginner Analogy: Architecture Is City Planning</span>
+        <p>Think of software architecture like planning a city. You decide where roads go, where buildings can be built, how water and power are routed, and how emergencies are handled — before the city exists. Once the roads are paved and buildings are built, changing the layout is incredibly expensive. That is why city planners document every decision and its reasoning, and why they think about trade-offs (a highway gets cars through faster but splits neighborhoods in half) rather than just picking the "best" option in isolation.</p>
+        <p>An Architecture Decision Record (ADR) is the official memo that explains "we built the highway here, not there, because of these reasons, and we accept these consequences." A trade-off analysis ensures the planner has genuinely considered multiple options instead of defaulting to whatever worked in the last city. CAP theorem is the city planner's equivalent of "you can't have a road that is always open, never congested, and earthquake-proof at the same time — pick two."</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — ADRs: ARCHITECTURE DECISION RECORDS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="adrs" class="section-title">Architecture Decision Records (ADRs)</h2>
+
+      <p>An ADR is a short document that captures a single significant architectural decision: the context that led to it, the options considered, the decision made, and the trade-offs accepted. ADRs are stored in version control alongside the code they govern.</p>
+
+      <h3 class="subsection-title">Why ADRs matter</h3>
+      <p>Without ADRs, architectural knowledge lives in the heads of the people who made decisions. When those people leave — and they always do — the knowledge evaporates. New engineers make the same mistakes, or worse, they reverse decisions without understanding why they were made in the first place. ADRs make the invisible visible.</p>
+
+      <h3 class="subsection-title">When to write an ADR</h3>
+      <ul>
+        <li>Choosing between two or more technically viable approaches (e.g., REST vs. gRPC, event-driven vs. request-response)</li>
+        <li>Introducing a new technology into the stack (e.g., adding Kafka, switching from MySQL to PostgreSQL)</li>
+        <li>Establishing a cross-cutting pattern (e.g., how all services handle authentication, how secrets are managed)</li>
+        <li>Making a decision that is expensive or painful to reverse</li>
+        <li>After a significant incident when a design change is decided upon</li>
+      </ul>
+
+      <p>You do <em>not</em> need an ADR for every small engineering choice. Use them for decisions that a future engineer would ask "why was this done this way?" and where the answer would require substantial context to explain.</p>
+
+      <h3 class="subsection-title">ADR Format (Nygard / MADR style)</h3>
+      <p>The most widely adopted ADR format has five sections. Some teams use the full Markdown Architecture Decision Records (MADR) template; others use a lighter Nygard format. Either is valid — consistency within a project matters more than which format you pick.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-markdown"># ADR-007: Use event-driven architecture for notification-service
+
+## Status
+Accepted — 2024-03-15
+
+## Context
+notification-service must send emails, push notifications, and SMS messages
+triggered by events from user-service, ticket-service, payment-service, and
+order-service. Currently it is called synchronously via REST from each service.
+
+Problems with the current synchronous approach:
+- notification-service downtime causes failures in all calling services
+- A slow email provider blocks the ticket-purchase flow (P99 latency spikes to 4s)
+- Retry logic is duplicated across 4 callers with inconsistent backoff strategies
+- No guaranteed delivery — if notification-service is mid-deployment when a
+  payment completes, the confirmation email is silently dropped
+
+## Decision
+Publish domain events to Kafka topics. notification-service consumes events
+asynchronously and dispatches notifications independently of the source services.
+
+Event topics:
+- ticketflow.user.registered       → welcome email
+- ticketflow.ticket.purchased       → purchase confirmation
+- ticketflow.payment.completed      → receipt email + push notification
+- ticketflow.order.shipped          → shipment tracking SMS
+
+## Options Considered
+
+### Option A: Synchronous REST (current state)
+Pros: Simple, easy to debug, immediate feedback to caller
+Cons: Tight coupling, cascading failures, no delivery guarantee
+
+### Option B: Kafka event streaming (chosen)
+Pros: Decoupled, durable, replayable, notification-service can be deployed
+      independently, supports fan-out to multiple notification channels
+Cons: Operational complexity (Kafka cluster), eventual delivery (not instant),
+      harder to trace end-to-end for debugging
+
+### Option C: SQS + SNS (AWS-native)
+Pros: Managed, no Kafka ops burden
+Cons: Vendor lock-in, less flexible for replay scenarios, team has no SQS expertise
+
+## Consequences
+- notification-service is now decoupled from all upstream services
+- Notifications are eventually consistent (typically delivered within 500ms)
+- Kafka cluster required: managed via Confluent Cloud (approved by infra team)
+- Dead letter queue (DLQ) needed for failed notification events
+- Monitoring: Prometheus consumer lag alerts when notification queue exceeds 1000 msgs
+- Accepted trade-off: rare duplicate notifications possible (at-least-once delivery);
+  idempotency keys added to email service to deduplicate</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — TRADE-OFF ANALYSIS FRAMEWORK
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="tradeoffs" class="section-title">Trade-off Analysis Framework</h2>
+
+      <p>Every architectural choice involves giving something up. Architects who claim otherwise are either lying or haven't thought it through. A structured trade-off analysis prevents decisions being driven by hype, familiarity, or the loudest voice in the room.</p>
+
+      <h3 class="subsection-title">The ATAM-Lite Framework</h3>
+      <p>The full Architecture Tradeoff Analysis Method (ATAM) is a heavyweight process for large projects. For most decisions, a simplified version is sufficient:</p>
+
+      <ol>
+        <li><strong>Define the quality attributes that matter for this decision.</strong> Not all attributes matter equally for all decisions. For a payment flow, reliability and consistency rank above performance. For a search autocomplete, latency ranks above consistency.</li>
+        <li><strong>List at least three options</strong> (including the status quo). Decisions between only two options are almost always missing a third alternative that would be better.</li>
+        <li><strong>Score each option against each quality attribute</strong> (High/Medium/Low or 1-5). Be honest — avoid motivated reasoning that inflates the score of your preferred option.</li>
+        <li><strong>Identify the risks and non-risks explicitly.</strong> A risk is a sensitivity point — a decision that could fail if an assumption turns out to be wrong. A non-risk is a scenario you have analysed and deemed acceptable.</li>
+        <li><strong>Document the winner and the reasons for rejecting the others.</strong> This is the core of the ADR.</li>
+      </ol>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Quality Attribute</th>
+            <th>Synchronous REST</th>
+            <th>Kafka Events</th>
+            <th>SQS + SNS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Reliability (delivery guarantee)</td>
+            <td>Low — drops on outage</td>
+            <td>High — durable, replayable</td>
+            <td>High — managed durability</td>
+          </tr>
+          <tr>
+            <td>Decoupling (independent deploys)</td>
+            <td>Low — tight coupling</td>
+            <td>High — fully decoupled</td>
+            <td>High — fully decoupled</td>
+          </tr>
+          <tr>
+            <td>Operational complexity</td>
+            <td>Low — no infra</td>
+            <td>Medium — Kafka cluster</td>
+            <td>Low — managed AWS</td>
+          </tr>
+          <tr>
+            <td>Debuggability / tracing</td>
+            <td>High — synchronous trace</td>
+            <td>Medium — async spans needed</td>
+            <td>Medium — async spans needed</td>
+          </tr>
+          <tr>
+            <td>Vendor independence</td>
+            <td>High</td>
+            <td>High — open standard</td>
+            <td>Low — AWS lock-in</td>
+          </tr>
+          <tr>
+            <td>Team expertise</td>
+            <td>High — everyone knows REST</td>
+            <td>Medium — Kafka training needed</td>
+            <td>Low — no SQS experience</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — COUPLING VS COHESION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="coupling-cohesion" class="section-title">Coupling vs Cohesion</h2>
+
+      <p>These two forces are in constant tension in system design. Getting the balance right is one of the most important practical skills in software architecture.</p>
+
+      <h3 class="subsection-title">Cohesion: Things That Belong Together Should Stay Together</h3>
+      <p><strong>Cohesion</strong> measures how closely related the responsibilities within a single module, service, or component are. A highly cohesive service does one thing and does it completely. A low-cohesion service is a grab-bag of unrelated functions that were grouped because "they seemed related" or because one team owned them.</p>
+
+      <p>Signs of low cohesion in TicketFlow:</p>
+      <ul>
+        <li>A <code>ticket-service</code> that also handles user authentication, sends emails, and processes refunds</li>
+        <li>An <code>api-gateway</code> that contains business logic for calculating ticket prices</li>
+        <li>A <code>utils</code> package that contains currency conversion, date formatting, PDF generation, and rate limiting — all in one place</li>
+      </ul>
+
+      <h3 class="subsection-title">Coupling: Things That Change Together Should Be Together; Things That Change Separately Should Be Apart</h3>
+      <p><strong>Coupling</strong> measures the degree to which one module depends on the internals of another. Tight coupling means changing one component forces changes in others. Loose coupling means components can evolve independently.</p>
+
+      <p>Types of coupling (from worst to least harmful):</p>
+      <ul>
+        <li><strong>Content coupling</strong> — one module directly modifies the internal data of another. Catastrophic. Seen when services share a database table and write to each other's rows.</li>
+        <li><strong>Common coupling</strong> — multiple modules share global state. Problematic. A shared Redis cache where every service reads and writes the same keys without ownership boundaries.</li>
+        <li><strong>Control coupling</strong> — one module passes a flag to another to control its behaviour. Moderate. Passing <code>sendEmail: true</code> to <code>order-service</code> to tell it whether to trigger notifications.</li>
+        <li><strong>Data coupling</strong> — modules communicate through well-defined data parameters only. Acceptable. REST API calls with typed request/response bodies.</li>
+        <li><strong>Message coupling</strong> — modules communicate only through messages on a channel, with no knowledge of who receives them. Best. Publishing a <code>payment.completed</code> event with no knowledge of <code>notification-service</code>.</li>
+      </ul>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note: The Paradox of Distributed Systems</span>
+        <p>Microservices reduce <em>logical</em> coupling between services but introduce <em>operational</em> coupling through the network. When <code>payment-service</code> calls <code>order-service</code> synchronously, a latency spike in one becomes a latency spike in the other. You traded compile-time coupling for runtime coupling. Event-driven architectures push this trade-off further: you eliminate runtime coupling but introduce temporal coupling through message ordering and delivery guarantees. There is no free lunch — the goal is to choose the coupling that is cheapest to manage given your team's capabilities and your system's requirements.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CONWAY'S LAW
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="conways-law" class="section-title">Conway's Law</h2>
+
+      <p>"Any organization that designs a system will produce a design whose structure is a copy of the organization's communication structure." — Melvin Conway, 1967</p>
+
+      <p>Conway's Law is not a suggestion or a rule of thumb — it is an empirical observation that has been verified repeatedly across decades of software development. Your system architecture will mirror your team structure whether you intend it to or not.</p>
+
+      <h3 class="subsection-title">Conway's Law in Practice at TicketFlow</h3>
+      <p>TicketFlow started with three teams: Frontend, Backend, and Database. The system they built had three layers: React SPA, a monolithic Node.js API, and a PostgreSQL database. The architecture literally mirrored the org chart.</p>
+      <p>When TicketFlow reorganized into product teams — Ticketing Team, Payments Team, User Experience Team — the architecture evolved to match: <code>ticket-service</code>, <code>payment-service</code>, and <code>user-service</code> became distinct services. Each team owned their service end-to-end, including its database. Conway's Law predicted this evolution before it happened.</p>
+
+      <h3 class="subsection-title">The Inverse Conway Maneuver</h3>
+      <p>The Inverse Conway Maneuver turns this from a constraint into a strategy: <strong>design your team structure to produce the architecture you want.</strong> If you want loosely coupled microservices, create small, cross-functional product teams with clear domain ownership. If you want a layered monolith, organize by technical discipline. The architecture follows.</p>
+
+      <div class="production-tip">
+        <span class="production-tip-label">Production Insight: Team Topologies</span>
+        <p>Matthew Skelton and Manuel Pais formalized this into "Team Topologies" — a framework for designing team structures that produce desired architectures. The four team types (stream-aligned, platform, enabling, complicated-subsystem) map directly to architectural patterns. If your teams don't match your architecture, you will spend enormous energy fighting Conway's Law instead of building features. When TicketFlow decided to add an API Gateway team, they were implementing the "platform team" pattern — and the api-gateway architecture naturally became a platform service used by all others.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — CAP THEOREM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="cap-theorem" class="section-title">CAP Theorem</h2>
+
+      <p>The CAP theorem, formalized by Eric Brewer in 2000 and proved by Gilbert and Lynch in 2002, states: in a distributed system, you can guarantee at most two of the following three properties simultaneously:</p>
+
+      <ul>
+        <li><strong>Consistency (C)</strong> — Every read receives the most recent write or an error. All nodes see the same data at the same time. There is one "truth."</li>
+        <li><strong>Availability (A)</strong> — Every request receives a response (not an error), though it may not be the most recent data. The system keeps responding even under partial failure.</li>
+        <li><strong>Partition Tolerance (P)</strong> — The system continues operating even when network partitions cause some messages between nodes to be lost or delayed.</li>
+      </ul>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+graph TD
+    subgraph CAP["CAP Theorem — Pick Two"]
+        C["Consistency\nEvery read gets\nthe latest write"]
+        A["Availability\nEvery request\ngets a response"]
+        P["Partition Tolerance\nSystem survives\nnetwork splits"]
+
+        CP["CP Systems\nPostgreSQL, HBase,\nZooKeeper, Redis Cluster\n\nSacrifice: May reject\nrequests during partition"]
+        AP["AP Systems\nCassandra, CouchDB,\nDynamoDB, Riak\n\nSacrifice: May return\nstale data"]
+        CA["CA Systems\nSingle-node RDBMS\n(not distributed)\n\nSacrifice: Cannot\ntolerate network split"]
+
+        C --- CP
+        P --- CP
+        A --- AP
+        P --- AP
+        C --- CA
+        A --- CA
+    end
+
+    style CP fill:#4f46e5,color:#fff
+    style AP fill:#059669,color:#fff
+    style CA fill:#dc2626,color:#fff
+        </div>
+      </div>
+
+      <h3 class="subsection-title">Why Partition Tolerance is Non-Negotiable</h3>
+      <p>In any real distributed system (multiple servers, multiple data centers, cloud deployments), network partitions are not hypothetical — they are guaranteed to occur eventually. A network switch fails. An AWS Availability Zone loses connectivity. A packet gets dropped. If you cannot tolerate partitions, you have a single-node system, not a distributed one.</p>
+      <p>This means the real choice in distributed system design is <strong>CP vs AP</strong> — consistency or availability — when a partition occurs.</p>
+
+      <h3 class="subsection-title">TicketFlow's CAP Decisions</h3>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Service / Data Store</th>
+            <th>CAP Choice</th>
+            <th>Reasoning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>payment-service (PostgreSQL)</td>
+            <td>CP</td>
+            <td>Financial data must be consistent. A stale balance could result in double-spend. Availability can be sacrificed for a brief partition.</td>
+          </tr>
+          <tr>
+            <td>ticket-service (PostgreSQL with read replicas)</td>
+            <td>CP for writes, AP-leaning for reads</td>
+            <td>Inventory writes must be consistent (can't oversell seats). Read replicas may serve slightly stale counts — acceptable for display.</td>
+          </tr>
+          <tr>
+            <td>user-service (PostgreSQL)</td>
+            <td>CP</td>
+            <td>Authentication data must be consistent. Stale auth tokens could produce security vulnerabilities.</td>
+          </tr>
+          <tr>
+            <td>notification-service (Kafka + Redis)</td>
+            <td>AP</td>
+            <td>A duplicate or delayed notification is far less bad than an uncaught exception blocking the payment flow. Eventual delivery is acceptable.</td>
+          </tr>
+          <tr>
+            <td>Session cache (Redis)</td>
+            <td>AP</td>
+            <td>Stale session data can be re-validated. An unavailable session cache blocking all logins is worse than serving a slightly stale session.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — PACELC
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pacelc" class="section-title">PACELC: Beyond CAP</h2>
+
+      <p>CAP only addresses behavior during network partitions. But distributed systems spend most of their lifetime <em>not</em> partitioned. The PACELC theorem, proposed by Daniel Abadi in 2012, extends CAP:</p>
+
+      <blockquote style="border-left: 4px solid #6366f1; padding-left: 1rem; margin: 1rem 0; font-style: italic; color: inherit;">
+        "If there is a Partition (P), a system must choose between Availability (A) and Consistency (C); Else (E), when the system is running normally, it must choose between Latency (L) and Consistency (C)."
+      </blockquote>
+
+      <p>PACELC adds the normal-operation trade-off that CAP ignores: <strong>even when there is no partition, you must choose between low latency and strong consistency.</strong></p>
+
+      <h3 class="subsection-title">PACELC in practice</h3>
+      <ul>
+        <li><strong>DynamoDB (PA/EL)</strong> — During partition: available. During normal operation: low latency. Reads may be eventually consistent but extremely fast. Used by TicketFlow for session storage where a few milliseconds matter and stale data is tolerable.</li>
+        <li><strong>PostgreSQL (PC/EC)</strong> — During partition: consistent (blocks). During normal operation: consistent (synchronous replication to standbys). Every write waits for durability confirmation. Used for financial data.</li>
+        <li><strong>Cassandra (PA/EL)</strong> — Tunable consistency. Default is PA/EL: highly available and low latency. You can increase consistency level (QUORUM, ALL) at the cost of latency. No partition tolerance sacrifice at the cost of latency increase.</li>
+        <li><strong>ZooKeeper (PC/EC)</strong> — Designed for coordination and leader election. Strong consistency in all conditions, at the cost of availability and latency. Used by TicketFlow's Kafka cluster for broker coordination.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — EVENT-DRIVEN VS REQUEST-RESPONSE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="event-driven-vs-request-response" class="section-title">Event-Driven vs Request-Response</h2>
+
+      <p>These are not competing philosophies — they are complementary tools. Understanding when to use each is a core architectural skill.</p>
+
+      <h3 class="subsection-title">Request-Response (Synchronous)</h3>
+      <p>A caller sends a request and waits for a response. The caller and responder are temporally coupled: the caller's thread blocks until the response arrives (or a timeout occurs).</p>
+      <p><strong>When to use:</strong></p>
+      <ul>
+        <li>The caller needs the result to continue (e.g., looking up user permissions before rendering a page)</li>
+        <li>The operation must succeed or fail atomically from the caller's perspective (e.g., checking inventory before confirming a purchase)</li>
+        <li>Simple read operations where latency is the primary concern</li>
+        <li>Queries that do not have side effects</li>
+      </ul>
+
+      <h3 class="subsection-title">Event-Driven (Asynchronous)</h3>
+      <p>A producer publishes an event describing something that happened. One or more consumers react to the event independently, without the producer knowing or caring who they are.</p>
+      <p><strong>When to use:</strong></p>
+      <ul>
+        <li>The producer does not need the outcome to continue (e.g., payment-service publishing <code>payment.completed</code> does not need to wait for the email to send)</li>
+        <li>Multiple systems need to react to the same event (fan-out)</li>
+        <li>The side effect is not on the critical path (notifications, audit logs, analytics)</li>
+        <li>You want to decouple the rate of production from the rate of consumption (buffering)</li>
+        <li>You need replay capabilities (reprocessing historical events for new consumers)</li>
+      </ul>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>Request-Response</th>
+            <th>Event-Driven</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Coupling</td>
+            <td>Tight — caller knows callee's API</td>
+            <td>Loose — producer doesn't know consumers</td>
+          </tr>
+          <tr>
+            <td>Consistency</td>
+            <td>Strong — immediate feedback</td>
+            <td>Eventual — consumer processes later</td>
+          </tr>
+          <tr>
+            <td>Availability</td>
+            <td>Degraded if callee is down</td>
+            <td>Producer unaffected by consumer downtime</td>
+          </tr>
+          <tr>
+            <td>Debuggability</td>
+            <td>Simple — stack trace is linear</td>
+            <td>Complex — requires distributed tracing</td>
+          </tr>
+          <tr>
+            <td>Fan-out</td>
+            <td>Requires orchestration (call each consumer)</td>
+            <td>Natural — multiple consumers subscribe</td>
+          </tr>
+          <tr>
+            <td>Replay</td>
+            <td>Not possible</td>
+            <td>Possible with durable log (Kafka)</td>
+          </tr>
+          <tr>
+            <td>Backpressure</td>
+            <td>Timeout — fast failure</td>
+            <td>Buffer — consumer processes at its own pace</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — MONOLITH VS MICROSERVICES DECISION MATRIX
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="monolith-vs-microservices" class="section-title">Monolith vs Microservices Decision Matrix</h2>
+
+      <p>The microservices vs monolith debate is one of the most bikeshedded topics in software engineering. The answer is not religious — it depends on your specific context. Here is a structured decision framework.</p>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">The Majestic Monolith</span>
+        <p>Martin Fowler coined the term "Majestic Monolith" to describe a well-structured, modular monolith that delivers most of the benefits of microservices without the operational overhead. Many successful large systems — Shopify, Stack Overflow, Basecamp — run on monoliths serving millions of users. Starting with a monolith and extracting services when pain is felt is almost always the right approach for new products.</p>
+      </div>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Factor</th>
+            <th>Choose Monolith</th>
+            <th>Choose Microservices</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Team size</td>
+            <td>&lt; 10–15 engineers</td>
+            <td>&gt; 20 engineers with clear domain ownership</td>
+          </tr>
+          <tr>
+            <td>Domain maturity</td>
+            <td>Domain boundaries are unclear or changing</td>
+            <td>Domain is well understood; bounded contexts are stable</td>
+          </tr>
+          <tr>
+            <td>Deployment frequency</td>
+            <td>Deploy whole product together is acceptable</td>
+            <td>Different services need to deploy independently at different cadences</td>
+          </tr>
+          <tr>
+            <td>Scale requirements</td>
+            <td>Uniform load; vertical scaling sufficient</td>
+            <td>Hotspots requiring independent horizontal scaling (ticket-service on sale day vs rest of system)</td>
+          </tr>
+          <tr>
+            <td>Tech heterogeneity</td>
+            <td>One language/runtime is sufficient</td>
+            <td>Different services genuinely benefit from different tech (e.g., ML service in Python, low-latency service in Go)</td>
+          </tr>
+          <tr>
+            <td>Operational capability</td>
+            <td>Small ops team; simple observability</td>
+            <td>Platform team capable of managing distributed tracing, service mesh, multiple deployment pipelines</td>
+          </tr>
+          <tr>
+            <td>Fault isolation</td>
+            <td>Full downtime is acceptable; low blast radius needed</td>
+            <td>Must isolate failures (payment outage must not take down ticket browsing)</td>
+          </tr>
+          <tr>
+            <td>Data consistency</td>
+            <td>Transactions across domains are frequent</td>
+            <td>Services have clear data ownership; cross-service transactions are rare or can be eventual</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">The Modular Monolith: The Middle Path</h3>
+      <p>Before jumping to microservices, consider the modular monolith: a single deployable unit whose code is organized into well-defined modules with enforced boundaries. Each module owns its data and exposes a clean API to other modules. When you are ready to extract a microservice, you already have the boundary drawn — you just move the module and add a network layer.</p>
+
+      <p>TicketFlow's evolution:</p>
+      <ol>
+        <li><strong>Year 1:</strong> Rails monolith. Fast to build, easy to deploy, one database. Team of 5.</li>
+        <li><strong>Year 2:</strong> Modular monolith in Node.js with clear module boundaries (user, ticket, payment, order, notification). Same single deploy, but each module had its own schema. Team of 15.</li>
+        <li><strong>Year 3:</strong> Extracted payment-service (PCI-DSS compliance required isolation) and notification-service (needed different scaling profile). Other modules remained in the monolith. Team of 35 with dedicated platform team.</li>
+        <li><strong>Year 4+:</strong> Full microservices as each product team reached independence threshold. Not because microservices are "better" — because team autonomy demanded it.</li>
+      </ol>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — ENTERPRISE SCENARIO: TICKETFLOW ADR
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow's Notification ADR</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">Real-World Example: ADR-007 in Context</span>
+        <p>It is 3:47 PM on a Friday. TicketFlow's most popular artist — Taylor Swift — just confirmed a stadium tour. Presale goes live in 18 minutes. The engineering team is watching dashboards as traffic ramps from 200 requests/second to 12,000 requests/second.</p>
+        <p>The old architecture had <code>ticket-service</code> calling <code>notification-service</code> synchronously for every successful purchase. At 1,200 purchases/minute, <code>notification-service</code>'s SendGrid connection pool saturated. HTTP 503s from <code>notification-service</code> propagated back to <code>ticket-service</code>. <code>ticket-service</code> started returning errors to <code>api-gateway</code>. Users saw "Purchase Failed" — even though the database row had been committed. Duplicate purchase attempts flooded the system. The sale was chaos.</p>
+        <p>ADR-007 fixed this by decoupling <code>notification-service</code> entirely. Here is the resulting architecture:</p>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># TicketFlow Kafka topic configuration (implemented after ADR-007)
+# File: infra/kafka/topics.yaml
+
+topics:
+  - name: ticketflow.ticket.purchased
+    partitions: 24          # High throughput; partitioned by user-id for ordering
+    replication-factor: 3
+    retention-ms: 604800000 # 7 days — supports replay for debugging
+    config:
+      compression.type: snappy
+
+  - name: ticketflow.payment.completed
+    partitions: 12
+    replication-factor: 3
+    retention-ms: 2592000000  # 30 days — financial events kept longer
+    config:
+      compression.type: snappy
+
+  - name: ticketflow.notification.dlq  # Dead Letter Queue for failed sends
+    partitions: 3
+    replication-factor: 3
+    retention-ms: 1209600000  # 14 days — time to investigate failures</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-javascript">// notification-service/src/consumers/ticket-purchased.consumer.js
+// Node.js consumer — subscribes to Kafka, independent of ticket-service
+
+const { Kafka } = require('kafkajs');
+const emailService = require('../services/email.service');
+const pushService  = require('../services/push.service');
+
+const kafka = new Kafka({
+  clientId: 'notification-service',
+  brokers: ['kafka-0.ticketflow.svc:9092', 'kafka-1.ticketflow.svc:9092'],
+});
+
+const consumer = kafka.consumer({ groupId: 'notification-service-group' });
+
+async function startConsumer() {
+  await consumer.connect();
+  await consumer.subscribe({
+    topic: 'ticketflow.ticket.purchased',
+    fromBeginning: false,
+  });
+
+  await consumer.run({
+    eachMessage: async ({ topic, partition, message }) => {
+      const event = JSON.parse(message.value.toString());
+      const { userId, orderId, tickets, totalAmount } = event;
+
+      try {
+        // Fan-out: send email AND push notification from one event
+        await Promise.allSettled([
+          emailService.sendPurchaseConfirmation({ userId, orderId, tickets, totalAmount }),
+          pushService.sendPurchaseNotification({ userId, orderId }),
+        ]);
+        // ticket-service never knew this happened — zero coupling
+      } catch (err) {
+        // Publish to DLQ for manual review — do not crash the consumer
+        await publishToDLQ({ topic, event, error: err.message });
+      }
+    },
+  });
+}
+
+module.exports = { startConsumer };</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-javascript">// ticket-service/src/handlers/purchase.handler.js (Spring Boot equivalent in pseudocode)
+// ticket-service ONLY publishes the event — does not call notification-service
+
+async function handlePurchase(req, res) {
+  const { userId, ticketIds, paymentToken } = req.body;
+
+  // 1. Reserve seats (database transaction — CP, consistent)
+  const order = await db.transaction(async (trx) => {
+    const seats = await Seat.lockForUpdate(ticketIds, trx);
+    if (seats.some(s => s.status !== 'available')) {
+      throw new Error('SEATS_UNAVAILABLE');
+    }
+    const order = await Order.create({ userId, seats, status: 'pending' }, trx);
+    await seats.forEach(s => s.update({ status: 'reserved', orderId: order.id }, trx));
+    return order;
+  });
+
+  // 2. Publish domain event — fire and forget (AP, eventual)
+  await kafka.produce('ticketflow.ticket.purchased', {
+    key: String(userId),       // partition key — same user's events stay ordered
+    value: JSON.stringify({
+      eventType: 'ticket.purchased',
+      orderId: order.id,
+      userId,
+      tickets: ticketIds,
+      totalAmount: order.total,
+      timestamp: new Date().toISOString(),
+    }),
+  });
+
+  // 3. Return to user immediately — notification happens asynchronously
+  res.status(201).json({ orderId: order.id, status: 'confirmed' });
+  // Response time: ~40ms instead of ~400ms (no email provider round-trip)
+}</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — OS TABS: ADR TOOLING BY PLATFORM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="adr-tooling" class="section-title">ADR Tooling</h2>
+
+      <p>Several CLI tools help scaffold and manage ADRs. Here is how to set them up on different platforms:</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+          <button class="os-tab-btn" data-tab="node">Node.js (cross-platform)</button>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install adr-tools (Bash-based ADR manager)
+brew install adr-tools          # macOS
+# or
+git clone https://github.com/npryce/adr-tools.git
+export PATH="$PATH:$(pwd)/adr-tools/src"
+
+# Initialize ADR directory in your project
+cd /path/to/ticketflow
+adr init docs/adr
+
+# Create a new ADR (auto-numbered)
+adr new "Use Kafka for notification-service decoupling"
+# Creates: docs/adr/0007-use-kafka-for-notification-service-decoupling.md
+
+# List all ADRs
+adr list
+
+# Mark an ADR as superseded by another
+adr supersede 3 7   # ADR-3 is superseded by ADR-7</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Install log4brains (works natively on Windows via Node.js)
+npm install -g log4brains
+
+# Initialize in your project root
+cd C:\projects\ticketflow
+log4brains init
+
+# Creates:
+# docs/adr/  (ADR directory)
+# .log4brains.yml  (configuration)
+
+# Create a new ADR interactively
+log4brains adr new
+
+# Preview all ADRs in browser (local server)
+log4brains preview
+
+# Build static ADR site for deployment
+log4brains build</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="node">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># log4brains — works on Linux, macOS, Windows
+npm install -g log4brains
+
+# Initialize (run once in project root)
+log4brains init
+
+# Create new ADR (interactive prompts for title and content)
+log4brains adr new
+
+# Typical ADR file structure after init:
+# docs/
+#   adr/
+#     20240315-use-kafka-for-notification-service.md
+#     20240201-use-postgresql-for-financial-data.md
+#     20240120-adopt-event-driven-architecture.md
+#     template.md    ← customise this template
+
+# View ADR knowledge base in browser
+log4brains preview
+# Open http://localhost:4004
+
+# Generate static site (e.g., for GitHub Pages)
+log4brains build --basePath /ticketflow/adr
+# Output: .log4brains/out/</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How CAP theorem actually plays out during a real partition</summary>
+        <div class="answer-content">
+          <p>When a network partition splits a distributed cluster — say, TicketFlow's PostgreSQL primary in us-east-1a loses connectivity to its synchronous standby in us-east-1b — the database must immediately choose:</p>
+          <ol>
+            <li><strong>Maintain consistency (CP choice):</strong> Stop accepting writes that cannot be replicated to the standby. Return errors to callers until the partition heals. Data is never stale, but the system is partially unavailable.</li>
+            <li><strong>Maintain availability (AP choice):</strong> Continue accepting writes on both sides of the partition. When the partition heals, reconcile the diverged states — but now you have conflicting writes that must be resolved. This is the "split brain" problem.</li>
+          </ol>
+          <p>PostgreSQL with synchronous replication takes the CP path by default. The <code>synchronous_commit = on</code> setting means a write is not acknowledged until at least one standby has confirmed receipt. During a partition, writes that cannot reach the standby are blocked or returned with errors.</p>
+          <p>Cassandra, by contrast, uses a different model: you write to any node, and it propagates asynchronously. If you set <code>consistency level = ONE</code>, a write succeeds the moment any single node confirms it — even during a partition. The AP trade-off is that other nodes may serve stale reads until replication catches up.</p>
+          <p>The key insight: CAP is about what happens <em>during</em> a partition. PACELC adds that even without a partition, the trade-off between latency and consistency affects every single request.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why "two pizza teams" and Conway's Law are related</summary>
+        <div class="answer-content">
+          <p>Amazon's "two pizza rule" — teams small enough to be fed by two pizzas (6–8 people) — was not about food or even team efficiency. It was an architectural strategy. Bezos mandated that every team must communicate with every other team through APIs, not meetings. The org chart became the API boundary diagram.</p>
+          <p>AWS itself is Conway's Law at massive scale. S3, EC2, RDS, Lambda — each is a separate team with a separate service. The fact that you can independently provision, scale, and pay for each AWS service is a direct consequence of the team structure that built them. The architecture externally mirrors the communication structure internally.</p>
+          <p>When TicketFlow's platform team was created, the api-gateway immediately became more powerful and better-designed — because the team that owned it now had dedicated time to work on it as a platform, not as an afterthought owned by the backend team.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Event sourcing vs. event-driven — the difference</summary>
+        <div class="answer-content">
+          <p><strong>Event-driven architecture</strong> means services communicate through events. Services publish events; other services subscribe and react. The event is a notification — "something happened." The canonical state of the system still lives in databases (row-based, mutable state).</p>
+          <p><strong>Event sourcing</strong> is a storage pattern where the <em>only</em> state stored is an immutable log of events. The current state of an entity is derived by replaying all events for that entity. There is no "users" table with a mutable row — there is a sequence of events: UserRegistered, EmailChanged, PasswordReset, AccountSuspended. The current user state is the fold of those events.</p>
+          <p>Event sourcing is powerful but complex. It gives you complete audit history, time-travel debugging, and the ability to derive new projections from historical events. It is <em>not</em> the same as event-driven messaging, and you can use one without the other.</p>
+          <p>TicketFlow uses event-driven architecture (Kafka for inter-service messaging) but stores canonical state in PostgreSQL with regular mutable tables. Only the financial audit service uses event sourcing for the payment log — because the complete, immutable history of every payment state transition is a regulatory requirement.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: ADRs Written After the Fact as Documentation</span>
+        <p>Teams often write ADRs retrospectively, months after decisions were made, as a documentation exercise. By this point, the people who made the decision may have left, the context has been forgotten, and the ADR becomes a rationale-after-the-fact that omits the real trade-offs and rejected alternatives.</p>
+        <p><strong>Fix:</strong> Write ADRs in the PR that implements the decision. The ADR is part of the change, not documentation of it. The conversation in the PR review — with engineers pushing back on the decision — is captured in the ADR's options section. The ADR is done when the PR is merged.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Applying CAP Theorem to Single-Node Systems</span>
+        <p>CAP only applies to distributed systems. A single PostgreSQL server is not subject to the CAP trade-off because there is no network partition between nodes. Engineers sometimes refuse to use RDBMS because "it's a CP system and we need availability" — without realizing that a single-node Postgres with a connection pool handles most availability concerns and is far simpler than a distributed AP datastore.</p>
+        <p><strong>Fix:</strong> Ask whether you actually have a distributed system. If your data fits on one server and your SLA is achievable with a single node + hot standby, you probably don't need to navigate the CAP trade-off at all. Premature distribution is as harmful as premature microservices.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Choosing Microservices Because of Scale (Without Measuring)</span>
+        <p>Teams adopt microservices "because we need to scale," then discover their bottleneck is a single PostgreSQL database that both the monolith and the microservices would share anyway. The network overhead of inter-service HTTP calls consumed more resources than the monolith's in-process function calls. They added complexity without solving the actual bottleneck.</p>
+        <p><strong>Fix:</strong> Profile before decomposing. The "need to scale" argument for microservices is valid only when you can identify specific components with wildly different load profiles that need to scale independently. Run load tests on the monolith first. You may find that a few database index changes and connection pool tuning deliver more improvement than months of microservices migration work.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Assuming Event-Driven Means No Consistency Problems</span>
+        <p>Engineers move to event-driven architecture to decouple services, then discover that "eventually consistent" is not the same as "always eventually correct." A Kafka consumer that fails mid-processing, an event published after a database rollback, or a consumer that processes the same event twice without idempotency all produce corrupted state that is much harder to debug than a synchronous failure.</p>
+        <p><strong>Fix:</strong> Implement the Outbox Pattern for event publishing: write the event to a database table (outbox) in the same transaction as the domain change. A separate process polls the outbox and publishes to Kafka. This guarantees exactly-one semantics for publishing. Combine with idempotency keys on consumers to handle at-least-once delivery safely.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Ignoring Conway's Law When Reorganizing Teams</span>
+        <p>A company reorganizes teams for management reasons (budget realignment, new VP, acquisition integration) without considering the architectural impact. The new team boundaries do not match the service boundaries. Now Team A owns services B, D, and F, while Team B owns services A, C, and E. Every feature that crosses service boundaries requires cross-team coordination. Deployment velocity drops by half. This is Conway's Law working against you.</p>
+        <p><strong>Fix:</strong> When reorganizing, map the desired architecture first, then design team boundaries to match. Or, acknowledge that the reorganization will require a corresponding architectural refactoring period. Never change one without a plan for the other.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note: The Real Job of an Architect</span>
+        <p>Junior engineers think architects design systems. Senior engineers know architects make trade-offs explicit. Staff engineers understand that an architect's primary value is preventing the organization from making the same mistake twice — by creating institutional memory through ADRs, decision logs, and architectural principles.</p>
+        <p>The best architectural advice is usually the decision to <em>not</em> build something — to use a managed service, to extend an existing system rather than create a new one, to say "this problem doesn't require distributed architecture yet." Architecture debt accrues fastest not from wrong decisions but from <em>unmade</em> decisions — when no one chose, everyone chose differently, and the system became an inconsistent patchwork of approaches.</p>
+        <p>Three questions to ask before any significant architectural decision:</p>
+        <ol>
+          <li><strong>"What is the cost of reversibility?"</strong> Reversible decisions don't need ADRs. Irreversible ones (data model, protocol choice, external API contract) deserve the full analysis.</li>
+          <li><strong>"Who is the decision optimized for?"</strong> A decision that's optimal for development speed but terrible for operations is not a good decision — it transfers cost to a different team. Good decisions account for all stakeholders.</li>
+          <li><strong>"What does success look like in two years?"</strong> Architecture must solve for the system as it will exist, not as it exists today. A schema that works for 10,000 users may be a disaster at 10 million.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 16 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Architecture Decision Checklist</h2>
+
+      <p>Before committing to any significant architectural decision, verify all of the following:</p>
+
+      <ul class="checklist">
+        <li>ADR written and merged to version control before or alongside the implementation</li>
+        <li>At least three options evaluated (including "do nothing" / status quo)</li>
+        <li>Trade-offs explicitly named — not just pros of the chosen option</li>
+        <li>Consequences section includes negative consequences and accepted risks</li>
+        <li>CAP/PACELC position identified for any new data store introduced</li>
+        <li>Team ownership defined for every new service or component</li>
+        <li>Conway's Law checked: team boundaries support independent operation of the service</li>
+        <li>Synchronous vs asynchronous communication choice documented with reasoning</li>
+        <li>Data ownership and cross-service data access patterns defined</li>
+        <li>Reversibility assessed: if the decision is wrong in 6 months, what is the cost to undo it?</li>
+        <li>Observability plan in place: how will we know if this decision performs as expected? (Prometheus metrics, Grafana dashboards, Loki alerts)</li>
+        <li>Security implications reviewed (new network surface, new data classifications, new secrets)</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 17 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Write Your First ADR</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Write a Real ADR for TicketFlow</span>
+
+        <p>In this lab you will write a complete ADR for a real architectural decision that TicketFlow faces. Choose one of the following scenarios, then write the full ADR using the template provided.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Scenario A — Caching Strategy for ticket-service</h3>
+        <p>ticket-service currently queries the PostgreSQL database for every seat availability check. On high-demand sale events, this saturates the database at ~8,000 queries/second. You need to introduce a caching layer. Options: Redis (in-memory, fast, requires cache invalidation logic), CDN edge caching (good for static content, poor for real-time inventory), Database read replicas (reduces write load but still O(N) queries), or Materialized views (precomputed, refreshed on schedule — risks stale data).</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Scenario B — Database per service for payment-service</h3>
+        <p>payment-service currently shares the ticketflow PostgreSQL database with other services. PCI-DSS compliance review flags this as a risk: payment data should be isolated. Options: Separate PostgreSQL instance (full isolation, separate backups, operational overhead), Schema-level isolation in same instance (simpler but still shares credentials), Move to managed AWS RDS for payment-service specifically (strong isolation, managed backups, vendor lock-in), Use a dedicated Aurora Serverless cluster.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">ADR Template</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-markdown"># ADR-[NUMBER]: [Short decision title]
+
+## Status
+Proposed | Accepted | Superseded by ADR-[N] | Deprecated
+
+## Context
+[Describe the situation, problem, or opportunity that prompted this decision.
+Include the relevant forces at play: technical constraints, business requirements,
+team capabilities, timeline pressure, compliance requirements.]
+
+## Decision
+[State the decision clearly and directly. Start with "We will..." or "We have decided to..."]
+
+## Options Considered
+
+### Option A: [Name]
+**Description:** [1-2 sentences]
+**Pros:**
+- [concrete benefit]
+- [concrete benefit]
+**Cons:**
+- [concrete drawback]
+- [concrete drawback]
+
+### Option B: [Name]
+[same structure]
+
+### Option C: [Name]
+[same structure]
+
+## Consequences
+
+### Positive
+- [What becomes easier, better, or safer]
+
+### Negative
+- [What becomes harder, more expensive, or riskier — be honest]
+
+### Risks
+- [Assumptions that could be wrong; what could cause this decision to fail]
+
+## Decision Drivers
+- [Key non-negotiable requirement or constraint that influenced the choice]
+- [Quality attribute that ranked highest in the evaluation]</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step-by-step instructions</h3>
+        <ol>
+          <li>Create a directory: <code>docs/adr/</code> in a local project folder.</li>
+          <li>Create the file: <code>docs/adr/0001-[decision-slug].md</code></li>
+          <li>Fill out every section of the template above for your chosen scenario.</li>
+          <li>In the Options Considered section, write at least three options and honestly score each against the relevant quality attributes (use the trade-off table format from the Trade-off Analysis section).</li>
+          <li>In the Consequences section, write at least two positive <em>and</em> two negative consequences. If you cannot think of any negatives, you have not thought hard enough.</li>
+          <li>Share the ADR with a colleague or post it for review — the review conversation is where the real thinking happens.</li>
+        </ol>
+
+        <p style="margin-top:1rem;"><strong>Evaluation criteria for your ADR:</strong></p>
+        <ul>
+          <li>Does the Context section explain <em>why</em> this decision is needed now?</li>
+          <li>Are the rejected options genuinely viable, or are they straw men?</li>
+          <li>Does the Consequences section acknowledge trade-offs honestly?</li>
+          <li>Could an engineer who joins the team in 2 years understand this decision from the ADR alone, without asking anyone?</li>
+          <li>Is the ADR short enough to be read in 5 minutes? (If not, split it into multiple ADRs.)</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 18 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions appear in staff engineer, principal engineer, and software architect interviews. The answers require synthesizing multiple concepts — not just defining terms.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is an ADR and when would you write one?</summary>
+            <div class="answer-content">
+              <p>An Architecture Decision Record is a short document that captures a significant architectural decision: the context that led to it, the options considered, the decision made, and the consequences accepted — including the negative ones.</p>
+              <p>I would write an ADR when making a decision that is:</p>
+              <ul>
+                <li><strong>Consequential</strong> — affects the design, performance, security, or operability of the system in a meaningful way</li>
+                <li><strong>Non-obvious</strong> — a future engineer looking at the codebase would ask "why was this done this way?"</li>
+                <li><strong>Expensive to reverse</strong> — changing the decision later would require significant rework (e.g., changing the wire protocol, migrating a database schema, replacing a message broker)</li>
+              </ul>
+              <p>I would <em>not</em> write an ADR for every engineering choice — only for decisions where the context and reasoning are as important as the decision itself. A good rule of thumb: if you can explain the decision fully in a one-sentence code comment, you don't need an ADR.</p>
+              <p>The ADR should be written <em>when the decision is made</em> — ideally in the same PR as the implementation — not retrospectively. The review conversation in the PR is itself part of the architectural process.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: Explain CAP theorem. How does it affect your database choices?</summary>
+            <div class="answer-content">
+              <p>CAP theorem states that a distributed system can guarantee at most two of three properties: Consistency (every read sees the latest write), Availability (every request gets a non-error response), and Partition Tolerance (the system continues operating despite network splits).</p>
+              <p>In practice, partition tolerance is non-optional for any real distributed system — networks fail, AZs lose connectivity, packets drop. So the real choice is between consistency and availability <em>during</em> a partition.</p>
+              <p><strong>How this affects my database choices in practice:</strong></p>
+              <ul>
+                <li>For <strong>financial data</strong> (payment records, account balances): I choose CP systems like PostgreSQL with synchronous replication. A brief unavailability during a partition is acceptable; inconsistent financial state is not. Two users cannot both see enough balance to make a purchase if only one of them should.</li>
+                <li>For <strong>session data and caches</strong>: I choose AP systems. A slightly stale session or cache hit causing a user to see old data for a few hundred milliseconds is tolerable. A cache cluster being unavailable and blocking all page loads is not.</li>
+                <li>For <strong>event streams</strong>: Kafka is partition-tolerant and highly available by design; it replicates events across brokers. Consumers can lag behind producers without consistency issues because events are immutable and ordered.</li>
+              </ul>
+              <p>I'd also mention PACELC — which extends CAP to cover normal operations (no partition): even without a partition, you trade between latency and consistency. DynamoDB's eventual consistency option is fast; its strongly consistent option adds latency. This trade-off exists on every request, not just during failure.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: When would you choose a monolith over microservices?</summary>
+            <div class="answer-content">
+              <p>I would choose a monolith — or more precisely, a well-structured modular monolith — in the following situations:</p>
+              <ul>
+                <li><strong>Early product stage:</strong> Domain boundaries are not yet clear. Extracting the wrong boundary into a microservice is expensive to undo. A monolith lets you refactor freely within the codebase until the right boundaries emerge.</li>
+                <li><strong>Small team:</strong> Microservices multiply operational surface area: multiple deployment pipelines, multiple monitoring configurations, distributed tracing setup, service mesh, inter-service authentication. A team of 5–10 engineers will spend more time on this infrastructure than on product features.</li>
+                <li><strong>No differential scaling requirements:</strong> If all services need to scale together (they all receive roughly equal load), you get most of the scaling benefit from horizontal scaling of the monolith behind a load balancer, with far less complexity.</li>
+                <li><strong>Frequent cross-domain transactions:</strong> If your features regularly need to atomically change data in multiple domains, microservices force you into distributed transactions (Saga pattern, Two-Phase Commit) which are complex and error-prone. A monolith handles this with a simple database transaction.</li>
+              </ul>
+              <p>The "Majestic Monolith" approach: structure the monolith with clean internal module boundaries, enforced by linting rules (e.g., no direct database access across module boundaries), so that when you do need to extract a service, the boundary already exists and you just add a network layer. This is how Shopify, Stack Overflow, and Basecamp have scaled to enormous sizes without full microservices decomposition.</p>
+              <p>The key insight: microservices solve an organizational scaling problem (multiple teams deploying independently) more than a technical scaling problem. If you don't have the team size and organizational structure that benefits from microservices, you are paying their costs without receiving their benefits.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is Conway's Law and how do you use it strategically?</summary>
+            <div class="answer-content">
+              <p>Conway's Law states: "Any organization that designs a system will produce a design whose structure is a copy of the organization's communication structure." It is an empirical observation, not a guideline — your system architecture will mirror your team structure whether you intend it to or not.</p>
+              <p><strong>Why it matters:</strong> If you want a service-oriented architecture but your teams are organized by technical layer (frontend, backend, database), you will build a layered architecture. The API boundary will be where the teams meet — not where domain boundaries are. Teams will optimize for their layer, not for the domain feature.</p>
+              <p><strong>The Inverse Conway Maneuver</strong> turns this into a strategy: design your team structure to produce the architecture you want, not the other way around.</p>
+              <ul>
+                <li>If you want loosely coupled microservices with independent deployment: create small, cross-functional product teams that own a bounded context end-to-end (including the database, deployment pipeline, and on-call rotation).</li>
+                <li>If you want a platform layer: create a dedicated platform team that owns shared infrastructure services. The resulting architecture will have a clear platform/product boundary that matches the org chart.</li>
+              </ul>
+              <p><strong>Practical implication:</strong> Before making a major architectural change, check whether the team structure supports it. A team reorganization without a corresponding architectural plan — or an architectural plan without a corresponding team reorganization — will fight Conway's Law and usually lose. When I advise on architectural transformations, I always ask: "Does the team structure map to the proposed service boundaries?" If not, we have two problems to solve, not one.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: How do you decide between event-driven and request-response communication between services?</summary>
+            <div class="answer-content">
+              <p>The core question is: <strong>does the caller need the result to continue, and does the result need to be immediate?</strong></p>
+              <p><strong>Use request-response when:</strong></p>
+              <ul>
+                <li>The caller needs the response to proceed (e.g., checking user permissions before authorizing an action — you can't continue without knowing whether the user is allowed)</li>
+                <li>The operation must succeed or fail as a unit from the user's perspective (e.g., verifying that a payment method is valid before committing an order)</li>
+                <li>You need synchronous feedback for error handling (e.g., validation errors that must be presented to the user immediately)</li>
+              </ul>
+              <p><strong>Use event-driven when:</strong></p>
+              <ul>
+                <li>The side effect is not on the critical path (sending an email does not need to block the payment confirmation response)</li>
+                <li>Multiple services need to react to the same event (fan-out: payment.completed triggers email, push notification, analytics, fraud scoring)</li>
+                <li>You want to decouple the availability of the consumer from the producer (notification-service downtime should not prevent ticket purchases)</li>
+                <li>You need replayability (new analytics service can replay 6 months of events to backfill its data)</li>
+              </ul>
+              <p><strong>The hybrid pattern:</strong> Most real systems use both. The purchase flow at TicketFlow uses synchronous REST for the critical path (verify inventory, charge payment, create order) and publishes events for downstream side effects (notifications, analytics, fraud scoring, loyalty points). The synchronous path is kept as short as possible — only what the user must wait for. Everything else is asynchronous.</p>
+              <p>The trade-off to name explicitly: event-driven introduces eventual consistency and requires explicit handling of delivery failures (dead letter queues), ordering guarantees, and idempotency. These are solvable but require engineering discipline. Request-response is simpler to reason about but creates tight coupling and cascading failure risk at scale.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How do you approach a trade-off analysis when there is no objectively "best" option?</summary>
+            <div class="answer-content">
+              <p>Almost no architectural decision has an objectively best option — if it did, everyone would make the same choice and the decision wouldn't warrant analysis. Trade-off analysis is a structured process for making the <em>best available decision for your specific context</em>, not for finding the universally correct answer.</p>
+              <p><strong>My process:</strong></p>
+              <ol>
+                <li><strong>Define the quality attributes that matter most for this decision.</strong> Not all attributes are equally important. For a payment flow, reliability and consistency outrank performance. For a search autocomplete, latency outranks consistency. Explicitly rank the attributes before evaluating options — otherwise, advocates for each option will emphasize the attributes that favor their preferred choice.</li>
+                <li><strong>Enumerate at least three genuine options.</strong> If you only have two options, you are probably missing one. Include the status quo ("do nothing") as an explicit option — it has real costs and benefits that are often ignored.</li>
+                <li><strong>Score each option against each quality attribute honestly.</strong> Avoid motivated reasoning. Ask: "If I were arguing against this option, what would I say?" Write that down in the Cons section.</li>
+                <li><strong>Identify the critical risks.</strong> A risk is an assumption that could be wrong. "We chose Kafka because we expect the team will learn it quickly" — that assumption might be false. Name it explicitly so it can be monitored.</li>
+                <li><strong>Make the decision and document the rejected alternatives.</strong> Future engineers need to know not just what was chosen but why the alternatives were rejected — otherwise they will re-evaluate the same options when the system needs to change.</li>
+              </ol>
+              <p><strong>What to do when stakeholders disagree:</strong> disagreement usually means different stakeholders are weighting quality attributes differently. Making the weights explicit — "you are prioritizing developer experience; I am prioritizing operational simplicity" — often resolves the disagreement faster than arguing about the options themselves. Once the priorities are agreed upon, the scoring usually converges.</p>
+              <p>The goal is not to be right. The goal is to make the reasoning transparent enough that the decision can be revisited intelligently when the context changes — which it always does.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Workloads — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="10" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Core → Kubernetes Workloads</span>
+      <button id="theme-toggle">🌙</button>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ============================================================
+           PAGE HEADER
+           ============================================================ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-intermediate">Intermediate</span>
+          <span class="tag">⏱ 40 min read</span>
+          <span class="tag">Epic 5</span>
+        </div>
+        <h1 class="page-title">Kubernetes Workloads</h1>
+        <p class="page-subtitle">Master every workload type Kubernetes offers — Deployment, ReplicaSet, StatefulSet, DaemonSet, Job, and CronJob — and know exactly when to use each one.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ============================================================
+           SECTION 1 — THE STORY
+           ============================================================ -->
+      <h2 id="story" class="section-title">The Story Behind Kubernetes Workloads</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">The Army Analogy</span>
+        <p>Imagine you are a general commanding an army. You do not personally place every soldier on the battlefield and order them individually. That would not scale — and if a soldier fell in battle, you would need to notice and send a replacement yourself. That is unmanageable at scale.</p>
+        <p>Instead, you issue orders at a higher level: <em>"I need 10 infantry units covering the northern flank at all times."</em> Your officers continuously ensure that 10 units are present. One gets taken out? A replacement is dispatched. You want 20? The order is updated. You never think about individual soldiers — only about the desired state of the battlefield.</p>
+        <p>Kubernetes Workload resources work exactly like this. You describe the desired state — "3 replicas of ticket-service running" — and Kubernetes continuously reconciles reality to match that declaration. Pod crashes, node failures, rolling updates — all handled automatically by the control plane.</p>
+        <p>But not every workload behaves the same way. A stateless web service is very different from a database, which is different from a log collector, which is different from a batch job. Kubernetes provides distinct workload types — each designed for a specific operational pattern.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 2 — BEGINNER NOTE
+           ============================================================ -->
+      <h2 id="beginner-concepts" class="section-title">What Are Workload Resources?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">Beginner Analogy</span>
+        <p>Think of a Pod as a single worker at a company. Workload resources are the HR policies that govern those workers:</p>
+        <ul>
+          <li><strong>Deployment</strong> — Like a staffing agency contract: "We always need exactly 3 developers on this project. If one quits, hire a replacement. If we need more, scale up." Perfect for stateless services.</li>
+          <li><strong>StatefulSet</strong> — Like a specialized contractor agreement: "We need a DBA named <em>db-0</em>, and a replica named <em>db-1</em>. They have assigned desks (persistent storage), unique logins (stable DNS names), and are hired and fired in order." For databases and clustered apps.</li>
+          <li><strong>DaemonSet</strong> — Like a security guard roster: "Every office floor must have exactly one guard on duty." As the building grows new floors, guards are automatically assigned. Perfect for cluster-wide infrastructure agents.</li>
+          <li><strong>Job</strong> — Like a freelance project: "Hire a contractor to migrate this database. Once the work is done, no further employment needed."</li>
+          <li><strong>CronJob</strong> — Like a recurring maintenance contract: "Every Monday at 2 AM, hire a cleaner. When the job is done, they leave."</li>
+        </ul>
+      </div>
+
+      <!-- ============================================================
+           SECTION 3 — TECHNICAL EXPLANATION
+           ============================================================ -->
+      <h2 id="technical-deep-dive" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">The Kubernetes Controller Pattern</h3>
+      <p>All workload resources operate via the <strong>controller pattern</strong>. Each workload type has a dedicated controller loop running in the control plane that continuously:</p>
+      <ol>
+        <li><strong>Observes</strong> — reads the current state of Pods in the cluster</li>
+        <li><strong>Diffs</strong> — compares current state to the desired state declared in the spec</li>
+        <li><strong>Acts</strong> — creates, updates, or deletes Pods to reconcile the difference</li>
+      </ol>
+      <p>This declarative, reconciliation-based approach means Kubernetes is self-healing by design. You never imperatively say "start a pod" — you declare intent and the system makes it so.</p>
+
+      <h3 class="subsection-title">ReplicaSet — The Foundation (That You Don't Use Directly)</h3>
+      <p>A <strong>ReplicaSet</strong> ensures a specified number of Pod replicas are running at any given time. It uses a <strong>label selector</strong> to identify the Pods it owns. If a Pod is deleted, the ReplicaSet controller immediately creates a replacement.</p>
+      <p>However, a raw ReplicaSet has a critical limitation: it has no concept of updates. If you change the Pod template, existing Pods are not replaced — the change only applies to new Pods. This makes it useless for deployments in practice. <strong>You almost never use ReplicaSet directly</strong> — instead, you use a Deployment, which manages ReplicaSets on your behalf and adds rolling update and rollback capabilities.</p>
+      <p>When you create a Deployment, Kubernetes automatically creates a ReplicaSet beneath it. When you perform a rolling update, the Deployment creates a new ReplicaSet with the updated template, scales it up, and scales down the old one — keeping the old ReplicaSet around (but at zero replicas) to enable instant rollback.</p>
+
+      <h3 class="subsection-title">Deployment — For Stateless Services</h3>
+      <p>A <strong>Deployment</strong> is the primary workload for stateless applications. It wraps a ReplicaSet and adds:</p>
+      <ul>
+        <li><strong>Rolling updates</strong> — controlled by <code>maxSurge</code> (how many extra Pods to create during update) and <code>maxUnavailable</code> (how many Pods can be down during update). Defaults to 25% each, ensuring zero downtime.</li>
+        <li><strong>Rollback</strong> — Kubernetes keeps a configurable history of old ReplicaSets. <code>kubectl rollout undo deployment/ticket-service</code> instantly reverts to the previous version.</li>
+        <li><strong>Scaling</strong> — manual (<code>kubectl scale</code>) or automatic via HPA (Horizontal Pod Autoscaler).</li>
+        <li><strong>Pause/Resume</strong> — you can pause a rollout mid-way to observe before continuing.</li>
+      </ul>
+      <p>Stateless means: any Pod in the Deployment is interchangeable. The app stores no session state locally — state lives in a database or cache. HTTP requests can be routed to any Pod. All of TicketFlow's application-tier services (user-service, ticket-service, payment-service, api-gateway) run as Deployments.</p>
+
+      <h3 class="subsection-title">StatefulSet — For Stateful Applications</h3>
+      <p>A <strong>StatefulSet</strong> manages Pods that need stable, persistent identity. Unlike Deployment Pods (which get random names like <code>ticket-service-7d9f8b-xkp2v</code>), StatefulSet Pods get <strong>stable, predictable names</strong>: <code>postgres-0</code>, <code>postgres-1</code>, <code>postgres-2</code>.</p>
+      <p>Three guarantees StatefulSet provides:</p>
+      <ul>
+        <li><strong>Stable network identity</strong> — each Pod gets a stable DNS name: <code>&lt;pod-name&gt;.&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local</code>. <code>postgres-0.postgres-headless.default.svc.cluster.local</code> always resolves to the same Pod, regardless of restarts. Cluster members can find each other reliably.</li>
+        <li><strong>Stable persistent storage</strong> — each Pod gets its own PersistentVolumeClaim via <code>volumeClaimTemplates</code>. <code>postgres-0</code> always mounts <code>data-postgres-0</code>. Even if the Pod is rescheduled to a different node, it reconnects to the same volume.</li>
+        <li><strong>Ordered deployment and scaling</strong> — Pods are created, updated, and deleted in order (0, 1, 2...). Pod N is not started until Pod N-1 is Running and Ready. This satisfies database leader-election requirements where the primary must be running before replicas join.</li>
+      </ul>
+      <p>Use StatefulSet for: PostgreSQL, MySQL, MongoDB, Cassandra, Redis Cluster, Kafka, Zookeeper, Elasticsearch — any system that maintains cluster membership by identity.</p>
+
+      <h3 class="subsection-title">DaemonSet — One Pod Per Node</h3>
+      <p>A <strong>DaemonSet</strong> ensures that exactly one Pod runs on every node in the cluster (or a subset of nodes via node selectors). As nodes are added to the cluster, Pods are automatically created on them. As nodes are removed, Pods are garbage-collected.</p>
+      <p>DaemonSet is the workload for <strong>cluster-level infrastructure agents</strong> — services that need to run everywhere, not specific application replicas. Common use cases:</p>
+      <ul>
+        <li><strong>Log collection</strong> — Fluentd, Fluent Bit, Filebeat: reads log files from <code>/var/log/containers/</code> on every node and ships them to a central logging backend (Loki, Elasticsearch, Splunk)</li>
+        <li><strong>Metrics collection</strong> — Prometheus Node Exporter: collects host-level metrics (CPU, memory, disk, network) per node</li>
+        <li><strong>Networking</strong> — CNI plugin agents (Calico, Cilium, Flannel): must run on every node to program the data plane</li>
+        <li><strong>Security</strong> — Falco (runtime threat detection), Sysdig agents: must observe every node's kernel events</li>
+        <li><strong>Storage</strong> — CSI node driver pods: must run on every node to mount volumes</li>
+      </ul>
+
+      <h3 class="subsection-title">Job — Run-to-Completion Workloads</h3>
+      <p>A <strong>Job</strong> creates one or more Pods and retries until a specified number of completions succeed. Unlike Deployments, Jobs are <em>not</em> kept running — they terminate once their task is done.</p>
+      <p>Key parameters:</p>
+      <ul>
+        <li><code>completions</code> — total number of successful Pod completions needed (default: 1)</li>
+        <li><code>parallelism</code> — how many Pods to run simultaneously (default: 1)</li>
+        <li><code>backoffLimit</code> — how many times to retry before marking the Job failed (default: 6)</li>
+        <li><code>activeDeadlineSeconds</code> — hard time limit on the whole Job</li>
+      </ul>
+      <p>Use Jobs for: database migrations before a deployment, one-time data transformations, batch report generation, index rebuilds, sending bulk notifications.</p>
+
+      <h3 class="subsection-title">CronJob — Scheduled Jobs</h3>
+      <p>A <strong>CronJob</strong> creates a Job on a schedule defined in standard cron syntax. It manages Job creation, history retention, and concurrency policy.</p>
+      <p>Key parameters:</p>
+      <ul>
+        <li><code>schedule</code> — standard cron format: <code>"0 2 * * *"</code> = 2 AM daily</li>
+        <li><code>concurrencyPolicy</code> — <code>Allow</code> (default), <code>Forbid</code> (skip if previous job still running), or <code>Replace</code> (kill previous job and start new)</li>
+        <li><code>successfulJobsHistoryLimit</code> — how many completed Jobs to retain (default: 3)</li>
+        <li><code>failedJobsHistoryLimit</code> — how many failed Jobs to retain (default: 1)</li>
+        <li><code>startingDeadlineSeconds</code> — how late a job can start before being considered missed</li>
+      </ul>
+      <p>Use CronJobs for: nightly database backups, hourly cache invalidation, daily report generation, weekly cleanup tasks.</p>
+
+      <!-- ============================================================
+           SECTION 4 — MERMAID DECISION TREE
+           ============================================================ -->
+      <h2 id="decision-tree" class="section-title">Workload Type Decision Tree</h2>
+
+      <p>When designing a new service or batch process for TicketFlow, use this decision tree to select the correct Kubernetes workload type.</p>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    START(["What are you deploying?"])
+
+    START --> Q1{"Does it run<br/>continuously?"}
+
+    Q1 -->|No| Q5{"Does it need<br/>a schedule?"}
+    Q5 -->|Yes| CRONJOB["CronJob<br/>e.g. nightly DB backup"]
+    Q5 -->|No| JOB["Job<br/>e.g. DB migration"]
+
+    Q1 -->|Yes| Q2{"Does it need<br/>to run on<br/>every node?"}
+    Q2 -->|Yes| DAEMONSET["DaemonSet<br/>e.g. Fluentd log collector"]
+
+    Q2 -->|No| Q3{"Is it stateful?<br/>Needs stable identity<br/>or persistent storage?"}
+    Q3 -->|Yes| Q4{"Is ordering &amp;<br/>stable DNS required?"}
+    Q4 -->|Yes| STATEFULSET["StatefulSet<br/>e.g. PostgreSQL, Kafka"]
+    Q4 -->|No| STATEFULSET2["StatefulSet<br/>e.g. Redis standalone"]
+
+    Q3 -->|No| DEPLOYMENT["Deployment<br/>e.g. ticket-service,<br/>user-service, api-gateway"]
+
+    style DEPLOYMENT fill:#22c55e,color:#fff
+    style STATEFULSET fill:#3b82f6,color:#fff
+    style STATEFULSET2 fill:#3b82f6,color:#fff
+    style DAEMONSET fill:#f59e0b,color:#fff
+    style JOB fill:#8b5cf6,color:#fff
+    style CRONJOB fill:#ec4899,color:#fff
+        </div>
+      </div>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Workload</th>
+            <th>Replicas</th>
+            <th>Stable Identity</th>
+            <th>Persistent Storage</th>
+            <th>Scheduling</th>
+            <th>TicketFlow Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Deployment</strong></td>
+            <td>N (any)</td>
+            <td>No (random names)</td>
+            <td>Shared or none</td>
+            <td>Always running</td>
+            <td>ticket-service, user-service, payment-service, api-gateway</td>
+          </tr>
+          <tr>
+            <td><strong>ReplicaSet</strong></td>
+            <td>N (any)</td>
+            <td>No</td>
+            <td>No</td>
+            <td>Always running</td>
+            <td>Managed by Deployment — not used directly</td>
+          </tr>
+          <tr>
+            <td><strong>StatefulSet</strong></td>
+            <td>N (ordered)</td>
+            <td>Yes (pod-0, pod-1)</td>
+            <td>Yes (per-Pod PVC)</td>
+            <td>Always running</td>
+            <td>PostgreSQL, Redis, Kafka, Elasticsearch</td>
+          </tr>
+          <tr>
+            <td><strong>DaemonSet</strong></td>
+            <td>1 per node</td>
+            <td>Partial (node-scoped)</td>
+            <td>HostPath typical</td>
+            <td>Always running</td>
+            <td>Fluentd log shipper, Prometheus Node Exporter</td>
+          </tr>
+          <tr>
+            <td><strong>Job</strong></td>
+            <td>Until success</td>
+            <td>No</td>
+            <td>Optional</td>
+            <td>One-time run</td>
+            <td>DB schema migration, data backfill</td>
+          </tr>
+          <tr>
+            <td><strong>CronJob</strong></td>
+            <td>Per schedule</td>
+            <td>No</td>
+            <td>Optional</td>
+            <td>Cron schedule</td>
+            <td>Nightly DB backup, hourly cache warm-up</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ============================================================
+           SECTION 5 — ENTERPRISE SCENARIO (TICKETFLOW)
+           ============================================================ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow on EKS</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">TicketFlow Kubernetes Architecture</span>
+        <p>TicketFlow runs on AWS EKS in the <code>ticketflow-prod</code> cluster. Here is how each Kubernetes workload type maps to a real service in the platform:</p>
+
+        <p><strong>Deployments (stateless application tier):</strong></p>
+        <ul>
+          <li><code>user-service</code> — Node.js, 3 replicas, rolling update strategy. Handles authentication, JWT issuance, and user profiles. Any replica can serve any request — no local state.</li>
+          <li><code>ticket-service</code> — Spring Boot, 3 replicas, rolling update. Core ticket CRUD. Reads/writes PostgreSQL. Redis for caching ticket lookup results.</li>
+          <li><code>payment-service</code> — Python (FastAPI), 2 replicas. Integrates with Stripe. All transaction state in PostgreSQL. Pods are ephemeral and interchangeable.</li>
+          <li><code>order-service</code> — Go, 4 replicas. High-throughput order ingestion. Stateless, scales horizontally for concert peak loads.</li>
+          <li><code>notification-service</code> — Node.js, 2 replicas. Consumes Kafka events, sends emails/SMS. Idempotent — safe to run multiple replicas.</li>
+          <li><code>api-gateway</code> — NGINX, 2 replicas. Routes traffic to backend services. Config stored in ConfigMap, not in the Pod.</li>
+        </ul>
+
+        <p><strong>StatefulSets (stateful data tier):</strong></p>
+        <ul>
+          <li><code>postgres</code> — 1 primary + 2 read replicas. <code>postgres-0</code> is the primary via stable DNS. <code>postgres-1</code> and <code>postgres-2</code> stream from it. Each has a dedicated 100 GB EBS volume via PVC.</li>
+          <li><code>redis</code> — 3-node Redis Cluster. Nodes identify each other by stable headless service DNS. Cluster state stored in per-Pod PVCs.</li>
+          <li><code>kafka</code> — 3-broker Kafka cluster. Each broker has a stable identity (<code>kafka-0</code>, <code>kafka-1</code>, <code>kafka-2</code>) required for partition leadership and inter-broker replication.</li>
+        </ul>
+
+        <p><strong>DaemonSets (cluster infrastructure):</strong></p>
+        <ul>
+          <li><code>fluentd</code> — Runs on every EKS worker node. Tails <code>/var/log/containers/*.log</code> and ships structured logs to Loki. Without a DaemonSet, nodes added by the Cluster Autoscaler would be dark (no log collection).</li>
+          <li><code>prometheus-node-exporter</code> — Runs on every node. Exposes CPU, memory, disk, and network metrics for Grafana dashboards and alerting rules.</li>
+        </ul>
+
+        <p><strong>Jobs (one-time operations):</strong></p>
+        <ul>
+          <li><code>ticket-service-migration</code> — A Job that runs Flyway to apply PostgreSQL schema migrations. Triggered by the CI/CD pipeline before each Deployment rollout. The Job must complete successfully before the new Deployment replicas start accepting traffic.</li>
+          <li><code>data-backfill-v2</code> — A one-time Job to populate a new <code>ticket_search_index</code> table from 3 years of historical ticket data. Ran with parallelism=4 to process 12M rows in under 2 hours.</li>
+        </ul>
+
+        <p><strong>CronJobs (scheduled operations):</strong></p>
+        <ul>
+          <li><code>postgres-backup</code> — Runs at 02:00 UTC daily. Uses <code>pg_dump</code> to create a compressed backup and uploads to S3. <code>concurrencyPolicy: Forbid</code> prevents overlapping backup runs.</li>
+          <li><code>cache-warmer</code> — Runs every hour at :05. Pre-loads the top-1000 event pages into Redis to prevent cache-miss storms after TTL expiry.</li>
+          <li><code>expired-session-cleanup</code> — Runs at 03:30 UTC daily. Deletes JWT refresh tokens older than 30 days from the PostgreSQL <code>sessions</code> table.</li>
+        </ul>
+      </div>
+
+      <!-- ============================================================
+           SECTION 6 — CODE EXAMPLES
+           ============================================================ -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">Deployment: ticket-service with 3 Replicas</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+  namespace: ticketflow-prod
+  labels:
+    app: ticket-service
+    tier: backend
+    version: v2.5.1
+spec:
+  replicas: 3
+  # Keep last 5 ReplicaSets for rollback history
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: ticket-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Allow 1 extra Pod to be created during the update
+      maxSurge: 1
+      # Never allow more than 1 Pod to be unavailable
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+        version: v2.5.1
+    spec:
+      # Spread Pods across availability zones for resilience
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: ticket-service
+      containers:
+        - name: ticket-service
+          image: nexus.ticketflow.io:5000/ticket-service:v2.5.1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: production
+            - name: DB_HOST
+              value: postgres-0.postgres-headless.ticketflow-prod.svc.cluster.local
+            - name: REDIS_URL
+              value: redis-0.redis-headless.ticketflow-prod.svc.cluster.local:6379
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          # Liveness: restart the container if it hangs
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          # Readiness: only send traffic when the app is fully started
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Rolling Update and Rollback Commands</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Trigger a rolling update by updating the image tag
+kubectl set image deployment/ticket-service \
+  ticket-service=nexus.ticketflow.io:5000/ticket-service:v2.5.2 \
+  -n ticketflow-prod
+
+# Watch the rollout progress in real time
+kubectl rollout status deployment/ticket-service -n ticketflow-prod
+
+# Inspect rollout history — shows all ReplicaSets kept as rollback targets
+kubectl rollout history deployment/ticket-service -n ticketflow-prod
+
+# View the details of a specific revision
+kubectl rollout history deployment/ticket-service --revision=3 -n ticketflow-prod
+
+# Rollback to the previous version instantly (uses old ReplicaSet — no rebuild)
+kubectl rollout undo deployment/ticket-service -n ticketflow-prod
+
+# Rollback to a specific revision
+kubectl rollout undo deployment/ticket-service --to-revision=2 -n ticketflow-prod
+
+# Pause a rollout mid-way to observe behaviour before continuing
+kubectl rollout pause deployment/ticket-service -n ticketflow-prod
+kubectl rollout resume deployment/ticket-service -n ticketflow-prod
+
+# Scale manually (Deployment manages the ReplicaSet for you)
+kubectl scale deployment/ticket-service --replicas=6 -n ticketflow-prod</code></pre>
+      </div>
+
+      <h3 class="subsection-title">StatefulSet: PostgreSQL with Stable Identity</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: ticketflow-prod
+spec:
+  serviceName: "postgres-headless"   # Headless service provides stable DNS per Pod
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgres
+  # Ordered rollout: update pod-2 first, then pod-1, then pod-0
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: nexus.ticketflow.io:5000/postgres:15.4
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: ticketflow
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+  # Each Pod gets its own PVC — survives Pod rescheduling and deletion
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 100Gi
+---
+# Headless Service — gives each Pod a stable DNS name
+# postgres-0.postgres-headless.ticketflow-prod.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: ticketflow-prod
+spec:
+  clusterIP: None    # Headless — no load balancing, direct Pod DNS
+  selector:
+    app: postgres
+  ports:
+    - port: 5432</code></pre>
+      </div>
+
+      <h3 class="subsection-title">DaemonSet: Fluentd Log Collector</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: ticketflow-infra
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      app: fluentd
+  # OnDelete = update Pods only when manually deleted (safer for log agents)
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: fluentd
+    spec:
+      # Run on every node including control plane nodes
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+      # Run as root so Fluentd can read container log files
+      containers:
+        - name: fluentd
+          image: nexus.ticketflow.io:5000/fluentd:v1.16-loki
+          env:
+            - name: LOKI_HOST
+              value: loki.ticketflow-infra.svc.cluster.local
+            - name: LOKI_PORT
+              value: "3100"
+          # HostPath mounts — Fluentd reads the host's container log directory
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "400Mi"
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Job: Database Migration</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ticket-service-migration-v2-5-1
+  namespace: ticketflow-prod
+  labels:
+    app: ticket-service
+    job-type: migration
+spec:
+  # Only 1 successful completion needed
+  completions: 1
+  parallelism: 1
+  # Retry up to 3 times before declaring failure
+  backoffLimit: 3
+  # Kill the job if it hasn't completed in 10 minutes
+  activeDeadlineSeconds: 600
+  # Clean up the Job automatically 1 hour after it finishes
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure    # OnFailure or Never (not Always) for Jobs
+      containers:
+        - name: flyway-migrate
+          image: nexus.ticketflow.io:5000/flyway:9.22
+          args:
+            - migrate
+          env:
+            - name: FLYWAY_URL
+              value: jdbc:postgresql://postgres-0.postgres-headless.ticketflow-prod.svc.cluster.local:5432/ticketflow
+            - name: FLYWAY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: username
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+            - name: FLYWAY_LOCATIONS
+              value: classpath:db/migration
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">CronJob: Nightly PostgreSQL Backup</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: ticketflow-prod
+spec:
+  # Every day at 02:00 UTC
+  schedule: "0 2 * * *"
+  # Do not start a new Job if the previous one is still running
+  concurrencyPolicy: Forbid
+  # How late the job can start before being considered missed (5 minutes)
+  startingDeadlineSeconds: 300
+  # Keep last 3 successful and 2 failed job records for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600    # 1 hour max per backup run
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-backup
+              image: nexus.ticketflow.io:5000/pg-backup:15.4
+              env:
+                - name: PGHOST
+                  value: postgres-0.postgres-headless.ticketflow-prod.svc.cluster.local
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: password
+                - name: S3_BUCKET
+                  value: s3://ticketflow-backups/postgres
+                - name: AWS_REGION
+                  value: eu-west-1
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  pg_dump -Fc ticketflow | aws s3 cp - \
+                    ${S3_BUCKET}/ticketflow_${TIMESTAMP}.dump \
+                    --sse AES256
+                  echo "Backup completed: ticketflow_${TIMESTAMP}.dump"
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"</code></pre>
+      </div>
+
+      <!-- ============================================================
+           SECTION 7 — OS TABS
+           ============================================================ -->
+      <h2 id="kubectl-commands" class="section-title">Workload Management Commands</h2>
+
+      <p>Essential <code>kubectl</code> commands for working with each workload type. Commands are the same across operating systems, but installation differs.</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># ── Deployments ────────────────────────────────────────────────────────
+# List all Deployments in namespace
+kubectl get deployments -n ticketflow-prod
+
+# Describe a Deployment — see events, replicas, image
+kubectl describe deployment ticket-service -n ticketflow-prod
+
+# Watch Pods rolling out in real time
+kubectl get pods -n ticketflow-prod -l app=ticket-service -w
+
+# ── StatefulSets ────────────────────────────────────────────────────────
+# List StatefulSets
+kubectl get statefulsets -n ticketflow-prod
+
+# Check which PVCs were created for the StatefulSet
+kubectl get pvc -n ticketflow-prod -l app=postgres
+
+# ── DaemonSets ──────────────────────────────────────────────────────────
+# List DaemonSets — check DESIRED vs READY counts
+kubectl get daemonsets -n ticketflow-infra
+
+# Confirm Fluentd is running on every node
+kubectl get pods -n ticketflow-infra -l app=fluentd -o wide
+
+# ── Jobs ────────────────────────────────────────────────────────────────
+# Watch a Job until it completes
+kubectl wait --for=condition=complete job/ticket-service-migration-v2-5-1 \
+  -n ticketflow-prod --timeout=600s
+
+# View Job logs
+kubectl logs -n ticketflow-prod -l job-name=ticket-service-migration-v2-5-1
+
+# ── CronJobs ────────────────────────────────────────────────────────────
+# List CronJobs and their last schedule
+kubectl get cronjobs -n ticketflow-prod
+
+# Manually trigger a CronJob immediately (useful for testing)
+kubectl create job --from=cronjob/postgres-backup \
+  postgres-backup-manual-$(date +%s) -n ticketflow-prod</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows" style="display:none;">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># ── Deployments ────────────────────────────────────────────────────────
+# List all Deployments in namespace
+kubectl get deployments -n ticketflow-prod
+
+# Describe a Deployment — see events, replicas, image
+kubectl describe deployment ticket-service -n ticketflow-prod
+
+# Watch Pods rolling out in real time
+kubectl get pods -n ticketflow-prod -l app=ticket-service -w
+
+# ── StatefulSets ────────────────────────────────────────────────────────
+# List StatefulSets
+kubectl get statefulsets -n ticketflow-prod
+
+# Check which PVCs were created for the StatefulSet
+kubectl get pvc -n ticketflow-prod -l app=postgres
+
+# ── DaemonSets ──────────────────────────────────────────────────────────
+# List DaemonSets — check DESIRED vs READY counts
+kubectl get daemonsets -n ticketflow-infra
+
+# Confirm Fluentd is running on every node
+kubectl get pods -n ticketflow-infra -l app=fluentd -o wide
+
+# ── Jobs ────────────────────────────────────────────────────────────────
+# Watch a Job until it completes
+kubectl wait --for=condition=complete job/ticket-service-migration-v2-5-1 `
+  -n ticketflow-prod --timeout=600s
+
+# View Job logs
+kubectl logs -n ticketflow-prod -l job-name=ticket-service-migration-v2-5-1
+
+# ── CronJobs ────────────────────────────────────────────────────────────
+# List CronJobs and their last schedule
+kubectl get cronjobs -n ticketflow-prod
+
+# Manually trigger a CronJob immediately
+$TIMESTAMP = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+kubectl create job --from=cronjob/postgres-backup `
+  "postgres-backup-manual-$TIMESTAMP" -n ticketflow-prod</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SECTION 8 — BEHIND THE SCENES
+           ============================================================ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What exactly happens during a Deployment rolling update?</summary>
+        <div class="answer-content">
+          <p>When you update a Deployment's Pod template (e.g., change the image tag), the Deployment controller executes a precise sequence:</p>
+          <ol>
+            <li><strong>New ReplicaSet created</strong> — The controller creates a new ReplicaSet with the updated Pod spec. It does NOT modify the old ReplicaSet.</li>
+            <li><strong>Scale up new ReplicaSet</strong> — New Pods are created up to the configured <code>maxSurge</code> above the desired replica count. With 3 replicas and <code>maxSurge: 1</code>, 4 Pods exist briefly.</li>
+            <li><strong>Readiness gate</strong> — New Pods must pass their readiness probe before the old Pods are terminated. This is what makes rolling updates safe — traffic is never routed to a Pod that is not ready.</li>
+            <li><strong>Scale down old ReplicaSet</strong> — Once new Pods are ready, old Pods are terminated respecting <code>maxUnavailable</code>. With <code>maxUnavailable: 0</code>, no old Pod is removed until a new one is ready — guaranteeing capacity is never reduced below 3.</li>
+            <li><strong>Repeat</strong> — Steps 2–4 repeat until the old ReplicaSet is at zero replicas.</li>
+            <li><strong>Old ReplicaSet retained</strong> — The old ReplicaSet is set to 0 replicas but kept in etcd. This is what enables instant rollback — <code>kubectl rollout undo</code> simply scales the old RS back up and the new RS back down. No Pod rebuild required.</li>
+          </ol>
+          <p>The entire process is observable via <code>kubectl rollout status</code>. The Deployment controller writes events you can see with <code>kubectl describe deployment</code>. The ReplicaSet history is visible with <code>kubectl get rs</code>.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does StatefulSet stable DNS actually work?</summary>
+        <div class="answer-content">
+          <p>A StatefulSet requires a <strong>headless Service</strong> (a Service with <code>clusterIP: None</code>). A headless Service does not get a cluster IP — instead, Kubernetes DNS creates individual A records for each Pod.</p>
+          <p>For a StatefulSet named <code>postgres</code> in namespace <code>ticketflow-prod</code> with a headless service named <code>postgres-headless</code>:</p>
+          <ul>
+            <li><code>postgres-0.postgres-headless.ticketflow-prod.svc.cluster.local</code> → Pod <code>postgres-0</code>'s IP</li>
+            <li><code>postgres-1.postgres-headless.ticketflow-prod.svc.cluster.local</code> → Pod <code>postgres-1</code>'s IP</li>
+            <li><code>postgres-2.postgres-headless.ticketflow-prod.svc.cluster.local</code> → Pod <code>postgres-2</code>'s IP</li>
+          </ul>
+          <p>When <code>postgres-1</code> is restarted and rescheduled to a different node, Kubernetes updates the DNS record to point to the new IP. Applications using the DNS name always reach the correct Pod. This is how PostgreSQL replicas know how to stream from <code>postgres-0</code> — they use the stable DNS name, not a fragile IP address.</p>
+          <p>The headless service also has a regular A record (<code>postgres-headless.ticketflow-prod.svc.cluster.local</code>) that returns all Pod IPs — useful for clients that implement their own connection routing (like Cassandra or Elasticsearch drivers).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does DaemonSet scheduling interact with node taints?</summary>
+        <div class="answer-content">
+          <p>By default, a DaemonSet schedules Pods on all nodes that are schedulable. Nodes can have <strong>taints</strong> that repel Pods unless the Pod has a matching <strong>toleration</strong>.</p>
+          <p>EKS control plane nodes have the taint <code>node-role.kubernetes.io/control-plane:NoSchedule</code>, which prevents ordinary application Pods from running there. However, a Fluentd DaemonSet deployed to collect all logs should also run on control plane nodes to capture API server and controller logs.</p>
+          <p>By adding the matching toleration to the DaemonSet's Pod template, Fluentd will be scheduled even on tainted nodes. Without the toleration, control plane nodes would be invisible to your logging infrastructure — a common gap in observability setups.</p>
+          <p>DaemonSets also respect node selectors and node affinity rules, allowing you to target a DaemonSet to a specific node pool (e.g., only run the GPU driver agent on nodes with GPU labels).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What is the difference between Job restartPolicy OnFailure vs Never?</summary>
+        <div class="answer-content">
+          <p>Job Pods cannot use <code>restartPolicy: Always</code> (that is reserved for Deployments). They have two options:</p>
+          <ul>
+            <li><strong><code>OnFailure</code></strong> — If the container exits with a non-zero code, Kubernetes restarts it <em>on the same Pod</em>. The Pod stays, the container restarts. Use this when your job is idempotent and can safely retry from wherever it failed — but you want to keep the Pod around for log inspection between retries.</li>
+            <li><strong><code>Never</code></strong> — If the container fails, the Pod is marked as Failed and a <em>new Pod</em> is created for the retry. This is useful for jobs that are not idempotent, or when you want each attempt to start completely fresh (clean filesystem, no leftover temp files). Also useful when debugging — all failed Pod logs are retained separately.</li>
+          </ul>
+          <p>For TicketFlow's Flyway migration job, <code>OnFailure</code> is used because Flyway's migrations are idempotent (already-applied migrations are skipped). For a one-time data backfill that writes to a temp table, <code>Never</code> is safer because each fresh Pod starts with no partial state.</p>
+        </div>
+      </details>
+
+      <!-- ============================================================
+           SECTION 9 — COMMON MISTAKES
+           ============================================================ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Using a StatefulSet for a Stateless Service</span>
+        <p>A developer sees that their payment-service needs to write temporary files during processing. They use a StatefulSet to give each Pod its own PVC, thinking this is "safer." The result: Pods now start in order and roll out one at a time. A 3-Pod update that would take 2 minutes with a Deployment now takes 6 minutes because each Pod waits for the previous to be fully ready. Rollbacks are painfully slow. HPA cannot scale quickly during traffic spikes.</p>
+        <p><strong>Fix:</strong> Stateless services should write temporary files to an <code>emptyDir</code> volume (ephemeral, local to the node, does not require ordering). Use Deployment. Reserve StatefulSet strictly for databases, caches, and message brokers that need stable identity across restarts.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Deleting StatefulSet Pods to "Speed Up" a Rolling Update</span>
+        <p>A DBA sees that the StatefulSet rolling update is waiting for <code>postgres-2</code> to become ready before proceeding to <code>postgres-1</code>. Impatient, they delete the Pod manually to "force" the update. This bypasses the ordered rollout guarantee. <code>postgres-1</code> may now start before <code>postgres-2</code>'s replica stream is established, causing data inconsistency and potentially a split-brain scenario in the PostgreSQL replica set.</p>
+        <p><strong>Fix:</strong> Trust the StatefulSet controller. Ordered rollouts are there for a reason — each database node must confirm it has caught up before the next is updated. If an update is genuinely stuck, investigate why the Pod is not becoming Ready (check <code>kubectl describe pod</code> events and probe failures) rather than forcibly deleting it.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Not Setting a readinessProbe on a Deployment</span>
+        <p>A Spring Boot service takes 25 seconds to start up, run Flyway migrations on startup, and warm its connection pool. Without a readiness probe, Kubernetes considers the Pod ready the moment its container starts — which is immediately. The Service starts routing traffic to the Pod while Spring Boot is still in the middle of initialization. Users get <code>503 Service Unavailable</code> errors during every deployment.</p>
+        <p><strong>Fix:</strong> Always define both a <code>readinessProbe</code> (controls when the Pod receives traffic) and a <code>livenessProbe</code> (controls when the Pod is restarted). For Spring Boot, use the Actuator health endpoints: <code>/actuator/health/readiness</code> and <code>/actuator/health/liveness</code>. Set <code>initialDelaySeconds</code> generously — it is better to wait a little longer than to serve errors.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Using restartPolicy: Always in a Job</span>
+        <p>An engineer writes a Job to migrate data and sets <code>restartPolicy: Always</code> (copying it from a Deployment template). Kubernetes rejects the manifest with a validation error — Jobs do not support <code>Always</code>. This blocks the CI/CD pipeline at 11 PM before a major release.</p>
+        <p><strong>Fix:</strong> Jobs must use <code>restartPolicy: OnFailure</code> or <code>restartPolicy: Never</code>. <code>Always</code> is only valid for Deployments, StatefulSets, and DaemonSets (always-running workloads). Validate your YAML with <code>kubectl apply --dry-run=client -f migration-job.yaml</code> before adding it to the CI pipeline.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: CronJob Creating Duplicate Jobs Due to Missing concurrencyPolicy</span>
+        <p>TicketFlow's nightly PostgreSQL backup CronJob normally takes 20 minutes. One night, a large event sale causes the database to grow and the backup takes 80 minutes. The CronJob fires again at 02:00 the following day while the first backup is still running. Two <code>pg_dump</code> processes compete for I/O on the same database, both slow to a crawl, both eventually exceed their <code>activeDeadlineSeconds</code>, and both fail. The team wakes up to zero successful backups.</p>
+        <p><strong>Fix:</strong> Set <code>concurrencyPolicy: Forbid</code> for any CronJob that must not overlap (backups, reports, migrations). Set an appropriate <code>startingDeadlineSeconds</code> so that a missed run is logged rather than silently skipped. Alert on CronJob failure using a Prometheus rule on the <code>kube_cronjob_status_last_unsuccessful_time</code> metric.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 10 — ARCHITECT NOTES
+           ============================================================ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Choosing the right workload type is not a trivial decision — it has deep implications for operational complexity, upgrade risk, and blast radius during incidents. Here is the mental model I use at TicketFlow scale:</p>
+
+        <p><strong>Default to Deployment.</strong> If your service is stateless — meaning any Pod instance is interchangeable and no data survives Pod deletion — use a Deployment. This covers the vast majority of application-tier services. Deployments give you the safest, most controllable rollout mechanism in Kubernetes with minimal operational burden.</p>
+
+        <p><strong>StatefulSet is not "Deployment with persistence."</strong> StatefulSet is a contract with the cluster: "I need exactly these named Pods to exist, with these exact volumes, in this exact order." The operational cost is significantly higher. Each update must be tested carefully. Volume expansion requires manual steps. Backup strategy is more complex. Only accept this cost when the application genuinely requires it — typically, only data-tier services.</p>
+
+        <p><strong>DaemonSets are infrastructure primitives, not application workloads.</strong> If you find yourself designing an application-tier service that "needs to run on every node," challenge that assumption. The more likely answer is that you need a Deployment with a Service, and the load balancer handles distribution. True DaemonSet use cases are almost exclusively cluster infrastructure: log collection, metrics export, network data plane, and security monitoring.</p>
+
+        <p><strong>Jobs and CronJobs are deployment citizens, not afterthoughts.</strong> Database migrations as Jobs are a superior pattern to running migrations inside application startup code. Startup-based migrations cause cascading failures when multiple Pod replicas start simultaneously and all try to run the same migration. A Job runs once, completes, and the Deployment waits for it (or your CI/CD pipeline gates the Deployment rollout on Job completion). This is the pattern used at TicketFlow and it eliminates an entire class of deployment race conditions.</p>
+
+        <p><strong>The ReplicaSet is the implementation detail, not the interface.</strong> Understanding that Deployments manage ReplicaSets is essential for debugging rollouts and understanding rollback mechanics — but you should never need to create or modify a ReplicaSet directly. If you are doing so, you are operating at the wrong level of abstraction.</p>
+      </div>
+
+      <!-- ============================================================
+           SECTION 11 — PRODUCTION CHECKLIST
+           ============================================================ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>Every Deployment has both <code>readinessProbe</code> and <code>livenessProbe</code> configured with appropriate <code>initialDelaySeconds</code></li>
+        <li>Every container has <code>resources.requests</code> and <code>resources.limits</code> defined for CPU and memory</li>
+        <li>Deployment <code>revisionHistoryLimit</code> is set (5 is a safe default — enough for rollback without bloating etcd)</li>
+        <li>Rolling update strategy uses <code>maxUnavailable: 0</code> for zero-downtime deployments on critical services</li>
+        <li>StatefulSets have a headless Service defined with a matching <code>serviceName</code></li>
+        <li>StatefulSet <code>volumeClaimTemplates</code> uses a StorageClass with appropriate IOPS for the workload (gp3 for PostgreSQL, io2 for Kafka)</li>
+        <li>DaemonSets have tolerations for any tainted nodes that must receive the daemon (control plane, spot, GPU nodes)</li>
+        <li>DaemonSets have resource limits to prevent a runaway logging agent from starving application Pods</li>
+        <li>Jobs set <code>activeDeadlineSeconds</code> and <code>backoffLimit</code> to prevent infinite retries and stuck jobs</li>
+        <li>Jobs use <code>ttlSecondsAfterFinished</code> to auto-clean completed Job objects from etcd</li>
+        <li>CronJobs define <code>concurrencyPolicy: Forbid</code> for any job that must not run overlapping (backups, migrations)</li>
+        <li>CronJob <code>failedJobsHistoryLimit</code> is at least 2 so debugging information is retained after failures</li>
+        <li>Pods spreading across availability zones via <code>topologySpreadConstraints</code> for services requiring high availability</li>
+        <li>All workloads pull images from <code>nexus.ticketflow.io:5000</code> (internal registry) not Docker Hub, to avoid rate limits and ensure image availability</li>
+      </ul>
+
+      <!-- ============================================================
+           SECTION 12 — HANDS-ON LAB
+           ============================================================ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Deploy ticket-service with 3 Replicas</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires a running Kubernetes cluster (minikube, kind, or EKS)</span>
+
+        <p>In this lab you will deploy a simulated <code>ticket-service</code> as a Kubernetes Deployment with 3 replicas, perform a rolling update, and practice a rollback. We use the public <code>nginx</code> image to simulate the service without requiring internal registry access.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Create the Deployment</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create the namespace
+kubectl create namespace ticketflow-lab
+
+# Deploy ticket-service (using nginx to simulate the Spring Boot service)
+kubectl create deployment ticket-service \
+  --image=nginx:1.25-alpine \
+  --replicas=3 \
+  --namespace=ticketflow-lab
+
+# Verify all 3 Pods are Running
+kubectl get pods -n ticketflow-lab -l app=ticket-service
+
+# Expected output: 3 Pods with STATUS=Running
+# NAME                              READY   STATUS    RESTARTS
+# ticket-service-7d9f8b-abc12       1/1     Running   0
+# ticket-service-7d9f8b-def34       1/1     Running   0
+# ticket-service-7d9f8b-ghi56       1/1     Running   0</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Add resource limits and probes via a full manifest</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># Save this as ticket-service-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+  namespace: ticketflow-lab
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: ticket-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+    spec:
+      containers:
+        - name: ticket-service
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10</code></pre>
+        </div>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Apply the full manifest
+kubectl apply -f ticket-service-deployment.yaml
+
+# Verify the update was applied
+kubectl describe deployment ticket-service -n ticketflow-lab | grep -A5 "Strategy"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Perform a rolling update</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Simulate a new version release — update to nginx:1.26-alpine
+kubectl set image deployment/ticket-service \
+  ticket-service=nginx:1.26-alpine \
+  -n ticketflow-lab
+
+# Watch the rolling update happen in real time (open a second terminal)
+kubectl rollout status deployment/ticket-service -n ticketflow-lab
+
+# While rolling, watch Pods change
+kubectl get pods -n ticketflow-lab -l app=ticket-service -w
+
+# After rollout: inspect the ReplicaSet history
+# Notice two ReplicaSets — old (0 replicas) and new (3 replicas)
+kubectl get replicasets -n ticketflow-lab -l app=ticket-service</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Simulate a bad deployment and rollback</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># "Deploy" a bad image (non-existent tag — ImagePullBackOff)
+kubectl set image deployment/ticket-service \
+  ticket-service=nginx:99.99-bad-release \
+  -n ticketflow-lab
+
+# Watch the deployment stall — new Pods will fail with ImagePullBackOff
+kubectl rollout status deployment/ticket-service -n ticketflow-lab
+# (Ctrl+C to interrupt)
+
+kubectl get pods -n ticketflow-lab -l app=ticket-service
+# You will see: old Pods still Running, new Pods in ImagePullBackOff
+
+# Roll back to the last known-good version instantly
+kubectl rollout undo deployment/ticket-service -n ticketflow-lab
+
+# Confirm rollback completed — all 3 Pods running nginx:1.26-alpine again
+kubectl rollout status deployment/ticket-service -n ticketflow-lab
+kubectl get pods -n ticketflow-lab -l app=ticket-service</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Explore the ReplicaSet history</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># View rollout history — 3 revisions logged
+kubectl rollout history deployment/ticket-service -n ticketflow-lab
+
+# View details of revision 2 (the nginx:1.26-alpine version)
+kubectl rollout history deployment/ticket-service --revision=2 -n ticketflow-lab
+
+# List all ReplicaSets — notice revision 3 (bad) has 0/0 Pods
+kubectl get replicasets -n ticketflow-lab -o wide
+
+# Clean up the lab
+kubectl delete namespace ticketflow-lab</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>With <code>maxUnavailable: 0</code>, the old Pods are never terminated before a new Pod passes its readiness probe — you always have 3 serving Pods.</li>
+          <li>The ReplicaSet from the bad deployment has 0 replicas but still exists in Kubernetes — this is the rollback target.</li>
+          <li>Rollback is <em>instant</em> because the old ReplicaSet already has the container spec and does not need to rebuild anything — Kubernetes simply scales it back up.</li>
+          <li>During the bad deployment, the 3 good Pods from the previous revision continued serving traffic. No downtime occurred.</li>
+        </ol>
+      </div>
+
+      <!-- ============================================================
+           SECTION 13 — INTERVIEW QUESTIONS
+           ============================================================ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>The most commonly asked Kubernetes workload questions in senior engineering and DevOps interviews. Click each question to reveal a complete answer.</p>
+
+      <div class="interview-section">
+
+        <details class="interview-q">
+          <summary>Q1: What is the difference between a Deployment and a StatefulSet, and when would you use each?</summary>
+          <div class="answer-content">
+            <p>A <strong>Deployment</strong> manages stateless applications where all Pod replicas are interchangeable. Pods get random names, share no stable identity, and can be scheduled to any node. Rolling updates replace Pods in any order. Deployments are designed for horizontal scaling — adding or removing Pods changes capacity but not behaviour.</p>
+            <p>A <strong>StatefulSet</strong> manages stateful applications that require stable, persistent identity. Pods get ordered, predictable names (<code>app-0</code>, <code>app-1</code>). Each Pod retains its identity across rescheduling via stable DNS names through a headless service. Each Pod gets its own PersistentVolumeClaim that follows it. Pods are created, updated, and deleted in strict order.</p>
+            <p><strong>When to use Deployment:</strong> User-facing APIs, backend microservices, web servers — anything where requests can be served by any instance. All of TicketFlow's application-tier services (ticket-service, user-service, payment-service, api-gateway) are Deployments.</p>
+            <p><strong>When to use StatefulSet:</strong> Databases (PostgreSQL, MySQL, MongoDB), distributed caches (Redis Cluster), message brokers (Kafka, Zookeeper), search engines (Elasticsearch) — any system that maintains cluster membership by stable identity and requires durable per-instance storage.</p>
+            <p><strong>Key signal:</strong> If you need a Pod to reconnect to the same volume after a restart, or other Pods need to address specific instances by name, you need StatefulSet.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q2: Why do you never use a ReplicaSet directly? What does a Deployment add?</summary>
+          <div class="answer-content">
+            <p>A <strong>ReplicaSet</strong> guarantees that N replicas of a Pod are always running. However, it has no concept of updates. If you change the Pod template in a ReplicaSet, existing Pods are not replaced — only new Pods (created to replace crashed Pods) will use the new template. To update running Pods, you must manually delete them, which is error-prone and has no coordination logic.</p>
+            <p>A <strong>Deployment</strong> wraps a ReplicaSet and adds three critical capabilities:</p>
+            <ol>
+              <li><strong>Rolling updates</strong> — when the Pod template changes, the Deployment creates a new ReplicaSet and carefully swaps Pods respecting <code>maxSurge</code> and <code>maxUnavailable</code> constraints. No manual deletion needed. Zero-downtime updates are possible.</li>
+              <li><strong>Rollback</strong> — old ReplicaSets are retained at 0 replicas. <code>kubectl rollout undo</code> instantly scales the old ReplicaSet back up.</li>
+              <li><strong>Update history</strong> — change causes and revision annotations are tracked, enabling auditable deployment history.</li>
+            </ol>
+            <p>In practice, you interact with Deployments, and Kubernetes manages the ReplicaSets on your behalf. Understanding ReplicaSets is important for debugging (they explain why <code>kubectl get rs</code> shows multiple entries with 0 replicas), but creating them directly is an antipattern.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q3: What is a DaemonSet and when would you use one instead of a Deployment?</summary>
+          <div class="answer-content">
+            <p>A <strong>DaemonSet</strong> ensures exactly one Pod runs on every node (or a subset of nodes). Unlike a Deployment — where you specify a replica count and Kubernetes decides which nodes to use — a DaemonSet creates one Pod per matching node, automatically expanding as nodes are added and contracting as nodes are removed.</p>
+            <p>Use a DaemonSet when the workload must interact with <em>every node's local resources</em>:</p>
+            <ul>
+              <li><strong>Log collection</strong> — Fluentd must read <code>/var/log/containers/</code> on every node. You cannot route all log files to a centralized Deployment — the agent must be local to where the files exist.</li>
+              <li><strong>Node metrics</strong> — Prometheus Node Exporter must access host-level hardware metrics. These are available only locally per node.</li>
+              <li><strong>Network plugins</strong> — CNI agents like Calico and Cilium program the Linux kernel network data plane. They must run on every node to handle routing for all Pods on that node.</li>
+              <li><strong>Security agents</strong> — Falco reads eBPF/kernel events. Each node's kernel events are local to that node.</li>
+            </ul>
+            <p>The distinguishing question is: <em>"Does this workload need access to the local node's resources (filesystem, kernel, hardware) or does it serve network requests?"</em> If local resources — DaemonSet. If network-served — Deployment.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q4: How do you perform a zero-downtime rolling update in Kubernetes?</summary>
+          <div class="answer-content">
+            <p>Zero-downtime rolling updates require three things to work together correctly:</p>
+            <ol>
+              <li>
+                <strong>Correct rolling update strategy</strong> — set <code>maxUnavailable: 0</code> in the Deployment spec. This ensures the cluster never has fewer running replicas than the desired count. New Pods are added before old ones are removed.
+              </li>
+              <li>
+                <strong>Readiness probe</strong> — the new Pod must have a readiness probe configured. Kubernetes only removes an old Pod and marks the new one as "ready to receive traffic" after the readiness probe passes. Without a readiness probe, traffic is routed to a Pod that may still be starting up, causing request failures.
+              </li>
+              <li>
+                <strong>Graceful shutdown</strong> — when Kubernetes terminates an old Pod, it sends SIGTERM to the container. The application must handle SIGTERM gracefully: stop accepting new requests, finish in-flight requests, then exit. Spring Boot's actuator supports graceful shutdown via <code>server.shutdown=graceful</code>. Node.js apps need explicit SIGTERM handlers. Without graceful shutdown, in-flight requests are dropped when the Pod is terminated.
+              </li>
+            </ol>
+            <p>Optional but recommended: set <code>terminationGracePeriodSeconds</code> to a value longer than your P99 request latency (e.g., 30 seconds for most web services). This gives the Pod time to drain before Kubernetes forcibly terminates it with SIGKILL.</p>
+            <p>With these three in place, a rolling update looks like: new Pod starts → readiness probe passes → traffic shifts to new Pod → old Pod receives SIGTERM → old Pod finishes in-flight requests → old Pod exits → Kubernetes repeats for the next Pod.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q5: What is a Kubernetes Job and how does it differ from a Deployment? When would you run a database migration as a Job?</summary>
+          <div class="answer-content">
+            <p>A <strong>Job</strong> creates Pods that run to completion. Once the Pod exits successfully, the Job is done. Kubernetes does not restart the Pods after success. This makes Jobs suitable for finite, one-time tasks — the exact opposite of Deployments, which continuously keep Pods running.</p>
+            <p>Key differences:</p>
+            <ul>
+              <li>Deployment Pods use <code>restartPolicy: Always</code> — they are restarted whenever they exit. Job Pods use <code>OnFailure</code> or <code>Never</code> — they are only restarted on failure, and never after success.</li>
+              <li>Deployments run indefinitely. Jobs have a definite end state: <code>Complete</code> or <code>Failed</code>.</li>
+              <li>Jobs track successful completions; Deployments track replica availability.</li>
+            </ul>
+            <p><strong>Why run DB migrations as a Job (not in app startup code):</strong></p>
+            <ol>
+              <li><strong>Race conditions</strong> — if 3 new Deployment Pods start simultaneously and all try to run Flyway migrations, all three contend on the same database schema lock. This can cause deadlocks or double-migration errors. A Job runs once and completes before the Deployment Pods start.</li>
+              <li><strong>Failure isolation</strong> — a failed migration stops the Job and blocks the deployment pipeline. This is exactly what you want. If migrations run in app startup, a failed migration causes the Pod to crash-loop indefinitely while the old version continues serving traffic — making it harder to detect.</li>
+              <li><strong>Auditability</strong> — Job completion is a distinct Kubernetes event. You can gate the Deployment rollout on Job completion with CI/CD logic: <code>kubectl wait --for=condition=complete job/migration</code>.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q6: A StatefulSet Pod is stuck in Pending state. How do you diagnose and resolve it?</summary>
+          <div class="answer-content">
+            <p>A StatefulSet Pod stuck in Pending typically has one of three root causes: scheduling constraints, PVC provisioning failure, or an image pull error. Here is the systematic diagnosis:</p>
+            <p><strong>Step 1: Describe the Pod to read events</strong></p>
+            <div class="code-wrapper" style="margin:0.5rem 0;">
+              <pre><code class="language-bash">kubectl describe pod postgres-2 -n ticketflow-prod
+# Focus on the "Events" section at the bottom</code></pre>
+            </div>
+            <p><strong>Root cause 1 — Insufficient resources:</strong> Event says <code>0/3 nodes are available: 3 Insufficient cpu</code>. The Pod's resource requests exceed what any single node has available. Solution: reduce resource requests, add nodes to the cluster, or check for other Pods with over-provisioned requests occupying capacity.</p>
+            <p><strong>Root cause 2 — PVC not bound:</strong> Event says <code>persistentvolumeclaim "data-postgres-2" not found</code> or the PVC is in Pending state. Check PVC status:</p>
+            <div class="code-wrapper" style="margin:0.5rem 0;">
+              <pre><code class="language-bash">kubectl get pvc data-postgres-2 -n ticketflow-prod
+kubectl describe pvc data-postgres-2 -n ticketflow-prod</code></pre>
+            </div>
+            <p>If the PVC is Pending: the StorageClass may not have a provisioner available, the storage class name is wrong, or the zone where the Pod wants to schedule does not have available EBS capacity. Check <code>kubectl get storageclass</code> and the provisioner logs.</p>
+            <p><strong>Root cause 3 — Taint/toleration mismatch:</strong> Event says <code>node(s) had taints that the pod didn't tolerate</code>. Add the required toleration to the StatefulSet Pod spec for the tainted node pool.</p>
+            <p><strong>Root cause 4 — Topology constraint:</strong> <code>topologySpreadConstraints</code> or <code>podAntiAffinity</code> rules may prevent scheduling when the cluster does not have enough nodes in different zones. Check the constraints and the node topology labels with <code>kubectl get nodes --show-labels</code>.</p>
+            <p>Note: because StatefulSet Pods start in strict order, <code>postgres-2</code> stuck in Pending blocks any future ordered operations (scale-up, rolling updates). Resolving it unblocks the entire StatefulSet.</p>
+          </div>
+        </details>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

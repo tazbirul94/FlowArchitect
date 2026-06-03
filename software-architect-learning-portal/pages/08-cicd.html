@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CI/CD Pipelines — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="08" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Registries &amp; CI/CD → CI/CD Pipelines</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-intermediate">Intermediate</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 2</span>
+        </div>
+        <h1 class="page-title">CI/CD Pipelines</h1>
+        <p class="page-subtitle">Build, test, scan, push, and deploy automatically — from a git push to a running container in Kubernetes without a single manual step.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind CI/CD</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏭 The Assembly Line That Changed Manufacturing</span>
+        <p>In 1913, Henry Ford introduced the moving assembly line at Highland Park. Before it, building a car required a team of skilled workers to assemble the whole vehicle from scratch — each one slightly different, each one taking days. Ford's insight was radical: break the process into repeatable, automated steps. Each station does one thing consistently. The car moves through the line and emerges at the other end fully assembled, every time, in 93 minutes instead of 12 hours.</p>
+        <p>Software deployment was stuck in the pre-assembly-line era for most of the industry's history. A developer would finish a feature, hand it to QA, QA would test it manually for days or weeks, an ops engineer would coordinate a weekend deployment window, manually copy files to servers, cross fingers, and hope nothing broke. Every deployment was a unique, high-risk event.</p>
+        <p>CI/CD is the assembly line for software. Every commit enters the line: it gets compiled, tested, scanned for vulnerabilities, packaged into a container image, pushed to a registry, and deployed to Kubernetes — automatically, in minutes, every single time. The process is identical for every commit. Deployment becomes a non-event. Teams deploy dozens of times per day instead of once per month.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-cicd" class="section-title">What is CI/CD?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>Imagine you run a bakery. Every time a baker finishes a new recipe, you want it tested, packaged, and on the shelf — without the baker having to personally carry it to the store, talk to the packaging team, file paperwork, and schedule shelf space. CI/CD is the conveyor belt system that does all of that automatically the moment the baker says "done". The baker just bakes. The system handles everything else.</p>
+        <p>In software: you write code and push it to git. The CI/CD system automatically compiles it, runs all your tests, builds a Docker image, checks it for security vulnerabilities, pushes it to your container registry, updates your deployment configuration, and triggers a rollout in Kubernetes. You just write code. The pipeline handles the rest.</p>
+      </div>
+
+      <p>CI/CD stands for two related but distinct practices that together form a continuous delivery loop:</p>
+
+      <ul>
+        <li><strong>Continuous Integration (CI)</strong> — Every commit to the shared repository triggers an automated build and test suite. The goal is to detect integration problems early, when they are cheap to fix. "Integration" refers to the act of merging individual developers' work together — CI does this constantly, rather than in a big-bang merge at the end of a sprint.</li>
+        <li><strong>Continuous Delivery (CD)</strong> — Every commit that passes CI is automatically packaged and deployed to a staging environment, and is always in a releasable state. Deployment to production may still require a manual approval gate, but it is a single button click.</li>
+        <li><strong>Continuous Deployment</strong> — A stricter form of CD where every commit that passes all automated checks is automatically deployed to production with no human intervention. Requires extremely high confidence in your test suite and monitoring.</li>
+      </ul>
+
+      <p>The tools we focus on in this page are <strong>GitHub Actions</strong> (YAML-based workflows triggered by git events) and <strong>GitLab CI</strong> (equivalent functionality, different syntax). Both integrate with Nexus, Trivy, Helm, and Argo CD to form the complete TicketFlow pipeline.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="technical-deep-dive" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">The Five Stages of a Production-Grade Pipeline</h3>
+      <p>A mature CI/CD pipeline for a containerized microservice consists of five sequential stages, each acting as a quality gate that must pass before the next stage executes:</p>
+
+      <ol>
+        <li><strong>Build &amp; Test</strong> — Compile the application, run unit tests, run integration tests. Produces a tested binary or JAR. If any test fails, the pipeline halts immediately and the developer is notified. No artifact is produced for a failed build.</li>
+        <li><strong>Container Build</strong> — Build a Docker image from the Dockerfile, using the tested binary from stage 1. Apply semantic version tags based on the git tag or SHA. The image is not yet pushed to a shared registry.</li>
+        <li><strong>Security Scan</strong> — Run Trivy (or Snyk) against the freshly built image. Check for known CVEs in OS packages and application dependencies. If critical or high vulnerabilities are found, fail the pipeline. The image is not pushed until it passes the security gate.</li>
+        <li><strong>Push to Registry</strong> — Push the scanned, tagged image to Nexus at <code>nexus.ticketflow.io:5000</code>. The image now has an immutable address: <code>nexus.ticketflow.io:5000/ticket-service:1.4.2-abc1234</code>.</li>
+        <li><strong>Deploy</strong> — Update the Helm <code>values.yaml</code> with the new image tag and commit it to the GitOps repository. Argo CD detects the change and syncs the Kubernetes cluster to the new desired state. The deployment is triggered by a git commit — not by a direct <code>kubectl apply</code>.</li>
+      </ol>
+
+      <h3 class="subsection-title">Semantic Versioning in CI</h3>
+      <p>Image tags must be deterministic, unique, and informative. The TicketFlow team uses a two-component tag strategy:</p>
+      <ul>
+        <li><strong>Release tags</strong> — When a git tag like <code>v1.4.2</code> is pushed, the pipeline produces <code>nexus.ticketflow.io:5000/ticket-service:1.4.2</code>. This is the production-ready image.</li>
+        <li><strong>Branch/SHA tags</strong> — Every commit to <code>main</code> produces <code>nexus.ticketflow.io:5000/ticket-service:main-abc1234</code> where <code>abc1234</code> is the short git SHA. This is used for staging deployments.</li>
+        <li><strong>Never just <code>:latest</code></strong> — <code>:latest</code> is pushed as a convenience alias only, never used in any Kubernetes manifest or Helm values file. See Common Mistakes below.</li>
+      </ul>
+
+      <h3 class="subsection-title">GitHub Actions Key Concepts</h3>
+      <ul>
+        <li><strong>Workflow</strong> — A YAML file in <code>.github/workflows/</code>. Triggered by events (push, pull_request, schedule, workflow_dispatch). Can contain multiple jobs.</li>
+        <li><strong>Job</strong> — A set of steps that run on the same runner (VM or container). Jobs run in parallel by default; use <code>needs:</code> to express dependencies and enforce sequential execution.</li>
+        <li><strong>Step</strong> — An individual task within a job. Either a shell command (<code>run:</code>) or a pre-built action (<code>uses:</code>). Steps within a job always run sequentially and share the same filesystem.</li>
+        <li><strong>Runner</strong> — The machine that executes jobs. GitHub provides hosted runners (ubuntu-latest, windows-latest, macos-latest). Organizations can run self-hosted runners inside their own infrastructure for security or performance.</li>
+        <li><strong>Secrets</strong> — Encrypted key-value pairs stored at the repository or organization level. Referenced as <code>${{ secrets.MY_SECRET }}</code> in workflows. Never appear in logs.</li>
+        <li><strong>Outputs</strong> — Values produced by one step and consumed by later steps or jobs. Used to pass image tags, version numbers, or build artifacts between stages.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pipeline-diagram" class="section-title">End-to-End Pipeline Flow</h2>
+
+      <p>This diagram shows the complete journey from a developer's <code>git push</code> to a running container in the TicketFlow EKS cluster.</p>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    DEV["👨‍💻 Developer\ngit push / git tag"] --> GH["GitHub\nRepository"]
+
+    GH -->|"workflow trigger"| CI["GitHub Actions\nRunner (ubuntu-latest)"]
+
+    subgraph CI_STAGES["CI Pipeline"]
+      direction TB
+      S1["1. Build &amp; Test\nmvn package -DskipTests=false\nUnit + Integration Tests"]
+      S2["2. Docker Build\ndocker build -t ticket-service:SHA"]
+      S3["3. Trivy Scan\nCVE check — CRITICAL/HIGH = fail"]
+      S4["4. Push to Nexus\nnexus.ticketflow.io:5000/ticket-service:TAG"]
+      S5["5. Update Helm values.yaml\nimage.tag = 1.4.2-abc1234"]
+      S1 --> S2 --> S3 --> S4 --> S5
+    end
+
+    CI --> CI_STAGES
+
+    S5 -->|"git commit to\ngitops repo"| GITOPS["GitOps Repo\nHelm values updated"]
+    GITOPS -->|"detects diff"| ARGO["Argo CD\nReconciliation Loop"]
+    ARGO -->|"kubectl apply"| EKS["AWS EKS\nKubernetes Cluster"]
+    EKS --> POD1["ticket-service\nPod v1.4.2"]
+
+    NEXUS["Nexus Registry\nnexus.ticketflow.io:5000"]
+    S4 --> NEXUS
+    NEXUS -->|"image pull"| EKS
+
+    NOTIFY["Slack / Email\nDeploy notification"]
+    ARGO --> NOTIFY
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow's Before and After</span>
+        <p><strong>Before CI/CD:</strong> The TicketFlow team had 6 microservices. Deploying a new version of <code>ticket-service</code> required: a developer manually building a JAR, writing an email to the ops team with the JAR attached, an ops engineer logging into the server, stopping the old process, copying the JAR, updating a config file by hand, restarting the service, and posting a message in Slack confirming the deploy. This took 2–4 hours per service. Deployments happened every 2 weeks, accumulating 50+ changes per release. Rollback meant reversing all of it manually.</p>
+        <p><strong>After CI/CD:</strong> A developer merges a PR to <code>main</code>. GitHub Actions triggers automatically. In 8 minutes: the Spring Boot app is compiled, all 247 unit tests pass, a Docker image is built, Trivy finds 0 critical CVEs, the image is pushed to Nexus as <code>nexus.ticketflow.io:5000/ticket-service:main-abc1234</code>, the Helm values file is updated with the new tag, Argo CD detects the git change and performs a rolling update on EKS, and Slack posts a deploy notification. The developer is already working on the next feature. Total human effort: writing the code and clicking "Merge".</p>
+        <p>TicketFlow's pipeline covers all 6 services:</p>
+        <ul>
+          <li><strong>user-service</strong> (Node.js) — <code>npm ci &amp;&amp; npm test</code> → Docker build → Trivy → Nexus push</li>
+          <li><strong>ticket-service</strong> (Spring Boot) — <code>mvn package</code> → Docker build → Trivy → Nexus push</li>
+          <li><strong>payment-service</strong> (Python) — <code>pytest --cov</code> → Docker build → Trivy → Nexus push</li>
+          <li><strong>order-service</strong> (Go) — <code>go test ./...</code> → Docker build → Trivy → Nexus push</li>
+          <li><strong>notification-service</strong> (Node.js) — <code>npm ci &amp;&amp; npm test</code> → Docker build → Trivy → Nexus push</li>
+          <li><strong>api-gateway</strong> (NGINX) — config validation → Docker build → Trivy → Nexus push</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Full Pipeline Code</h2>
+
+      <h3 class="subsection-title">GitHub Actions — ticket-service Full Pipeline</h3>
+      <p>This is the complete <code>.github/workflows/ci-cd.yml</code> for TicketFlow's <code>ticket-service</code> (Spring Boot). It implements all five pipeline stages with proper secrets handling, semantic versioning, and Argo CD deployment triggering.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># .github/workflows/ci-cd.yml
+# Full CI/CD pipeline for ticket-service (Spring Boot)
+# Triggers: push to main (staging deploy) and git tags v* (production deploy)
+
+name: ticket-service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'           # e.g. v1.4.2 — triggers production release
+  pull_request:
+    branches: [ main ] # CI only — no deploy on PRs
+
+env:
+  REGISTRY: nexus.ticketflow.io:5000
+  IMAGE_NAME: ticket-service
+  HELM_REPO: ticketflow/gitops   # GitOps repo containing Helm values
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1: Build and Test
+  # Compile the Spring Boot app and run all tests
+  # ─────────────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build &amp; Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for semantic versioning
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven and run tests
+        run: mvn package --no-transfer-progress -B
+
+      - name: Upload test results
+        if: always()  # Upload even if tests fail — helps debug CI failures
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload built JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/ticket-service-*.jar
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2: Determine version tag
+  # Produces a deterministic image tag from git context
+  # ─────────────────────────────────────────────────────────────────
+  version:
+    name: Determine Version
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+      semver: ${{ steps.tag.outputs.semver }}
+      is_release: ${{ steps.tag.outputs.is_release }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            # Production release: strip the leading 'v' from the git tag
+            SEMVER="${GITHUB_REF_NAME#v}"   # e.g. v1.4.2 → 1.4.2
+            IMAGE_TAG="${SEMVER}"
+            IS_RELEASE="true"
+          else
+            # Branch build: branch-name + short SHA
+            BRANCH="${GITHUB_REF_NAME//\//-}"   # replace / with - in branch names
+            IMAGE_TAG="${BRANCH}-${SHORT_SHA}"  # e.g. main-abc1234
+            SEMVER="${IMAGE_TAG}"
+            IS_RELEASE="false"
+          fi
+
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "Computed image tag: ${IMAGE_TAG}"
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 3: Build Docker image, scan, and push to Nexus
+  # ─────────────────────────────────────────────────────────────────
+  docker-build-scan-push:
+    name: Docker Build → Trivy Scan → Push
+    runs-on: ubuntu-latest
+    needs: [ build-and-test, version ]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Download built JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # Buildx enables cache-from/cache-to features for faster builds
+
+      - name: Log in to Nexus registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.NEXUS_USERNAME }}
+          password: ${{ secrets.NEXUS_PASSWORD }}
+
+      - name: Build Docker image (not yet pushed)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false          # Build only — we scan before pushing
+          load: true           # Load into local Docker daemon for Trivy
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha   # Use GitHub Actions cache for layer caching
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.image_tag }}
+          format: 'table'
+          exit-code: '1'         # Fail the pipeline if vulnerabilities found
+          ignore-unfixed: true   # Only fail on CVEs that have a fix available
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy — produce SARIF report for GitHub Security tab
+        if: always()   # Generate report even if scan fails
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.image_tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # Only push after the security scan passes
+      - name: Push image to Nexus
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+
+      - name: Image summary
+        run: |
+          echo "### Docker Image Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ env.IMAGE_NAME }}:${{ needs.version.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Is release:** ${{ needs.version.outputs.is_release }}" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 4: Update Helm values.yaml and trigger Argo CD sync
+  # Updates the GitOps repo — Argo CD picks up the change automatically
+  # ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: Update Helm values &amp; Trigger ArgoCD
+    runs-on: ubuntu-latest
+    needs: [ docker-build-scan-push, version ]
+    # Only deploy on pushes to main or version tags — not on PRs
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.HELM_REPO }}
+          token: ${{ secrets.GITOPS_PAT }}   # Personal Access Token with repo write permission
+          path: gitops
+
+      - name: Update image tag in Helm values
+        run: |
+          cd gitops
+
+          # Determine environment directory based on release type
+          if [[ "${{ needs.version.outputs.is_release }}" == "true" ]]; then
+            VALUES_FILE="environments/production/ticket-service/values.yaml"
+          else
+            VALUES_FILE="environments/staging/ticket-service/values.yaml"
+          fi
+
+          # Update the image tag using yq (YAML processor)
+          # Safer than sed — handles YAML structure correctly
+          yq e '.image.tag = "${{ needs.version.outputs.image_tag }}"' -i "${VALUES_FILE}"
+          yq e '.image.repository = "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"' -i "${VALUES_FILE}"
+
+          echo "Updated ${VALUES_FILE}:"
+          cat "${VALUES_FILE}"
+
+      - name: Commit and push values change
+        run: |
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          git diff --staged --quiet || git commit -m \
+            "chore(deploy): update ticket-service to ${{ needs.version.outputs.image_tag }}
+
+            Triggered by: ${{ github.sha }}
+            Workflow: ${{ github.workflow }}
+            Actor: ${{ github.actor }}"
+
+          git push
+
+      # Optional: trigger Argo CD sync immediately rather than waiting for poll interval
+      - name: Trigger Argo CD sync (optional — Argo CD polls automatically)
+        env:
+          ARGOCD_SERVER: argocd.ticketflow.io
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          # Install argocd CLI
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+
+          # Trigger sync — Argo CD will detect the Helm values change and roll out
+          ./argocd app sync ticket-service \
+            --server "${ARGOCD_SERVER}" \
+            --auth-token "${ARGOCD_AUTH_TOKEN}" \
+            --insecure \
+            --timeout 300
+
+          # Wait for rollout to complete
+          ./argocd app wait ticket-service \
+            --server "${ARGOCD_SERVER}" \
+            --auth-token "${ARGOCD_AUTH_TOKEN}" \
+            --insecure \
+            --health \
+            --timeout 300</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Dockerfile for ticket-service (Spring Boot)</h3>
+      <p>The Dockerfile used in the pipeline above. Uses multi-stage build to keep the final image small and free of build tools.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-dockerfile"># Stage 1: Build (uses Maven + JDK — NOT included in final image)
+FROM eclipse-temurin:17-jdk-alpine AS builder
+WORKDIR /build
+COPY pom.xml .
+COPY src ./src
+# Download dependencies separately so they can be cached as a Docker layer
+RUN mvn dependency:go-offline -B -q
+RUN mvn package -DskipTests -B -q
+
+# Stage 2: Runtime (minimal JRE — no Maven, no JDK, no source code)
+FROM eclipse-temurin:17-jre-alpine AS runtime
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup -g 1001 appgroup &amp;&amp; adduser -u 1001 -G appgroup -D appuser
+
+# Copy only the built JAR from the builder stage
+COPY --from=builder /build/target/ticket-service-*.jar app.jar
+
+# Set ownership before switching user
+RUN chown appuser:appgroup app.jar
+
+USER appuser
+
+# Health check — Kubernetes liveness/readiness probes use this
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]</code></pre>
+      </div>
+
+      <h3 class="subsection-title">GitLab CI Equivalent</h3>
+      <p>For teams using GitLab, this <code>.gitlab-ci.yml</code> implements the same five-stage pipeline with the same security and versioning behaviour.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># .gitlab-ci.yml
+# Full CI/CD pipeline for ticket-service — GitLab CI equivalent of the GitHub Actions workflow
+
+variables:
+  REGISTRY: nexus.ticketflow.io:5000
+  IMAGE_NAME: ticket-service
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+# Cache Maven dependencies between pipeline runs
+cache:
+  key: "$CI_COMMIT_REF_SLUG-maven"
+  paths:
+    - .m2/repository/
+
+stages:
+  - build
+  - docker
+  - scan
+  - push
+  - deploy
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 1: Build and Test
+# ─────────────────────────────────────────────────────────────────
+build-test:
+  stage: build
+  image: eclipse-temurin:17-jdk-alpine
+  script:
+    - mvn package --no-transfer-progress -B
+  artifacts:
+    paths:
+      - target/ticket-service-*.jar
+    expire_in: 1 hour
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 2: Build Docker Image (not pushed yet)
+# ─────────────────────────────────────────────────────────────────
+docker-build:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  needs: [ build-test ]
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    # Compute image tag: semver for git tags, branch-sha for branches
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        IMAGE_TAG="${CI_COMMIT_TAG#v}"
+      else
+        SHORT_SHA=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
+        IMAGE_TAG="${CI_COMMIT_REF_SLUG}-${SHORT_SHA}"
+      fi
+      echo "IMAGE_TAG=${IMAGE_TAG}" &gt; image_tag.env
+      echo "Building image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+    - source image_tag.env
+    - docker build -t "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" .
+    - docker save "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" | gzip &gt; image.tar.gz
+  artifacts:
+    paths:
+      - image.tar.gz
+      - image_tag.env
+    expire_in: 1 hour
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 3: Security Scan with Trivy
+# ─────────────────────────────────────────────────────────────────
+trivy-scan:
+  stage: scan
+  image: aquasec/trivy:latest
+  needs: [ docker-build ]
+  script:
+    - source image_tag.env
+    - docker load &lt; image.tar.gz
+    - |
+      trivy image \
+        --exit-code 1 \
+        --ignore-unfixed \
+        --vuln-type os,library \
+        --severity CRITICAL,HIGH \
+        --format table \
+        "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+  artifacts:
+    paths:
+      - image_tag.env
+    expire_in: 1 hour
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 4: Push to Nexus (only after successful scan)
+# ─────────────────────────────────────────────────────────────────
+push-to-nexus:
+  stage: push
+  image: docker:24
+  services:
+    - docker:24-dind
+  needs: [ trivy-scan ]
+  script:
+    - source image_tag.env
+    - docker load &lt; image.tar.gz
+    - echo "${NEXUS_PASSWORD}" | docker login "${REGISTRY}" -u "${NEXUS_USERNAME}" --password-stdin
+    - docker push "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+    - docker tag "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" "${REGISTRY}/${IMAGE_NAME}:latest"
+    - docker push "${REGISTRY}/${IMAGE_NAME}:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v/
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 5: Update Helm values and trigger ArgoCD
+# ─────────────────────────────────────────────────────────────────
+deploy:
+  stage: deploy
+  image: alpine/git:latest
+  needs: [ push-to-nexus ]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v/
+  script:
+    - source image_tag.env
+    - apk add --no-cache yq curl
+
+    # Clone GitOps repository
+    - git clone "https://oauth2:${GITOPS_TOKEN}@gitlab.com/ticketflow/gitops.git" gitops
+    - cd gitops
+
+    # Determine environment
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        VALUES_FILE="environments/production/ticket-service/values.yaml"
+      else
+        VALUES_FILE="environments/staging/ticket-service/values.yaml"
+      fi
+
+    # Update image tag
+    - yq e ".image.tag = \"${IMAGE_TAG}\"" -i "${VALUES_FILE}"
+    - yq e ".image.repository = \"${REGISTRY}/${IMAGE_NAME}\"" -i "${VALUES_FILE}"
+
+    # Commit and push
+    - git config user.email "gitlab-ci@ticketflow.io"
+    - git config user.name "GitLab CI"
+    - git add .
+    - git diff --staged --quiet || git commit -m "chore(deploy): update ticket-service to ${IMAGE_TAG}"
+    - git push</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Semantic Versioning Helper Script</h3>
+      <p>This reusable shell script encodes the TicketFlow versioning strategy. It can be called from any CI system.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash">#!/usr/bin/env bash
+# scripts/compute-version.sh
+# Outputs a deterministic image tag based on git context.
+# Usage: source scripts/compute-version.sh
+# Exports: IMAGE_TAG, SEMVER, IS_RELEASE
+
+set -euo pipefail
+
+SHORT_SHA=$(git rev-parse --short=7 HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD | tr '/' '-')
+
+# Check if we are on a semver tag (e.g. v1.4.2)
+GIT_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+
+if [[ -n "${GIT_TAG}" ]]; then
+  # Strip leading 'v': v1.4.2 → 1.4.2
+  SEMVER="${GIT_TAG#v}"
+  IMAGE_TAG="${SEMVER}"
+  IS_RELEASE="true"
+elif [[ "${BRANCH}" == "main" ]]; then
+  # Main branch build: append SHA for traceability
+  IMAGE_TAG="main-${SHORT_SHA}"
+  SEMVER="${IMAGE_TAG}"
+  IS_RELEASE="false"
+else
+  # Feature branch: sanitize name and append SHA
+  SAFE_BRANCH=$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]')
+  IMAGE_TAG="${SAFE_BRANCH}-${SHORT_SHA}"
+  SEMVER="${IMAGE_TAG}"
+  IS_RELEASE="false"
+fi
+
+export IMAGE_TAG
+export SEMVER
+export IS_RELEASE
+
+echo "IMAGE_TAG:  ${IMAGE_TAG}"
+echo "SEMVER:     ${SEMVER}"
+echo "IS_RELEASE: ${IS_RELEASE}"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Helm values.yaml (staging) after pipeline update</h3>
+      <p>This is what the <code>ticket-service</code> Helm values file looks like after the deploy job updates it. Argo CD reads this file from the GitOps repository and applies it to the cluster.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># environments/staging/ticket-service/values.yaml
+# Updated automatically by CI/CD pipeline — do not edit manually
+
+replicaCount: 2
+
+image:
+  repository: nexus.ticketflow.io:5000/ticket-service
+  tag: "main-abc1234"        # Set by pipeline — was "main-7f3e891" before this deploy
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: nexus-registry-secret
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+env:
+  SPRING_PROFILES_ACTIVE: staging
+  DB_HOST: postgres-staging.ticketflow.svc.cluster.local
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="local-testing" class="section-title">Running the Pipeline Locally</h2>
+
+      <p>Before pushing to CI, you can validate your pipeline steps locally. The commands differ slightly by OS.</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+          <button class="os-tab-btn" data-tab="act">act (local GitHub Actions)</button>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Build the ticket-service image locally (simulating CI stage 2)
+docker build -t ticket-service:local .
+
+# Run Trivy scan locally (simulating CI stage 3)
+# Install Trivy: https://aquasecurity.github.io/trivy/latest/getting-started/installation/
+trivy image --severity CRITICAL,HIGH ticket-service:local
+
+# Compute version tag using the helper script
+source scripts/compute-version.sh
+echo "Would push as: nexus.ticketflow.io:5000/ticket-service:${IMAGE_TAG}"
+
+# Test the image locally before pushing
+docker run -d -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  --name ticket-service-test \
+  ticket-service:local
+
+# Check health
+curl -s http://localhost:8080/actuator/health | python3 -m json.tool
+
+# Cleanup
+docker stop ticket-service-test &amp;&amp; docker rm ticket-service-test</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Build the ticket-service image locally (PowerShell)
+docker build -t ticket-service:local .
+
+# Run Trivy scan locally on Windows
+# Install Trivy via winget: winget install aquasecurity.trivy
+trivy image --severity CRITICAL,HIGH ticket-service:local
+
+# Compute short SHA (PowerShell equivalent of git rev-parse --short)
+$SHORT_SHA = (git rev-parse --short=7 HEAD)
+$BRANCH = (git rev-parse --abbrev-ref HEAD) -replace '/', '-'
+$IMAGE_TAG = "${BRANCH}-${SHORT_SHA}"
+Write-Host "Would push as: nexus.ticketflow.io:5000/ticket-service:$IMAGE_TAG"
+
+# Test the image locally
+docker run -d -p 8080:8080 `
+  -e SPRING_PROFILES_ACTIVE=local `
+  --name ticket-service-test `
+  ticket-service:local
+
+# Check health (requires curl on Windows 10/11)
+curl -s http://localhost:8080/actuator/health
+
+# Cleanup
+docker stop ticket-service-test; docker rm ticket-service-test</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="act">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># act runs GitHub Actions workflows locally using Docker
+# Install: https://github.com/nektos/act
+# Install on macOS: brew install act
+# Install on Linux: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+# List available workflows and jobs
+act --list
+
+# Run the full CI/CD workflow (dry run first — shows what would execute)
+act push --dryrun
+
+# Run just the build-and-test job
+act push -j build-and-test
+
+# Run with secrets from a local .secrets file
+# Create .secrets file (never commit this file):
+# NEXUS_USERNAME=ci-robot
+# NEXUS_PASSWORD=mysecret
+# GITOPS_PAT=ghp_xxxx
+act push --secret-file .secrets
+
+# Run the workflow that triggers on a version tag
+act push -e &lt;(echo '{"ref": "refs/tags/v1.4.2"}') --secret-file .secrets
+
+# Note: act requires Docker. Some advanced GitHub Actions features
+# (e.g. SARIF upload, GitHub Security tab integration) may not work locally.</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens inside a GitHub Actions runner when the workflow triggers?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>GitHub receives the <code>push</code> event via the git server. It evaluates all workflows in <code>.github/workflows/</code> to find those matching the event and branch. If multiple workflows match, they run in parallel.</li>
+            <li>GitHub allocates a fresh virtual machine from its hosted runner pool (a 2-core, 7 GB RAM Ubuntu VM for <code>ubuntu-latest</code>). This VM is provisioned from a pre-baked image so it starts in seconds. The VM has Docker, git, Node.js, Java, Python, and hundreds of other tools pre-installed.</li>
+            <li>The runner agent (a small Go binary) starts on the VM and registers with GitHub's API. It receives the job's YAML instructions.</li>
+            <li>For each step: if it is a <code>uses:</code> action, the runner downloads the action's code from its repository (or from the actions cache). If it is a <code>run:</code> step, it executes shell commands in a subprocess.</li>
+            <li>Environment variables and secrets are injected into the process environment. Secrets are masked in log output — any log line containing a secret value is replaced with <code>***</code>. This masking is best-effort and not a security boundary; it prevents accidental leakage in logs, not intentional exfiltration.</li>
+            <li>Each step writes its output to a log stream that GitHub captures in real time (visible in the Actions UI). Steps can also write to <code>$GITHUB_OUTPUT</code> to pass values to later steps, or to <code>$GITHUB_STEP_SUMMARY</code> to add Markdown summaries visible in the workflow UI.</li>
+            <li>When all jobs complete (or any required job fails), the runner sends a final status to GitHub, which updates the commit status check, notifies subscribers, and marks pull requests as passing or failing. The VM is wiped and returned to the pool.</li>
+          </ol>
+          <p>The VM is ephemeral — nothing persists between workflow runs. This is why you use <code>actions/cache</code> to save Maven/npm dependencies, and <code>actions/upload-artifact</code> / <code>actions/download-artifact</code> to pass build outputs between jobs within the same workflow run.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Argo CD detect the Helm values change and deploy?</summary>
+        <div class="answer-content">
+          <p>Argo CD operates on the GitOps principle: the desired state of the cluster lives in git. Argo CD continuously reconciles the cluster's actual state against the desired state in the repository.</p>
+          <ol>
+            <li>The CI pipeline's deploy job commits an updated <code>values.yaml</code> to the GitOps repository. The only change is a single line: <code>image.tag: "main-abc1234"</code> → <code>image.tag: "main-def5678"</code>.</li>
+            <li>Argo CD polls the GitOps repository every 3 minutes (default) using a shallow git fetch. It compares the repository's current HEAD SHA against the last-synced SHA stored in its own database.</li>
+            <li>When it detects a new commit, Argo CD renders the Helm chart with the updated values, producing a set of Kubernetes manifests (Deployment, Service, HPA, etc.).</li>
+            <li>It compares these rendered manifests against the live resources in the cluster using a three-way diff: desired (git), live (cluster), last-applied. Resources that differ are flagged as "OutOfSync".</li>
+            <li>If auto-sync is enabled (configured in the Argo CD Application CRD), it immediately applies the diff — patching the Deployment with the new image tag. Kubernetes then initiates a rolling update: new pods are scheduled with the new image, old pods are terminated as new ones become ready.</li>
+            <li>Argo CD monitors the rollout and reports back to its UI. If the new pods fail health checks within the timeout, Argo CD can automatically roll back by syncing to the previous git commit.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Trivy scan work and what does it find?</summary>
+        <div class="answer-content">
+          <p>Trivy is an open-source vulnerability scanner by Aqua Security. It works by:</p>
+          <ol>
+            <li><strong>Extracting layers</strong> — Trivy decompresses the Docker image and extracts each filesystem layer.</li>
+            <li><strong>Inventory collection</strong> — It reads OS package manifests (<code>/var/lib/dpkg/status</code> for Debian/Ubuntu, <code>/lib/apk/db/installed</code> for Alpine), language-specific lock files (<code>pom.xml</code>, <code>package-lock.json</code>, <code>requirements.txt</code>, <code>go.sum</code>), and binary metadata.</li>
+            <li><strong>CVE matching</strong> — It compares the collected package versions against its embedded vulnerability database (updated daily from NVD, GHSA, and OS-specific advisories like Alpine Linux secdb, Debian Security Tracker, Red Hat Security Data).</li>
+            <li><strong>Reporting</strong> — For each match, Trivy reports: CVE ID, severity (CRITICAL/HIGH/MEDIUM/LOW), affected package, installed version, fixed version, and a link to the advisory.</li>
+          </ol>
+          <p>In the TicketFlow pipeline, <code>--ignore-unfixed</code> is set so Trivy only fails on CVEs that have a patch available. This prevents the pipeline from being blocked by vulnerabilities in packages where no upgrade path yet exists — which would make the gate impossible to pass. <code>--exit-code 1</code> causes the pipeline to fail (non-zero exit) if any CRITICAL or HIGH CVE with a fix is found, blocking the image from being pushed to Nexus.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 1: Pushing :latest Only</span>
+        <p>Teams configure their CI pipeline to build and push only <code>ticket-service:latest</code>. This tag is mutable — every new pipeline run overwrites it. After 10 deploys, you have no idea which version is actually running in production, you cannot roll back to a specific previous version, and your Kubernetes deployment history is meaningless (every revision says "latest"). Debugging a production incident becomes "which latest are we on?".</p>
+        <p><strong>Fix:</strong> Always push a deterministic, immutable tag alongside <code>:latest</code>. In TicketFlow: <code>nexus.ticketflow.io:5000/ticket-service:1.4.2</code> for releases and <code>nexus.ticketflow.io:5000/ticket-service:main-abc1234</code> for branch builds. Kubernetes manifests and Helm values reference only the immutable tag. <code>:latest</code> is pushed as a convenience for humans to docker pull quickly, never for automated deployments.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 2: Storing Registry Credentials in the Workflow File</span>
+        <p>Engineers hardcode <code>NEXUS_PASSWORD: mysecretpassword</code> directly in the <code>.github/workflows/ci-cd.yml</code> file or in the Dockerfile. The workflow file is committed to git — which means the password is in every developer's local clone, in every git log, and visible to anyone with repository read access. Rotating the password requires editing the YAML and committing again.</p>
+        <p><strong>Fix:</strong> Use GitHub Secrets (<code>${{ secrets.NEXUS_PASSWORD }}</code>) for sensitive values. Secrets are encrypted at rest, never appear in logs, and can be rotated without touching the workflow file. For organizations, use environment-scoped secrets so staging and production use different credentials with different permissions.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 3: Pushing Before the Security Scan</span>
+        <p>The pipeline builds the Docker image, immediately pushes it to Nexus, and then runs Trivy as a later step. If Trivy finds CRITICAL vulnerabilities and the pipeline fails, the image is already in the registry and could be pulled and deployed by someone who doesn't notice the failed pipeline. The security gate has no teeth.</p>
+        <p><strong>Fix:</strong> Always scan before push. Build the image, load it into the local Docker daemon with <code>push: false, load: true</code>, run Trivy against the local image. Only if Trivy exits with code 0 (no blocking CVEs) do you run a second build-push with <code>push: true</code>. Layer caching means the second build is nearly instantaneous — it reuses all cached layers. This is exactly how the TicketFlow workflow above is structured.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 4: Running kubectl apply Directly From CI</span>
+        <p>The pipeline has a deploy step that runs <code>kubectl apply -f k8s/deployment.yaml</code> with hardcoded cluster credentials stored as CI secrets. This works until you have multiple engineers running pipelines simultaneously (two concurrent deployments race against each other), need to audit what changed and when (git history only shows code changes, not deployment history), or need to roll back (you have to re-run a previous pipeline manually).</p>
+        <p><strong>Fix:</strong> Use GitOps. The pipeline's only deployment action is to commit the new image tag to the GitOps repository. Argo CD handles the actual kubectl operations. This gives you: a full git audit trail of every deployment, automatic drift detection (if someone manually edits the cluster, Argo CD resets it), automatic rollback by reverting a git commit, and no cluster credentials in CI (Argo CD has read access to git, not the other way around).</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 5: No Parallelism — Sequential Jobs for Independent Tasks</span>
+        <p>Teams write a single job with 20 steps running entirely sequentially: build the backend, then build the frontend, then lint the backend, then lint the frontend, then run backend tests, then run frontend tests. Each step waits for the previous one. A pipeline that could complete in 4 minutes takes 15 because parallelisable work is serialised.</p>
+        <p><strong>Fix:</strong> Split independent work into separate jobs and use <code>needs:</code> only to express true dependencies. In GitHub Actions, jobs without <code>needs:</code> run in parallel. In the TicketFlow pipeline: lint, unit tests, and dependency audit can run in parallel in the first stage. Docker build depends only on the build artifact, not on lint. Security scan depends only on the Docker build. This shapes the pipeline as a DAG, not a linear chain, and minimises end-to-end time.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>CI/CD is not a tooling decision — it is an <strong>organizational capability</strong>. The pipeline is the fastest feedback loop your engineering organization has. Every architectural decision you make either shortens or lengthens that loop.</p>
+        <ul>
+          <li><strong>The pipeline is the deployment contract.</strong> When the pipeline passes, the artifact is correct, tested, scanned, and ready to deploy. Every engineer trusts this contract implicitly. When engineers bypass the pipeline (manual deploys, hotfixes applied directly to the cluster), they break this contract and reintroduce the variability CI/CD was built to eliminate.</li>
+          <li><strong>Pipeline speed is a product metric.</strong> A 40-minute pipeline discourages small commits and encourages large batches of changes — exactly the opposite of what you want. Invest engineering time in making the pipeline fast: layer caching, test parallelization, selective test runs on changed modules. Keep the critical path under 10 minutes.</li>
+          <li><strong>Security gates in the pipeline are shift-left security.</strong> Running Trivy in CI means a vulnerability is caught before the image reaches any environment. Running it in production monitoring means you catch it after deployment — after it was exploitable. The earlier in the pipeline a defect is caught, the cheaper it is to fix. This applies to security vulnerabilities, performance regressions, and functional bugs equally.</li>
+          <li><strong>The GitOps boundary matters architecturally.</strong> Separating the CI pipeline (produces artifact) from the CD process (deploys artifact) via a git repository creates an important decoupling. CI doesn't need cluster credentials. Deployments have a full audit trail in git. Rollback is a git revert. Multiple environments (staging, prod-eu, prod-us) can all track the same Helm chart but deploy different image tags, controlled entirely by their respective values files in git.</li>
+        </ul>
+        <p><strong>Trade-off to understand:</strong> Full GitOps with Argo CD introduces a propagation delay. A commit to the GitOps repo does not deploy instantly — Argo CD polls every 3 minutes by default. For incident response where seconds matter, you can trigger an immediate sync via the <code>argocd app sync</code> CLI command or the Argo CD API, but the usual flow involves up to a few minutes of latency. For organizations used to direct <code>kubectl apply</code> in CI, this feels slow — but the audit trail, drift detection, and rollback capability are worth it for production systems.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <p>Before considering your CI/CD pipeline production-ready, verify all of the following:</p>
+
+      <ul class="checklist">
+        <li>Every image is pushed with a deterministic, immutable tag (semver or branch-SHA) — never <code>:latest</code> only</li>
+        <li>Kubernetes manifests and Helm values files reference the immutable tag, never <code>:latest</code></li>
+        <li>Registry credentials stored as CI secrets — never in workflow YAML, Dockerfiles, or code</li>
+        <li>Trivy (or equivalent) security scan runs before image push — pipeline fails on CRITICAL/HIGH fixable CVEs</li>
+        <li>Multi-stage Dockerfile in use — final image contains no build tools, test dependencies, or source code</li>
+        <li>Final image runs as a non-root user (USER instruction in Dockerfile)</li>
+        <li>GitOps pattern in use — deploys happen via git commit to values file, not direct kubectl from CI</li>
+        <li>Argo CD (or Flux) reconciles cluster state — drift is auto-detected and auto-corrected</li>
+        <li>Pipeline has explicit job dependencies (<code>needs:</code>) ensuring scan runs before push, push before deploy</li>
+        <li>Test results and scan reports uploaded as artifacts for post-run analysis</li>
+        <li>Branch protection rules require pipeline to pass before merge to main</li>
+        <li>Pipeline completes in under 10 minutes for the critical path (build → test → scan → push)</li>
+        <li>Rollback procedure documented and tested: revert values.yaml git commit → Argo CD auto-resyncs</li>
+        <li>Slack / PagerDuty notification on deploy failure configured in pipeline</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Full GitHub Actions Workflow for ticket-service</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">🧪 Lab — Requires GitHub account, Docker Desktop, and Trivy installed</span>
+
+        <p>In this lab you will set up the complete CI/CD pipeline for a Spring Boot service, locally simulate each stage, and verify the full flow from code change to image in a registry.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Clone the sample ticket-service</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Use this minimal Spring Boot app for the lab
+git clone https://github.com/spring-projects/spring-petclinic.git ticket-service-lab
+cd ticket-service-lab
+
+# Create the GitHub Actions workflow directory
+mkdir -p .github/workflows</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Create the Dockerfile</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-dockerfile"># Create Dockerfile at the repo root
+cat &gt; Dockerfile &lt;&lt;'EOF'
+FROM eclipse-temurin:17-jdk-alpine AS builder
+WORKDIR /build
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+RUN ./mvnw dependency:go-offline -q
+COPY src ./src
+RUN ./mvnw package -DskipTests -q
+
+FROM eclipse-temurin:17-jre-alpine AS runtime
+WORKDIR /app
+RUN addgroup -g 1001 appgroup &amp;&amp; adduser -u 1001 -G appgroup -D appuser
+COPY --from=builder /build/target/*.jar app.jar
+RUN chown appuser:appgroup app.jar
+USER appuser
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+EXPOSE 8080
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-jar", "app.jar"]
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Build and test the Docker image locally</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Build the image (simulates CI stage 2)
+docker build -t ticket-service:local .
+
+# Verify the image size — should be significantly smaller than JDK-based images
+docker images ticket-service:local
+
+# Run a container to verify the app starts
+docker run -d -p 8080:8080 --name ticket-service-lab ticket-service:local
+
+# Wait for startup and check health
+sleep 30
+curl -s http://localhost:8080/actuator/health 2>/dev/null || curl http://localhost:8080
+
+# Clean up
+docker stop ticket-service-lab &amp;&amp; docker rm ticket-service-lab</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Run Trivy security scan</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Install Trivy if not already installed
+# macOS:   brew install aquasecurity/trivy/trivy
+# Linux:   sudo apt-get install trivy
+# Windows: winget install aquasecurity.trivy
+
+# Run the same scan as the CI pipeline
+trivy image \
+  --severity CRITICAL,HIGH \
+  --ignore-unfixed \
+  --exit-code 0 \
+  ticket-service:local
+
+# Note: exit-code 0 here so we can see results without stopping the lab
+# In CI, exit-code 1 would fail the pipeline on findings
+
+# Check what packages are in the image (helps understand attack surface)
+trivy image --list-all-pkgs ticket-service:local 2&gt;/dev/null | head -40</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Simulate semantic versioning</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Simulate what the CI version computation produces
+
+# For a branch build (most common case)
+SHORT_SHA=$(git rev-parse --short=7 HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD | tr '/' '-')
+IMAGE_TAG="${BRANCH}-${SHORT_SHA}"
+echo "Branch build tag: ${IMAGE_TAG}"
+# Expected output: main-abc1234 (or master-abc1234 depending on branch)
+
+# Simulate tagging a release
+git tag v1.0.0-lab
+GIT_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+' | head -1)
+RELEASE_TAG="${GIT_TAG#v}"
+echo "Release tag: ${RELEASE_TAG}"
+# Expected output: 1.0.0-lab
+
+# Tag the local image with the computed tag
+docker tag ticket-service:local "ticket-service:${IMAGE_TAG}"
+docker images ticket-service</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Create the GitHub Actions workflow file</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a simplified version of the CI/CD workflow for the lab
+# (Full version is in the Code Examples section above)
+cat &gt; .github/workflows/ci-cd.yml &lt;&lt;'EOF'
+name: ticket-service CI/CD (Lab)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  IMAGE_NAME: ticket-service
+
+jobs:
+  build-and-test:
+    name: Build &amp; Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build and test
+        run: ./mvnw package -B --no-transfer-progress
+
+  docker-scan:
+    name: Docker Build &amp; Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - run: ./mvnw package -DskipTests -B -q
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          echo "image_tag=${GITHUB_REF_NAME}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: docker build -t "${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.image_tag }}" .
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.image_tag }}"
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+
+      - name: Report image tag
+        run: echo "Built and scanned ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.image_tag }}"
+EOF
+
+echo "Workflow file created at .github/workflows/ci-cd.yml"
+echo "Push this repo to GitHub and check the Actions tab to see it run."</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>The size difference between the builder stage (JDK + Maven) and the final runtime image (JRE only). Run <code>docker history ticket-service:local</code> to see the layer sizes.</li>
+          <li>What Trivy finds in a base eclipse-temurin:17-jre-alpine image — compare this to findings in a full JDK image or a Debian-based image. Alpine is chosen specifically because its minimal package set reduces the CVE surface.</li>
+          <li>How the semantic versioning script produces different tag formats for branches vs release tags. This is why your registry history is readable: you can tell at a glance which image came from which commit on which branch.</li>
+          <li>The workflow YAML structure: how <code>needs: build-and-test</code> makes the docker-scan job wait for the build, and how the steps within each job share the same filesystem (no artifact upload needed within a job).</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked CI/CD questions in software engineering and DevOps interviews. Click each question to reveal a complete answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is the difference between Continuous Integration, Continuous Delivery, and Continuous Deployment?</summary>
+            <div class="answer-content">
+              <p><strong>Continuous Integration (CI)</strong> is the practice of automatically building and testing every commit to the shared repository. The goal is to detect integration failures early. "Integration" refers to merging multiple developers' work — CI does this continuously rather than in a big-bang merge at the end of a sprint. A CI pipeline typically runs: compile → unit tests → integration tests → code analysis.</p>
+              <p><strong>Continuous Delivery (CD)</strong> extends CI by ensuring that every commit which passes CI is automatically packaged and deployed to a staging environment, making it deployable to production at any time. Deployment to production still requires a manual approval gate — but it is a single button click, not a multi-hour process. The key property: the software is always in a releasable state.</p>
+              <p><strong>Continuous Deployment</strong> is a stricter form of CD where every commit that passes all automated checks is automatically deployed to production with zero human intervention. This requires extremely high confidence in test coverage, monitoring, and automated rollback capabilities. Companies like Netflix and Amazon deploy to production hundreds of times per day using this model.</p>
+              <p><strong>Practical guidance:</strong> Most organizations start with CI, progress to Continuous Delivery, and only adopt full Continuous Deployment once they have strong monitoring and automated rollback in place. Continuous Deployment without good observability is dangerous — you need to know within seconds if a deployment has broken production.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: How do you implement semantic versioning in a CI pipeline? What image tag strategy do you recommend?</summary>
+            <div class="answer-content">
+              <p>Semantic versioning in CI means producing deterministic, meaningful image tags that encode the version, source, and traceability of the artifact.</p>
+              <p><strong>The three-tag strategy used in TicketFlow:</strong></p>
+              <ol>
+                <li><strong>Release tag</strong> — triggered by a git tag like <code>v1.4.2</code>. Strip the <code>v</code> prefix: push <code>nexus.ticketflow.io:5000/ticket-service:1.4.2</code>. This is the production-ready, human-readable semver tag. Created by the release manager tagging a commit.</li>
+                <li><strong>Branch-SHA tag</strong> — triggered by every commit to <code>main</code>. Format: <code>main-abc1234</code> where <code>abc1234</code> is the 7-character git short SHA. Immutable and traceable — you can run <code>git show abc1234</code> to see exactly what code is in the image. Used for staging deployments.</li>
+                <li><strong><code>:latest</code></strong> — pushed as a convenience alias alongside the deterministic tag. Never referenced in any Kubernetes manifest, Helm values file, or automated deployment.</li>
+              </ol>
+              <p><strong>In a GitHub Actions workflow:</strong></p>
+              <pre style="background:#1e1e2e;color:#cdd6f4;padding:0.75rem;border-radius:4px;margin-top:0.5rem;overflow-x:auto;"><code>if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+  IMAGE_TAG="${GITHUB_REF_NAME#v}"    # v1.4.2 → 1.4.2
+else
+  SHORT_SHA=$(git rev-parse --short=7 HEAD)
+  IMAGE_TAG="${GITHUB_REF_NAME}-${SHORT_SHA}"  # main-abc1234
+fi</code></pre>
+              <p>The key property: every image tag must be both unique and traceable. Given a tag, you can answer: "exactly what code is in this image?" A tag like <code>latest</code> or <code>build-42</code> cannot answer that question without external context.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: Why should you never push a Docker image to the registry before running the security scan? How do you structure the pipeline to prevent this?</summary>
+            <div class="answer-content">
+              <p>If the image is pushed to the registry before scanning, the security gate is effectively decorative. A developer or automated process could pull and deploy the image before the scan completes or after it fails. The image exists in the registry as a real, pullable artifact — regardless of subsequent scan results. This is especially risky in organisations with Argo CD auto-sync enabled: a new image tag in the registry could be deployed automatically within minutes.</p>
+              <p><strong>The correct sequence:</strong></p>
+              <ol>
+                <li>Build the image with <code>push: false, load: true</code> — this builds the image locally in the CI runner's Docker daemon without pushing it to any registry.</li>
+                <li>Run Trivy against the local image with <code>exit-code: 1</code> and <code>severity: CRITICAL,HIGH</code>. If Trivy finds blocking vulnerabilities, it exits with code 1, failing the CI step. The pipeline halts. The image has never touched the registry.</li>
+                <li>Only if Trivy exits with code 0 (no blocking CVEs), run a second build-push step with <code>push: true</code>. Layer caching means this second build is nearly instantaneous — it does not re-download or re-compile anything.</li>
+              </ol>
+              <p>In GitHub Actions with <code>docker/build-push-action</code>:</p>
+              <pre style="background:#1e1e2e;color:#cdd6f4;padding:0.75rem;border-radius:4px;margin-top:0.5rem;overflow-x:auto;"><code># Step 1: Build only (no push)
+- uses: docker/build-push-action@v5
+  with:
+    push: false
+    load: true
+    tags: myimage:${{ env.TAG }}
+
+# Step 2: Scan
+- uses: aquasecurity/trivy-action@master
+  with:
+    image-ref: myimage:${{ env.TAG }}
+    exit-code: '1'
+    severity: CRITICAL,HIGH
+
+# Step 3: Push (only reached if scan passed)
+- uses: docker/build-push-action@v5
+  with:
+    push: true
+    tags: myimage:${{ env.TAG }}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is the GitOps pattern and why is it better than running kubectl apply from CI?</summary>
+            <div class="answer-content">
+              <p><strong>GitOps</strong> is a deployment pattern where the desired state of infrastructure and applications is stored entirely in git. A reconciliation agent (Argo CD or Flux) continuously compares the git state to the live cluster state and applies any differences. Deployments happen by committing to git — not by running imperative commands like <code>kubectl apply</code>.</p>
+              <p><strong>Problems with kubectl apply from CI:</strong></p>
+              <ul>
+                <li><strong>Credentials in CI:</strong> The CI system needs cluster credentials with <code>kubectl apply</code> permissions. If CI is compromised, the attacker has direct cluster write access.</li>
+                <li><strong>No audit trail:</strong> Who deployed what and when is recorded in CI logs, not in a queryable git history. Correlating a production incident to a specific deployment requires searching CI logs.</li>
+                <li><strong>No drift detection:</strong> If someone runs <code>kubectl edit</code> directly on the cluster, CI has no knowledge of the drift. The cluster's actual state diverges silently from what CI last applied.</li>
+                <li><strong>Rollback is manual:</strong> To roll back, you must re-run a previous pipeline or manually construct a <code>kubectl rollout undo</code> command.</li>
+              </ul>
+              <p><strong>GitOps advantages:</strong></p>
+              <ul>
+                <li>CI only needs git write access — not cluster access. The security boundary is dramatically smaller.</li>
+                <li>Every deployment is a git commit with author, timestamp, diff, and commit message. Full audit trail.</li>
+                <li>Argo CD continuously detects and corrects drift — unauthorized manual changes are reverted automatically.</li>
+                <li>Rollback is a <code>git revert</code> of the values commit. Argo CD auto-syncs within minutes.</li>
+                <li>Multiple environments (staging, prod-eu, prod-ap) are managed by separate values files in the same git repository — no separate CI logic needed per environment.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: How do you handle secrets in a CI/CD pipeline? What are the anti-patterns?</summary>
+            <div class="answer-content">
+              <p>Secrets in CI/CD pipelines (registry passwords, cloud credentials, API tokens, database connection strings) must never appear in plain text anywhere in the repository, workflow files, or build logs.</p>
+              <p><strong>Anti-patterns to avoid:</strong></p>
+              <ul>
+                <li>Hardcoding secrets in workflow YAML: <code>password: mysecretpassword</code></li>
+                <li>Storing secrets in a <code>.env</code> file committed to git (even if the file is later added to <code>.gitignore</code> — git history still contains it)</li>
+                <li>Printing secrets in build logs: <code>echo $DB_PASSWORD</code> — even with GitHub's log masking, this is fragile</li>
+                <li>Baking secrets into Docker image layers: <code>ENV DB_PASSWORD=secret</code> in Dockerfile — anyone who can pull the image can run <code>docker history</code> and read it</li>
+                <li>Using the same credentials for CI and production with full permissions</li>
+              </ul>
+              <p><strong>Best practices:</strong></p>
+              <ul>
+                <li><strong>GitHub Secrets</strong> — encrypted key-value pairs stored at repo or org level. Referenced as <code>${{ secrets.NEXUS_PASSWORD }}</code>. Never appear in logs. Scoped to specific environments (staging vs production) for separation.</li>
+                <li><strong>OIDC federation</strong> — instead of storing long-lived credentials, configure GitHub Actions to exchange a short-lived GitHub OIDC token for cloud credentials (AWS IAM, GCP Workload Identity). Zero static secrets for cloud access.</li>
+                <li><strong>Least-privilege accounts</strong> — CI credentials should have only the permissions needed: push to one Nexus repository, commit to one git repository. Not admin access.</li>
+                <li><strong>Secret rotation</strong> — rotate CI credentials regularly and on personnel changes. GitHub Secrets allow rotation without changing workflow files.</li>
+                <li><strong>Secret scanning</strong> — enable GitHub's secret scanning to detect accidental secret commits before they land in the main branch.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How do you optimise CI pipeline speed? What are the key techniques for a build that's taking 30+ minutes?</summary>
+            <div class="answer-content">
+              <p>A slow CI pipeline is a tax on every developer, every commit, every hour of the workday. Reducing a 30-minute pipeline to under 10 minutes is one of the highest-leverage engineering investments a team can make. Here are the techniques in rough order of impact:</p>
+              <ol>
+                <li><strong>Parallelise independent jobs.</strong> Identify which jobs do not depend on each other and remove the artificial serialisation. Linting, type checking, unit tests, dependency audits, and Docker builds for independent services can often run simultaneously. In GitHub Actions, any job without <code>needs:</code> runs in parallel.</li>
+                <li><strong>Cache dependencies aggressively.</strong> Maven, npm, pip, and go all download packages on every fresh runner. Cache them: <code>actions/setup-java</code> with <code>cache: maven</code>, or explicit <code>actions/cache</code> keyed on the lock file hash. Restoring from cache takes seconds; downloading from the internet takes minutes.</li>
+                <li><strong>Use Docker layer caching in CI.</strong> Add <code>cache-from: type=gha</code> and <code>cache-to: type=gha,mode=max</code> to <code>docker/build-push-action</code>. This caches Docker layers in GitHub's cache. Unchanged base layers (JRE, OS packages) are restored from cache — only the application layer is rebuilt when code changes.</li>
+                <li><strong>Skip unnecessary work on unchanged code.</strong> In a monorepo, use path filters (<code>on: push: paths:</code> in GitHub Actions) so the ticket-service pipeline only triggers when ticket-service code changes. The notification-service pipeline doesn't need to run when you modify ticket-service.</li>
+                <li><strong>Use faster test strategies.</strong> Run unit tests in parallel (Surefire <code>-T 1C</code> for one thread per CPU core in Maven). Separate fast unit tests (run on every commit) from slow integration tests (run only on main branch merges or nightly).</li>
+                <li><strong>Profile before optimising.</strong> Identify which step is the bottleneck. Is it the test suite? The Docker build? The Trivy scan? Optimising the wrong stage wastes time. GitHub Actions provides step timing data in the workflow run UI.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: Walk me through what happens when a developer pushes a hotfix tag v2.1.1 to production in the TicketFlow system.</summary>
+            <div class="answer-content">
+              <p>This question tests understanding of the full CI/CD loop. Here is the complete sequence for TicketFlow:</p>
+              <ol>
+                <li><strong>Developer action:</strong> Engineer applies the hotfix commit to the <code>main</code> branch, creates an annotated git tag <code>v2.1.1</code> and pushes it: <code>git tag -a v2.1.1 -m "fix: patch payment timeout race condition" &amp;&amp; git push origin v2.1.1</code>.</li>
+                <li><strong>Workflow triggers:</strong> GitHub receives the tag push event. The <code>ci-cd.yml</code> workflow matches the <code>tags: - 'v*'</code> trigger. A fresh Ubuntu runner VM is allocated.</li>
+                <li><strong>Job 1 — Build &amp; Test:</strong> Maven compiles the Spring Boot app and runs all 247 unit tests plus integration tests. If any test fails, the pipeline halts — the hotfix is rejected and does not proceed. Assume all tests pass (30 seconds).</li>
+                <li><strong>Job 2 — Version:</strong> The version computation detects <code>GITHUB_REF = refs/tags/v2.1.1</code>. It strips <code>v</code> to produce <code>IMAGE_TAG=2.1.1</code> and sets <code>IS_RELEASE=true</code>.</li>
+                <li><strong>Job 3 — Docker Build → Scan → Push:</strong> Docker builds the multi-stage image. Trivy scans it — finds 0 CRITICAL/HIGH fixable CVEs. The image is pushed as <code>nexus.ticketflow.io:5000/ticket-service:2.1.1</code> (and <code>:latest</code> as alias).</li>
+                <li><strong>Job 4 — Deploy:</strong> Because <code>IS_RELEASE=true</code>, the job checks out the GitOps repository and modifies <code>environments/production/ticket-service/values.yaml</code>: <code>image.tag: "2.1.1"</code>. It commits with message <code>chore(deploy): update ticket-service to 2.1.1</code> and pushes.</li>
+                <li><strong>Argo CD detection:</strong> Within 3 minutes (or immediately if triggered via sync), Argo CD detects the new commit in the GitOps repo. It renders the updated Helm chart, sees the Deployment's <code>image</code> field has changed from <code>2.1.0</code> to <code>2.1.1</code>, and marks the app as OutOfSync.</li>
+                <li><strong>Kubernetes rolling update:</strong> Argo CD applies the updated Deployment. Kubernetes starts new <code>ticket-service</code> pods with image <code>2.1.1</code> from Nexus. As each new pod passes readiness probes, an old pod is terminated. Zero downtime for end users.</li>
+                <li><strong>Confirmation:</strong> Argo CD transitions the app to Healthy &amp; Synced. A Slack notification is sent: "ticket-service 2.1.1 deployed to production by [engineer] at 14:32 UTC". Total elapsed time from <code>git push</code> to production: approximately 8 minutes.</li>
+              </ol>
+              <p><strong>If something goes wrong:</strong> The engineer runs <code>git revert</code> on the values.yaml commit in the GitOps repo and pushes. Argo CD detects the revert within 3 minutes and rolls back to 2.1.0 — identical process, no special rollback commands needed.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

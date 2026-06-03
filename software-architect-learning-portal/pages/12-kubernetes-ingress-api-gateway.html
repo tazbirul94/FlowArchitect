@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Ingress &amp; API Gateway — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="12" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Advanced → Ingress &amp; API Gateway</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 4</span>
+        </div>
+        <h1 class="page-title">Kubernetes Ingress &amp; API Gateway</h1>
+        <p class="page-subtitle">One load balancer for all your services — path routing, TLS termination, rate limiting, and the difference between Ingress and an API Gateway.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Ingress</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏨 The Hotel Concierge</span>
+        <p>Imagine a large hotel with hundreds of rooms — each room offering a different service: a spa, a restaurant, a gym, a business center, a cinema. Without a concierge, every guest would need a separate entrance door and a separate phone number for each service. "Dial 555-0101 for spa, 555-0102 for restaurant, 555-0103 for gym..." The lobby would need a hundred separate reception desks. The hotel's street frontage would be a wall of doors.</p>
+        <p>Instead, every hotel has a single main entrance. You walk in and speak to the concierge: "I'd like the restaurant." They direct you. "I need the gym." They point the way. One front door, one phone number, one concierge — and they route you to the right service based on what you ask for.</p>
+        <p>Kubernetes Ingress is the concierge. Your cluster has dozens of services — user-service, ticket-service, payment-service, notification-service — each running on private ClusterIP addresses that the outside world cannot reach. Without Ingress, you'd need a separate cloud Load Balancer (at $20–$80/month each) per service. With Ingress, one load balancer handles all external traffic and routes it to the right service based on the URL path or hostname.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-ingress" class="section-title">What Is Kubernetes Ingress?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">Beginner Analogy</span>
+        <p>Think of your Kubernetes cluster as a shopping mall. Each shop (service) is inside the mall — they don't have their own street entrance. The mall has one main entrance, and a directory board inside tells you: "Electronics — Level 1, Food Court — Level 2, Cinema — Level 3." That directory board is the Ingress resource. The mall entrance doors are the Ingress Controller (NGINX). A customer types <code>api.ticketflow.io/tickets</code> in their browser — they reach the one entrance, the directory routes them to ticket-service.</p>
+      </div>
+
+      <p>Kubernetes has three types of Service that expose workloads:</p>
+      <ul>
+        <li><strong>ClusterIP</strong> — only reachable inside the cluster. The default. Used for service-to-service communication.</li>
+        <li><strong>NodePort</strong> — exposes a port on every node's IP. Works but is awkward (random high port numbers) and bypasses the cloud load balancer.</li>
+        <li><strong>LoadBalancer</strong> — provisions a cloud load balancer (AWS ALB/NLB, GCP LB). Works great, but one LB per Service means one cloud LB per microservice. For 10 services: 10 load balancers, 10 external IPs, and a significant monthly bill.</li>
+      </ul>
+      <p><strong>Ingress</strong> is a Kubernetes API object that defines HTTP/HTTPS routing rules. A single cloud LoadBalancer feeds into the Ingress Controller, which then routes to the correct internal ClusterIP service based on hostname and path. Ten services, one load balancer.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="how-ingress-works" class="section-title">How Ingress Works Technically</h2>
+
+      <p>Ingress has two distinct parts that must exist together:</p>
+
+      <h3 class="subsection-title">1. The Ingress Resource</h3>
+      <p>A declarative YAML object stored in the Kubernetes API server. It describes the routing rules: "requests for <code>api.ticketflow.io</code> with path <code>/api/users</code> go to user-service on port 3000." The Ingress resource itself does nothing by itself — it is just configuration data.</p>
+
+      <h3 class="subsection-title">2. The Ingress Controller</h3>
+      <p>A running Pod (or Deployment) inside the cluster that watches for Ingress resources via the Kubernetes API and enforces them. The most common is the <strong>NGINX Ingress Controller</strong> (maintained by the Kubernetes community). When you create or update an Ingress resource, the controller reads it and dynamically updates the NGINX configuration inside its pod — then reloads NGINX to apply the new routing rules.</p>
+      <p>Other controllers include: <strong>Traefik</strong>, <strong>Contour</strong>, <strong>HAProxy Ingress</strong>, and cloud-native controllers like <strong>AWS ALB Ingress Controller</strong> (which provisions an AWS Application Load Balancer directly rather than running NGINX in the cluster).</p>
+
+      <h3 class="subsection-title">Routing types</h3>
+      <ul>
+        <li><strong>Path-based routing</strong> — same host, different paths: <code>/api/users</code> → user-service, <code>/api/tickets</code> → ticket-service, <code>/api/payments</code> → payment-service.</li>
+        <li><strong>Host-based routing</strong> — different subdomains to different services: <code>users.ticketflow.io</code> → user-service, <code>tickets.ticketflow.io</code> → ticket-service. Often used to separate internal APIs from public-facing frontends.</li>
+        <li><strong>TLS termination</strong> — HTTPS is decrypted at the Ingress controller. Backend services communicate unencrypted inside the cluster (or with their own internal TLS). The Ingress resource references a Kubernetes Secret containing the TLS certificate and private key.</li>
+      </ul>
+
+      <h3 class="subsection-title">NGINX Ingress Controller — How it fits in AWS EKS</h3>
+      <p>On EKS, installing the NGINX Ingress Controller creates a Kubernetes Service of type <code>LoadBalancer</code>. AWS provisions an NLB (Network Load Balancer) automatically. All external HTTPS traffic hits the NLB → NLB passes TCP to NGINX pods in the cluster → NGINX evaluates routing rules → forwards to the correct ClusterIP service → reaches your application pods.</p>
+
+      <div class="production-tip">
+        <span class="production-tip-label">TLS with cert-manager</span>
+        <p><strong>cert-manager</strong> is a Kubernetes add-on that automates TLS certificate issuance and renewal. It integrates with Let's Encrypt (free, trusted certificates) via the ACME protocol. You annotate your Ingress resource with <code>cert-manager.io/cluster-issuer: letsencrypt-prod</code> and cert-manager handles the rest: domain validation, certificate request, storing the cert in a Secret, and renewing it 30 days before expiry. Zero manual certificate management.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="ingress-routing-diagram" class="section-title">Ingress Routing Diagram</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    CLIENT["Browser / Mobile App\nHTTPS api.ticketflow.io"] --> NLB["AWS NLB\nExternal Load Balancer\n:443"]
+
+    NLB --> NGINX["NGINX Ingress Controller\nPod(s) — routes by path/host\nTLS terminates here"]
+
+    NGINX -->|"/api/users/*"| US["user-service\nClusterIP:3000\nNode.js"]
+    NGINX -->|"/api/tickets/*"| TS["ticket-service\nClusterIP:8080\nSpring Boot"]
+    NGINX -->|"/api/payments/*"| PS["payment-service\nClusterIP:5000\nPython"]
+    NGINX -->|"/api/orders/*"| OS["order-service\nClusterIP:8090\nGo"]
+    NGINX -->|"/api/notifications/*"| NS["notification-service\nClusterIP:4000\nNode.js"]
+
+    subgraph "Kubernetes Cluster (EKS)"
+      NGINX
+      US
+      TS
+      PS
+      OS
+      NS
+    end
+
+    CM["cert-manager\nauto-renews TLS cert\nLet's Encrypt"] -.->|"stores cert\nin Secret"| NGINX
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">Real-World Example: TicketFlow on AWS EKS</span>
+        <p>TicketFlow's Kubernetes cluster on EKS runs five microservices. Initially the team deployed each service with <code>type: LoadBalancer</code>. After two weeks, the AWS bill showed five NLBs at $20/month each plus $0.008 per LCU-hour — an extra $200/month just for load balancers, before any traffic costs. The operations team also had five different DNS names to manage, five TLS certificates to renew, and five different places to configure rate limiting.</p>
+        <p>The architecture team consolidated to a single NGINX Ingress Controller. One NLB. One wildcard certificate (<code>*.ticketflow.io</code>) managed by cert-manager. Rate limiting configured centrally with annotations. All services reachable under <code>api.ticketflow.io</code> with path-based routing. Cost dropped from $200/month to $20/month for the single NLB.</p>
+        <p>The API Gateway pattern was implemented on top: the existing <code>api-gateway</code> (NGINX) service behind the Ingress handles authentication (JWT validation), request logging, and response transformation — responsibilities too application-specific for the raw Ingress controller.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">Install NGINX Ingress Controller on EKS (Helm)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Add the ingress-nginx Helm repository
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# Install the NGINX Ingress Controller
+# The service.type=LoadBalancer triggers AWS to provision an NLB
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.service.type=LoadBalancer \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+  --set controller.replicaCount=2
+
+# Verify the controller pods are running
+kubectl get pods -n ingress-nginx
+
+# Get the external NLB address (may take 1-2 minutes to provision)
+kubectl get svc -n ingress-nginx ingress-nginx-controller</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Install cert-manager for Automatic TLS</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Install cert-manager via Helm
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set installCRDs=true
+
+# Verify cert-manager pods are running
+kubectl get pods -n cert-manager</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ClusterIssuer — Let's Encrypt Production</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># cluster-issuer.yaml
+# A ClusterIssuer is cluster-scoped (not namespace-scoped)
+# It can issue certificates for any Ingress in any namespace
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # Let's Encrypt production endpoint
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: platform@ticketflow.io
+    privateKeySecretRef:
+      # Secret where ACME account private key is stored
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx  # Use the NGINX Ingress Controller for HTTP-01 challenges</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Path-Based Ingress — All TicketFlow Services</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># ticketflow-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketflow-ingress
+  namespace: production
+  annotations:
+    # Specify which Ingress Controller handles this resource
+    kubernetes.io/ingress.class: "nginx"
+
+    # cert-manager: auto-issue and renew TLS certificate from Let's Encrypt
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+    # Rewrite target: strip the path prefix before forwarding to the service
+    # e.g., /api/users/profile → /profile at user-service
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+    # Rate limiting: 100 requests per minute per IP
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "20"
+
+    # Enable CORS for the frontend SPA
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.ticketflow.io"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+
+    # Proxy timeouts (payment service may need longer)
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+
+    # Upload size limit (for ticket attachments)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+spec:
+  # TLS termination: cert-manager will create/renew this Secret automatically
+  tls:
+    - hosts:
+        - api.ticketflow.io
+      secretName: ticketflow-tls-cert  # cert-manager writes the cert here
+
+  rules:
+    - host: api.ticketflow.io
+      http:
+        paths:
+          # user-service: Node.js — handles auth and user profiles
+          - path: /api/users(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 3000
+
+          # ticket-service: Spring Boot — handles ticket CRUD and search
+          - path: /api/tickets(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: ticket-service
+                port:
+                  number: 8080
+
+          # payment-service: Python — handles payment processing
+          - path: /api/payments(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 5000
+
+          # order-service: Go — handles order lifecycle
+          - path: /api/orders(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8090
+
+          # notification-service: Node.js — handles email/push notifications
+          - path: /api/notifications(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 4000</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Host-Based Ingress (Alternative Pattern)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># ticketflow-host-based-ingress.yaml
+# Different subdomains route to different services
+# Useful for separating internal vs public APIs
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketflow-host-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - users.ticketflow.io
+        - tickets.ticketflow.io
+        - payments.ticketflow.io
+      secretName: ticketflow-wildcard-tls  # wildcard cert covers *.ticketflow.io
+  rules:
+    # Each subdomain maps to its own service
+    - host: users.ticketflow.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 3000
+
+    - host: tickets.ticketflow.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ticket-service
+                port:
+                  number: 8080
+
+    - host: payments.ticketflow.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 5000</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Rate Limiting per Path (Payment Service Stricter)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># payment-service-ingress.yaml
+# Separate Ingress for payment-service with stricter rate limiting
+# Multiple Ingress objects can coexist — the controller merges them
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketflow-payments-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Payment endpoints: much stricter — 10 requests per minute per IP
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    # Whitelist only the payment processor's callback IPs
+    nginx.ingress.kubernetes.io/whitelist-source-range: "185.79.60.0/24,52.218.0.0/16"
+spec:
+  tls:
+    - hosts:
+        - api.ticketflow.io
+      secretName: ticketflow-tls-cert
+  rules:
+    - host: api.ticketflow.io
+      http:
+        paths:
+          - path: /api/payments(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 5000</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="os-tabs" class="section-title">Applying and Verifying Ingress</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Apply all Ingress manifests
+kubectl apply -f cluster-issuer.yaml
+kubectl apply -f ticketflow-ingress.yaml
+
+# Watch the certificate being issued (takes ~60 seconds)
+kubectl get certificate -n production -w
+
+# Verify Ingress is configured correctly
+kubectl describe ingress ticketflow-ingress -n production
+
+# Check the TLS certificate Secret was created
+kubectl get secret ticketflow-tls-cert -n production
+
+# Test routing with curl (once DNS points to the NLB)
+curl -v https://api.ticketflow.io/api/users/health
+curl -v https://api.ticketflow.io/api/tickets/health
+curl -v https://api.ticketflow.io/api/payments/health
+
+# Check NGINX ingress controller logs for routing decisions
+kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=50
+
+# Get Ingress events (useful for debugging)
+kubectl get events -n production --field-selector involvedObject.name=ticketflow-ingress</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Apply all Ingress manifests
+kubectl apply -f cluster-issuer.yaml
+kubectl apply -f ticketflow-ingress.yaml
+
+# Watch the certificate being issued (takes ~60 seconds)
+kubectl get certificate -n production -w
+
+# Verify Ingress is configured correctly
+kubectl describe ingress ticketflow-ingress -n production
+
+# Check the TLS certificate Secret was created
+kubectl get secret ticketflow-tls-cert -n production
+
+# Test routing with Invoke-WebRequest (once DNS points to the NLB)
+Invoke-WebRequest -Uri "https://api.ticketflow.io/api/users/health"
+Invoke-WebRequest -Uri "https://api.ticketflow.io/api/tickets/health"
+
+# Check NGINX ingress controller logs
+kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=50
+
+# Get Ingress events
+kubectl get events -n production --field-selector involvedObject.name=ticketflow-ingress</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when you <code>kubectl apply -f ticketflow-ingress.yaml</code>?</summary>
+        <div class="answer-content">
+          <ol>
+            <li><code>kubectl</code> sends an HTTP PUT to the Kubernetes API server (<code>kube-apiserver</code>). The API server validates the Ingress manifest against the <code>networking.k8s.io/v1</code> schema and writes it to etcd.</li>
+            <li>The NGINX Ingress Controller has a long-running watch (an HTTP long-poll) against the API server for Ingress objects. The API server notifies the controller about the new/updated Ingress.</li>
+            <li>The controller's reconciliation loop runs. It reads all Ingress objects in all namespaces (filtered by its configured class). It builds an in-memory model of all routing rules across all Ingresses.</li>
+            <li>The controller generates a complete <code>nginx.conf</code> from this model. Each <code>location</code> block in nginx.conf corresponds to a path rule in an Ingress resource. TLS configuration references the Kubernetes Secrets containing certificates.</li>
+            <li>The controller checks if the new nginx.conf differs from the current one. If it does, it writes the new config to the NGINX process and sends it a signal to reload gracefully (NGINX reload is hot — in-flight requests complete before workers are replaced).</li>
+            <li>Simultaneously, cert-manager watches for Ingress resources with the <code>cert-manager.io/cluster-issuer</code> annotation. It creates a Certificate object, which triggers the cert-manager controller to request a certificate from Let's Encrypt via HTTP-01 challenge. cert-manager temporarily serves the challenge response through the Ingress controller, Let's Encrypt validates domain ownership, and the certificate is issued and stored in the referenced Kubernetes Secret.</li>
+            <li>NGINX reloads again to pick up the new TLS certificate from the Secret (cert-manager updates the Secret and the controller watches for Secret changes too).</li>
+          </ol>
+          <p>The entire flow from <code>kubectl apply</code> to live HTTPS routing typically completes in under 90 seconds for a new certificate, or under 5 seconds for a routing change on an existing domain.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does Let's Encrypt HTTP-01 challenge work inside a Kubernetes cluster?</summary>
+        <div class="answer-content">
+          <p>The ACME HTTP-01 challenge requires that a file be served at <code>http://yourdomain.com/.well-known/acme-challenge/TOKEN</code>. Let's Encrypt makes an HTTP request to that URL from its servers; if the correct token is returned, it proves you control the domain.</p>
+          <ol>
+            <li>cert-manager creates a temporary Ingress rule: requests for <code>api.ticketflow.io/.well-known/acme-challenge/TOKEN</code> route to a temporary cert-manager pod running an HTTP server that responds with the correct token.</li>
+            <li>cert-manager notifies Let's Encrypt that the challenge is ready.</li>
+            <li>Let's Encrypt's servers make an HTTP request to <code>http://api.ticketflow.io/.well-known/acme-challenge/TOKEN</code>. This request comes in through the NLB → NGINX → temporary cert-manager pod.</li>
+            <li>Let's Encrypt receives the correct token, validates domain ownership, and issues the certificate.</li>
+            <li>cert-manager stores the certificate and private key in the Kubernetes Secret specified in the Ingress TLS configuration.</li>
+            <li>cert-manager deletes the temporary Ingress rule and temporary pod.</li>
+          </ol>
+          <p>For wildcard certificates (<code>*.ticketflow.io</code>), HTTP-01 cannot be used — you must use DNS-01 challenge, which requires cert-manager to create a DNS TXT record. cert-manager has plugins for Route 53 (AWS), Cloud DNS (GCP), and others.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Using pathType: Exact when you need Prefix</span>
+        <p><code>pathType: Exact</code> only matches the exact path string — <code>/api/users</code> matches, but <code>/api/users/123</code> does not. Every request to a user profile returns 404. Most REST APIs need <code>pathType: Prefix</code> to match the base path and all sub-paths.</p>
+        <p><strong>Fix:</strong> Use <code>pathType: Prefix</code> for all API services. Use <code>pathType: Exact</code> only for very specific single-endpoint rules (like webhooks at a fixed URL).</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Forgetting the rewrite-target annotation</span>
+        <p>You configure <code>path: /api/users(/|$)(.*)</code> to route to user-service. But user-service's routes start at <code>/users/...</code>, not <code>/api/users/...</code>. Without <code>rewrite-target: /$2</code>, NGINX forwards the full path <code>/api/users/profile</code> to user-service, which has no route matching <code>/api/users/profile</code> and returns 404.</p>
+        <p><strong>Fix:</strong> Use the capture group pattern <code>(/|$)(.*)</code> in the path and annotate with <code>nginx.ingress.kubernetes.io/rewrite-target: /$2</code>. This strips the prefix before forwarding to the backend service.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Not specifying the Ingress class</span>
+        <p>When multiple Ingress controllers exist in a cluster (e.g., both NGINX and AWS ALB controller), not specifying <code>kubernetes.io/ingress.class</code> annotation or the <code>spec.ingressClassName</code> field means both controllers try to reconcile the same Ingress resource. You get conflicting configurations and unpredictable behaviour — sometimes both controllers handle the rule, sometimes neither does.</p>
+        <p><strong>Fix:</strong> Always set either the annotation (<code>kubernetes.io/ingress.class: "nginx"</code>) or the spec field (<code>spec.ingressClassName: nginx</code>). The spec field is the current Kubernetes-standard approach (annotations are legacy but still widely used).</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Using the letsencrypt-staging issuer in production</span>
+        <p>cert-manager's Let's Encrypt staging issuer (<code>https://acme-staging-v02.api.letsencrypt.org/directory</code>) issues certificates that are not trusted by browsers — you get "Your connection is not private" errors. Teams set up staging for testing and forget to switch to production (<code>https://acme-v02.api.letsencrypt.org/directory</code>) before going live.</p>
+        <p><strong>Fix:</strong> Always create two ClusterIssuers — <code>letsencrypt-staging</code> and <code>letsencrypt-prod</code>. Test with staging first (it has much higher rate limits). Switch to the prod issuer for the final deployment. Delete the staging Secret and certificate to trigger cert-manager to re-issue using the prod issuer.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Expecting Ingress to handle non-HTTP protocols</span>
+        <p>Ingress is designed for HTTP and HTTPS only. Teams try to route gRPC, WebSocket, or database connections through a standard Ingress and wonder why it doesn't work. Standard NGINX Ingress supports WebSocket with <code>nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"</code> and gRPC with <code>nginx.ingress.kubernetes.io/backend-protocol: "GRPC"</code>, but raw TCP/UDP is not supported.</p>
+        <p><strong>Fix:</strong> For gRPC, add the <code>backend-protocol: "GRPC"</code> annotation and configure H2 upstream. For raw TCP (Redis, PostgreSQL), use a separate LoadBalancer Service or configure TCP Services via the NGINX controller's TCP ConfigMap. For WebSocket, set the proxy timeout annotations to prevent connection drops.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — INGRESS VS API GATEWAY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="ingress-vs-api-gateway" class="section-title">Ingress vs API Gateway</h2>
+
+      <p>This is a question architects frequently get wrong. Ingress and an API Gateway are related but distinct concepts — and in production, you often need both.</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>NGINX Ingress Controller</th>
+            <th>API Gateway (Kong, AWS API GW)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Path/host routing</td>
+            <td>Yes</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>TLS termination</td>
+            <td>Yes</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Rate limiting</td>
+            <td>Basic (per IP, global)</td>
+            <td>Advanced (per user, per plan, token bucket)</td>
+          </tr>
+          <tr>
+            <td>Authentication</td>
+            <td>Basic (auth-url annotation)</td>
+            <td>Full (JWT, OAuth2, API keys, mTLS)</td>
+          </tr>
+          <tr>
+            <td>Request transformation</td>
+            <td>Limited (header add/remove)</td>
+            <td>Full (body rewrite, protocol translation)</td>
+          </tr>
+          <tr>
+            <td>Observability</td>
+            <td>Access logs, basic metrics</td>
+            <td>Per-route metrics, distributed tracing, analytics dashboard</td>
+          </tr>
+          <tr>
+            <td>Developer portal</td>
+            <td>No</td>
+            <td>Yes (API documentation, key management)</td>
+          </tr>
+          <tr>
+            <td>Circuit breaking</td>
+            <td>No</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Canary / A/B routing</td>
+            <td>Basic (NGINX annotations)</td>
+            <td>Advanced (weighted routing, header-based)</td>
+          </tr>
+          <tr>
+            <td>Cost</td>
+            <td>Free (open source)</td>
+            <td>Paid (AWS API GW: per-request) or OSS (Kong)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="architect-note">
+        <span class="architect-note-label">When to use which</span>
+        <p><strong>Use Ingress alone</strong> when: you have a small number of internal services, your authentication is handled by the services themselves (e.g., each service validates JWTs), you don't need to expose APIs to external partners, and advanced traffic management isn't required yet.</p>
+        <p><strong>Add an API Gateway</strong> when: you need to expose APIs to third-party developers or external partners (requires developer portal, API key management), you want centralised authentication so no service ever receives unauthenticated requests, you need per-consumer rate limits and quotas, or you need request/response transformation between legacy and new API formats.</p>
+        <p><strong>Common production pattern:</strong> Ingress Controller (NGINX) handles L7 routing and TLS termination at the cluster boundary. Behind it, a dedicated API Gateway service (Kong, Ambassador) handles authentication, authorization, rate limiting, and developer-facing API management. The API Gateway talks to backend services as a regular Kubernetes service-to-service call.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>NGINX Ingress Controller deployed with at least 2 replicas (single pod = single point of failure)</li>
+        <li>cert-manager installed and ClusterIssuer configured for <code>letsencrypt-prod</code></li>
+        <li>All Ingress resources specify <code>spec.ingressClassName</code> or the class annotation</li>
+        <li>TLS configured for all external-facing hosts — no HTTP-only endpoints in production</li>
+        <li>Appropriate <code>pathType</code> selected per route (Prefix vs Exact vs ImplementationSpecific)</li>
+        <li><code>rewrite-target</code> annotation set correctly to avoid double-path prefixes reaching backend services</li>
+        <li>Rate limiting annotations configured on sensitive endpoints (authentication, payments)</li>
+        <li>Proxy timeouts adjusted for services with long-running operations (file upload, report generation)</li>
+        <li>Ingress Controller resource requests and limits set — it handles ALL external traffic</li>
+        <li>Ingress Controller Pods spread across availability zones (PodAntiAffinity or topologySpreadConstraints)</li>
+        <li>Certificate expiry monitoring set up (Prometheus alert on <code>certmanager_certificate_expiration_timestamp_seconds</code>)</li>
+        <li>Let's Encrypt rate limits understood — 50 certificates per registered domain per week; wildcard certs use DNS-01</li>
+        <li>Default backend configured (custom 404/503 pages instead of NGINX default)</li>
+        <li>Access logs forwarded to Loki/ELK for security audit and debugging</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Configure Ingress for TicketFlow</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires: kubectl, Helm, a running Kubernetes cluster (minikube or EKS)</span>
+
+        <p>This lab deploys all five TicketFlow services and configures a single Ingress to route to each of them. You will test path-based routing, verify TLS (using staging certificate), and observe NGINX controller configuration.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Start minikube with Ingress addon (or use EKS)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Local development with minikube
+minikube start --memory=4096 --cpus=2
+
+# Enable the built-in NGINX Ingress addon
+minikube addons enable ingress
+
+# Verify Ingress controller is running
+kubectl get pods -n ingress-nginx
+
+# Get minikube IP (you'll use this for /etc/hosts entries)
+minikube ip</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Deploy stub services for all TicketFlow microservices</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># ticketflow-stubs.yaml
+# Deploy minimal nginx stubs for each service to demonstrate routing
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          # Override nginx default page to identify the service
+          command: ["/bin/sh", "-c"]
+          args: ["echo 'user-service response' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 3000
+      targetPort: 80
+---
+# Repeat the same pattern for ticket-service, payment-service,
+# order-service, and notification-service — changing the name,
+# label, and echo message each time.
+# (Full manifest at: lab/ticketflow-stubs.yaml)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Apply the Ingress resource</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-yaml"># lab-ingress.yaml — simplified (no TLS for local minikube)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketflow-lab-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - host: api.ticketflow.local
+      http:
+        paths:
+          - path: /api/users(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 3000
+          - path: /api/tickets(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: ticket-service
+                port:
+                  number: 8080
+          - path: /api/payments(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 5000
+          - path: /api/orders(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8090
+          - path: /api/notifications(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 4000</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Apply manifests and configure local DNS</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Apply stubs and ingress
+kubectl apply -f ticketflow-stubs.yaml
+kubectl apply -f lab-ingress.yaml
+
+# Wait for pods to be ready
+kubectl get pods -w
+
+# Add local DNS entry pointing to minikube IP
+# Linux/macOS: edit /etc/hosts
+echo "$(minikube ip) api.ticketflow.local" | sudo tee -a /etc/hosts
+
+# Verify the Ingress was created
+kubectl describe ingress ticketflow-lab-ingress</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Test routing to each service</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Test each service route — each should return a different response
+curl http://api.ticketflow.local/api/users/
+# Expected: "user-service response"
+
+curl http://api.ticketflow.local/api/tickets/
+# Expected: "ticket-service response"
+
+curl http://api.ticketflow.local/api/payments/
+# Expected: "payment-service response"
+
+curl http://api.ticketflow.local/api/orders/
+# Expected: "order-service response"
+
+curl http://api.ticketflow.local/api/notifications/
+# Expected: "notification-service response"
+
+# Test that an unknown path returns 404
+curl -I http://api.ticketflow.local/unknown
+
+# Check the NGINX controller's generated config
+# (shows how your Ingress rules translated into nginx.conf)
+kubectl exec -n ingress-nginx \
+  $(kubectl get pod -n ingress-nginx -l app.kubernetes.io/component=controller -o name) \
+  -- cat /etc/nginx/nginx.conf | grep -A5 "location /api"</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How a single Ingress resource routes to five different services based on the URL path.</li>
+          <li>The generated <code>nginx.conf</code> — notice how each Ingress path rule becomes a <code>location</code> block in NGINX config.</li>
+          <li>What happens without the <code>rewrite-target</code> annotation — temporarily remove it, apply again, and curl <code>/api/users/</code> to see the path forwarded with the full prefix.</li>
+          <li>That updating the Ingress (add/remove a path) takes effect in under 10 seconds without any service disruption.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most commonly asked questions about Kubernetes Ingress in DevOps, platform engineering, and software architecture interviews.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is a Kubernetes Ingress, and why would you use it instead of a LoadBalancer Service for each microservice?</summary>
+            <div class="answer-content">
+              <p>A Kubernetes <strong>Ingress</strong> is an API object that manages external HTTP/HTTPS access to services inside a cluster. It defines routing rules — mapping incoming hostnames and URL paths to backend Kubernetes Services.</p>
+              <p>The key reason to use Ingress instead of per-service LoadBalancer is <strong>cost and operational efficiency</strong>. A <code>type: LoadBalancer</code> Service on a cloud provider (AWS, GCP, Azure) provisions a dedicated cloud load balancer for that service. Each cloud load balancer has a fixed monthly cost — on AWS, an NLB costs approximately $20/month plus usage. For 10 microservices, that's $200/month just for load balancers, plus 10 separate DNS names, 10 separate TLS certificates to manage, and 10 places to configure rate limiting.</p>
+              <p>With Ingress, one cloud load balancer feeds into the Ingress Controller (e.g., NGINX running in the cluster). The controller routes to any number of services based on hostname and path. Ten services, one load balancer, one TLS cert, one place to configure cross-cutting concerns like rate limiting.</p>
+              <p><strong>When to still use LoadBalancer directly:</strong> For non-HTTP protocols (gRPC, TCP), for services that need their own dedicated IP for compliance reasons, or for very high-traffic services that would bottleneck through a shared Ingress.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: What is the difference between an Ingress resource and an Ingress Controller?</summary>
+            <div class="answer-content">
+              <p>They are two distinct things that work together — a common source of confusion.</p>
+              <p>An <strong>Ingress resource</strong> is a declarative Kubernetes API object (a YAML file you apply with <code>kubectl apply</code>). It stores routing rules in the Kubernetes API server: "requests for host X with path Y should go to Service Z on port P." By itself, the resource does nothing — it is just configuration data sitting in etcd.</p>
+              <p>An <strong>Ingress Controller</strong> is a running application (a Deployment of pods) inside the cluster that watches for Ingress resources and acts on them. It reads the routing rules from the Ingress objects and configures an underlying proxy (NGINX, Traefik, HAProxy, etc.) to enforce those rules. Without an Ingress Controller installed, creating Ingress resources has zero effect — requests will not be routed anywhere.</p>
+              <p>Kubernetes provides the Ingress API as a standard interface, but it does <em>not</em> provide an Ingress Controller — you must install one yourself. Popular choices: NGINX Ingress Controller (community), Traefik, Contour, and cloud-native controllers like AWS ALB Ingress Controller.</p>
+              <p><strong>Analogy:</strong> The Ingress resource is a letter of instructions ("route flights X to gate A, flights Y to gate B"). The Ingress Controller is the airport staff who read the letter and physically direct passengers to the correct gates.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: How does TLS termination work with Kubernetes Ingress and cert-manager?</summary>
+            <div class="answer-content">
+              <p><strong>TLS termination at the Ingress</strong> means HTTPS is decrypted at the Ingress Controller. Backend services receive plain HTTP (or their own internal TLS if configured). The browser-to-Ingress connection is encrypted; the Ingress-to-service connection is unencrypted inside the cluster (generally acceptable since cluster network traffic is trusted).</p>
+              <p>The Ingress resource references a Kubernetes Secret containing the TLS certificate and private key via the <code>spec.tls</code> field. The NGINX controller reads this Secret and configures NGINX's SSL context with it.</p>
+              <p><strong>cert-manager</strong> automates the lifecycle of this Secret:</p>
+              <ol>
+                <li>You create a <code>ClusterIssuer</code> resource that configures how certificates are obtained (e.g., from Let's Encrypt via ACME).</li>
+                <li>You annotate your Ingress with <code>cert-manager.io/cluster-issuer: "letsencrypt-prod"</code>.</li>
+                <li>cert-manager watches for this annotation and creates a <code>Certificate</code> CRD resource, which triggers it to request a certificate from Let's Encrypt.</li>
+                <li>Let's Encrypt validates domain ownership via HTTP-01 challenge (cert-manager temporarily routes the challenge through NGINX).</li>
+                <li>Let's Encrypt issues the certificate; cert-manager stores it in the referenced Kubernetes Secret.</li>
+                <li>cert-manager monitors the certificate's expiry and renews it automatically 30 days before expiry.</li>
+              </ol>
+              <p>The result: zero manual certificate management. Add a new hostname to your Ingress with the annotation, and the certificate is issued and renewed forever without human intervention.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is the difference between path-based routing and host-based routing in Ingress?</summary>
+            <div class="answer-content">
+              <p><strong>Path-based routing</strong> routes requests based on the URL path, all under the same hostname:</p>
+              <ul>
+                <li><code>api.ticketflow.io/api/users</code> → user-service</li>
+                <li><code>api.ticketflow.io/api/tickets</code> → ticket-service</li>
+                <li><code>api.ticketflow.io/api/payments</code> → payment-service</li>
+              </ul>
+              <p>This uses a single domain, a single TLS certificate, and is the most common pattern for microservice APIs. Backend services must be aware their routes have a path prefix (or you use <code>rewrite-target</code> to strip it).</p>
+              <p><strong>Host-based routing</strong> routes requests based on the HTTP <code>Host</code> header (the subdomain), regardless of path:</p>
+              <ul>
+                <li><code>users.ticketflow.io</code> → user-service (all paths)</li>
+                <li><code>tickets.ticketflow.io</code> → ticket-service (all paths)</li>
+                <li><code>payments.ticketflow.io</code> → payment-service (all paths)</li>
+              </ul>
+              <p>This requires more DNS entries (one per service) and a wildcard certificate (<code>*.ticketflow.io</code>), but avoids path prefix complexity — each service sees requests at its own root path. Useful when services are developed independently and you don't want to coordinate URL prefixes across teams.</p>
+              <p><strong>In practice,</strong> both can be combined: different hostnames for broad separation (internal vs external APIs, versioning like <code>v2.api.ticketflow.io</code>) and path routing within each hostname for the individual services.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What is the difference between an API Gateway and a Kubernetes Ingress Controller?</summary>
+            <div class="answer-content">
+              <p>Both sit at the edge of the system and route external requests to internal services, but they operate at different layers of abstraction and offer different capabilities.</p>
+              <p><strong>Kubernetes Ingress Controller</strong> (e.g., NGINX) is infrastructure-level L7 routing. It handles: URL path and hostname-based routing, TLS termination, basic rate limiting (by IP), basic authentication (via external auth service), and load balancing across service replicas. It is configured via Kubernetes Ingress resources and annotations. Its primary job is traffic routing — it is a proxy, not an application platform.</p>
+              <p><strong>API Gateway</strong> (e.g., Kong, AWS API Gateway, Ambassador) is a higher-level application platform. It handles everything an Ingress does, plus: JWT and OAuth2 authentication (the gateway validates tokens — backend services never receive unauthenticated requests), per-user and per-plan rate limiting (not just per-IP), request/response transformation, API versioning, developer portal with documentation, API key management, circuit breaking, detailed per-route observability with analytics.</p>
+              <p><strong>Common production pattern:</strong> Ingress Controller at the cluster boundary handles TLS and initial routing. An API Gateway pod runs inside the cluster — the Ingress routes <code>/api/*</code> to the API Gateway service, which then handles authentication and routes to individual microservices. This separates infrastructure concerns (Ingress) from API management concerns (Gateway).</p>
+              <p><strong>When Ingress alone is sufficient:</strong> internal microservices not exposed to third parties, where each service handles its own authentication, and where advanced API management features are not needed.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How would you implement rate limiting on Kubernetes Ingress, and what are its limitations?</summary>
+            <div class="answer-content">
+              <p>NGINX Ingress Controller supports rate limiting via annotations on the Ingress resource:</p>
+              <ul>
+                <li><code>nginx.ingress.kubernetes.io/limit-rps: "100"</code> — maximum 100 requests per second per IP address</li>
+                <li><code>nginx.ingress.kubernetes.io/limit-connections: "20"</code> — maximum 20 concurrent connections per IP</li>
+                <li><code>nginx.ingress.kubernetes.io/limit-rpm: "1000"</code> — maximum 1000 requests per minute per IP</li>
+              </ul>
+              <p>These annotations add NGINX <code>limit_req</code> and <code>limit_conn</code> directives to the generated nginx.conf. NGINX enforces the limits using shared memory zones — all worker processes share the rate limiting state.</p>
+              <p><strong>Limitations:</strong></p>
+              <ul>
+                <li><strong>Per-IP only</strong> — you cannot rate limit by user ID, API key, or authenticated identity. One IP can represent thousands of users behind a NAT gateway.</li>
+                <li><strong>Not distributed</strong> — each NGINX pod has its own rate limiting state. With 3 Ingress Controller replicas and a limit of 100 rps, a single client can effectively make 300 rps (100 per pod). The shared memory zone is per-pod, not cluster-wide.</li>
+                <li><strong>No quotas</strong> — you cannot implement "100 requests per hour" burst quotas, only constant rate limits.</li>
+                <li><strong>No per-user plans</strong> — you cannot give premium users 1000 rps and free users 100 rps based on their subscription.</li>
+              </ul>
+              <p><strong>For production rate limiting beyond these basics:</strong> use an API Gateway (Kong has a Rate Limiting plugin that stores counters in Redis, enabling distributed rate limiting across all gateway instances) or implement rate limiting in a custom admission webhook or in the services themselves using token bucket algorithms.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: TicketFlow's payment-service is getting fraudulent traffic. How would you lock it down at the Ingress level?</summary>
+            <div class="answer-content">
+              <p>This is a multi-layered defence problem. At the Ingress level, several controls are available:</p>
+              <p><strong>1. IP allowlisting</strong> — if payment callbacks only come from a known payment processor (e.g., Stripe, PayPal), whitelist their published IP ranges and reject everything else:</p>
+              <div class="code-wrapper">
+                <pre><code class="language-yaml">nginx.ingress.kubernetes.io/whitelist-source-range: "54.187.174.169/32,54.187.205.235/32"</code></pre>
+              </div>
+              <p><strong>2. Strict rate limiting</strong> — reduce the per-IP rate limit aggressively for payment endpoints (10 rps instead of 100 rps for the general API):</p>
+              <div class="code-wrapper">
+                <pre><code class="language-yaml">nginx.ingress.kubernetes.io/limit-rps: "10"
+nginx.ingress.kubernetes.io/limit-connections: "3"</code></pre>
+              </div>
+              <p><strong>3. Separate Ingress resource</strong> — create a dedicated Ingress just for <code>/api/payments</code> with stricter annotations, rather than modifying the shared Ingress resource and risk affecting other services.</p>
+              <p><strong>4. External authentication</strong> — require requests to carry a valid JWT (issued during checkout) using the <code>nginx.ingress.kubernetes.io/auth-url</code> annotation to delegate authentication to an external service. Requests without valid tokens are rejected at the Ingress before reaching payment-service.</p>
+              <p><strong>5. WAF (Web Application Firewall)</strong> — for production fraud prevention, deploy AWS WAF in front of the NLB. WAF provides managed rule sets for common attacks, geographic blocking, and custom rules based on request patterns.</p>
+              <p><strong>Beyond Ingress</strong> (defence in depth): at the network level, use a Kubernetes NetworkPolicy to restrict which pods can call payment-service at all — only order-service should be allowed to initiate payment calls, never external traffic directly to payment-service's ClusterIP.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

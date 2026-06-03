@@ -31,7 +31,7 @@ software-architect-learning-portal/
 ## What needs to be built (in order)
 
 ### Batch 3
-- `pages/00-roadmap.html`
+- `00-roadmap.html`
 - `pages/07-container-registries-nexus.html`
 - `pages/08-cicd.html`
 

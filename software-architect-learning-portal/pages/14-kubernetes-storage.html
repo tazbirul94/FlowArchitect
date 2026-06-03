@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Storage — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="14" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Advanced → Storage</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 4</span>
+        </div>
+        <h1 class="page-title">Kubernetes Storage</h1>
+        <p class="page-subtitle">Master PersistentVolumes, PersistentVolumeClaims, StorageClasses, and stateful workloads so your databases survive pod restarts, node failures, and cluster upgrades.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Kubernetes Storage</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🗄️ The Stateless Dream vs Reality</span>
+        <p>Kubernetes was designed with stateless applications in mind. The original philosophy was elegant: pods are ephemeral, disposable, interchangeable. If a pod dies, the scheduler creates a new one. If a node fails, pods migrate. Nothing should depend on local disk.</p>
+        <p>Then reality arrived. Every serious application has a database. Databases are not stateless — they are the opposite. PostgreSQL stores your tickets. Redis caches your sessions. Elasticsearch indexes your events. These services cannot simply be restarted and pointed at an empty disk. They need persistent storage that outlives any individual pod, survives node failures, and can be backed up, expanded, and migrated.</p>
+        <p>Kubernetes solved this with a three-layer abstraction: <strong>StorageClass</strong> (defines how storage is provisioned), <strong>PersistentVolume</strong> (the actual storage resource), and <strong>PersistentVolumeClaim</strong> (the application's request for storage). This decoupling lets developers ask for "10 GB of fast SSD storage" without knowing or caring whether the underlying platform is AWS EBS, NFS, Ceph, or a local SSD. The platform team provisions it; the application team consumes it.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="beginner-explanation" class="section-title">Storage in Plain English</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🏠 Beginner Analogy: Renting Storage Units</span>
+        <p>Think of Kubernetes storage like a storage facility business:</p>
+        <ul>
+          <li><strong>StorageClass</strong> is like a type of unit the facility offers — climate-controlled (fast SSD), standard (magnetic disk), shared access (NFS). It defines the tier and how units are built.</li>
+          <li><strong>PersistentVolume (PV)</strong> is an actual storage unit — a 10m x 10m room, physically built, with a lock on the door. It exists independently of any tenant.</li>
+          <li><strong>PersistentVolumeClaim (PVC)</strong> is your rental contract — "I need a climate-controlled unit that's at least 50 sq ft." The facility matches you to an available unit (or builds a new one if dynamic provisioning is enabled) and hands you the key.</li>
+          <li><strong>Your pod</strong> is the tenant. It uses the unit (mounts the PVC as a directory) without knowing or caring who built it or what type of lock is on the door.</li>
+        </ul>
+        <p>When you leave (pod is deleted), your stuff stays in the unit (data is preserved). The rental contract (PVC) can be re-attached to a new pod. This is how your database survives a pod restart.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="technical-explanation" class="section-title">Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">Volumes vs PersistentVolumes: What Is the Difference?</h3>
+      <p>Kubernetes has two distinct storage concepts that are frequently confused:</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>Volume</th>
+            <th>PersistentVolume (PV)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Lifecycle</td>
+            <td>Tied to the Pod — dies when the pod dies</td>
+            <td>Independent of any Pod — survives pod deletion</td>
+          </tr>
+          <tr>
+            <td>Defined in</td>
+            <td>Pod spec directly (inline)</td>
+            <td>Separate cluster-level resource</td>
+          </tr>
+          <tr>
+            <td>Claimed by</td>
+            <td>Pod directly</td>
+            <td>PersistentVolumeClaim (PVC), which pod references</td>
+          </tr>
+          <tr>
+            <td>Portability</td>
+            <td>Tied to the pod definition</td>
+            <td>Decoupled from consumer — reusable</td>
+          </tr>
+          <tr>
+            <td>Use case</td>
+            <td>Shared temp space between containers in a pod (emptyDir), config injection (configMap, secret)</td>
+            <td>Databases, file stores, anything needing durable persistence</td>
+          </tr>
+          <tr>
+            <td>Examples</td>
+            <td>emptyDir, configMap, secret, hostPath</td>
+            <td>AWS EBS, EFS, GCE PD, NFS, Ceph RBD, local PV</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">PVC Lifecycle: The Four Phases</h3>
+      <p>A PVC moves through distinct phases from creation to release:</p>
+      <ul>
+        <li><strong>Pending</strong> — The PVC has been created but no matching PV has been bound yet. The cluster is searching for an available PV that satisfies the claim (correct size, access mode, StorageClass). With dynamic provisioning, this phase is brief — the StorageClass creates a PV on demand.</li>
+        <li><strong>Bound</strong> — A matching PV has been found and bound to the PVC. The relationship is exclusive (for RWO volumes): one PV binds to exactly one PVC and vice versa. The pod can now mount the PVC.</li>
+        <li><strong>Released</strong> — The PVC has been deleted, but the PV still exists. The PV's data is intact. The PV is not yet available for a new claim because it may contain sensitive data from the previous tenant.</li>
+        <li><strong>Failed</strong> — Automatic reclaim of the PV has failed. Requires manual intervention.</li>
+      </ul>
+
+      <h3 class="subsection-title">Access Modes</h3>
+      <p>Access modes define how many nodes can mount the volume simultaneously and with what permissions:</p>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Abbreviation</th>
+            <th>Description</th>
+            <th>Typical Backend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ReadWriteOnce</td>
+            <td>RWO</td>
+            <td>One node can mount read-write. Multiple pods on the same node can access it.</td>
+            <td>AWS EBS, GCE PD, Azure Disk</td>
+          </tr>
+          <tr>
+            <td>ReadOnlyMany</td>
+            <td>ROX</td>
+            <td>Many nodes can mount read-only simultaneously.</td>
+            <td>NFS, CephFS, EFS</td>
+          </tr>
+          <tr>
+            <td>ReadWriteMany</td>
+            <td>RWX</td>
+            <td>Many nodes can mount read-write simultaneously.</td>
+            <td>AWS EFS, NFS, CephFS, Azure Files</td>
+          </tr>
+          <tr>
+            <td>ReadWriteOncePod</td>
+            <td>RWOP</td>
+            <td>Only one specific pod can mount read-write (Kubernetes 1.22+).</td>
+            <td>EBS CSI driver</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">StorageClass and Dynamic Provisioning</h3>
+      <p>Before StorageClasses, administrators manually pre-provisioned PersistentVolumes — a painful, slow, error-prone process. Dynamic provisioning changed everything: when a PVC is created requesting a StorageClass, Kubernetes automatically calls the StorageClass's provisioner to create a real storage volume (e.g., an AWS EBS disk) and a corresponding PV — all without human intervention.</p>
+      <p>Key StorageClass parameters:</p>
+      <ul>
+        <li><strong>provisioner</strong> — the plugin that creates the storage (e.g., <code>ebs.csi.aws.com</code>, <code>efs.csi.aws.com</code>, <code>disk.csi.azure.com</code>)</li>
+        <li><strong>reclaimPolicy</strong> — what happens to the PV when the PVC is deleted: <code>Delete</code> (destroys the underlying volume — risky for production data) or <code>Retain</code> (keeps the volume for manual cleanup)</li>
+        <li><strong>volumeBindingMode</strong> — <code>Immediate</code> (PV created as soon as PVC is created) or <code>WaitForFirstConsumer</code> (PV created when a pod first mounts the PVC — preferred for zone-aware provisioning)</li>
+        <li><strong>allowVolumeExpansion</strong> — whether the volume can be resized after creation</li>
+        <li><strong>parameters</strong> — driver-specific settings (e.g., EBS volume type: <code>gp3</code>, IOPS, encryption)</li>
+      </ul>
+
+      <h3 class="subsection-title">AWS EBS vs EFS: When to Use Which</h3>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>AWS EBS (gp3)</th>
+            <th>AWS EFS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Access mode</td>
+            <td>RWO — one node at a time</td>
+            <td>RWX — many nodes simultaneously</td>
+          </tr>
+          <tr>
+            <td>Performance</td>
+            <td>Low latency, high IOPS (up to 16,000)</td>
+            <td>Higher latency, throughput-oriented</td>
+          </tr>
+          <tr>
+            <td>Cost</td>
+            <td>Pay per GB provisioned</td>
+            <td>Pay per GB stored (scales automatically)</td>
+          </tr>
+          <tr>
+            <td>Best for</td>
+            <td>Databases (PostgreSQL, MySQL), single-replica stateful apps</td>
+            <td>Shared config, ML training data, CMS media, multi-pod reads</td>
+          </tr>
+          <tr>
+            <td>Zone</td>
+            <td>Tied to one AZ — pod must schedule in same AZ</td>
+            <td>Multi-AZ — available across the region</td>
+          </tr>
+          <tr>
+            <td>Encryption</td>
+            <td>KMS encryption available</td>
+            <td>KMS encryption available</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">StatefulSet and PVC Templates</h3>
+      <p>StatefulSets are the Kubernetes workload resource designed for stateful applications. Unlike Deployments, StatefulSets provide:</p>
+      <ul>
+        <li><strong>Stable, unique network identities</strong> — pods are named <code>name-0</code>, <code>name-1</code>, etc. The identity is preserved across restarts.</li>
+        <li><strong>Stable persistent storage via volumeClaimTemplates</strong> — each pod in a StatefulSet gets its own dedicated PVC automatically created from the template. <code>postgres-0</code> gets <code>data-postgres-0</code>, <code>postgres-1</code> gets <code>data-postgres-1</code>. Each pod always remounts its own volume.</li>
+        <li><strong>Ordered deployment and scaling</strong> — pods are created and deleted in order (0, 1, 2 ... for scale up; reverse for scale down), critical for leader-election replication setups.</li>
+      </ul>
+
+      <h3 class="subsection-title">Volume Expansion</h3>
+      <p>When a StorageClass has <code>allowVolumeExpansion: true</code>, you can resize a PVC by editing the <code>spec.resources.requests.storage</code> field. The CSI driver expands the underlying volume and the filesystem. Shrinking volumes is not supported (it risks data loss). Note: the pod may need to be restarted for the filesystem to reflect the new size in some configurations.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="storage-architecture" class="section-title">PV / PVC / StorageClass Architecture</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    subgraph DEV["Developer / Application Team"]
+        PVC["PersistentVolumeClaim\nname: postgres-data\nstorageClass: gp3-encrypted\nstorage: 50Gi\naccessModes: RWO"]
+        POD["Pod: ticket-service-db\nvolumeMounts:\n  - mountPath: /var/lib/postgresql\n    claimName: postgres-data"]
+    end
+
+    subgraph CTRL["Kubernetes Control Plane"]
+        SC["StorageClass\nname: gp3-encrypted\nprovisioner: ebs.csi.aws.com\nreclaimPolicy: Retain\nallowVolumeExpansion: true"]
+        PV["PersistentVolume\nname: pvc-abc123\ncapacity: 50Gi\naccessModes: RWO\nstatus: Bound"]
+    end
+
+    subgraph AWS["AWS Infrastructure"]
+        EBS["AWS EBS Volume\nvol-0abc123def456\ngp3 / 50 GB\nus-east-1a"]
+    end
+
+    PVC -->|"references"| SC
+    SC -->|"dynamically provisions"| PV
+    PV -->|"backed by"| EBS
+    PVC -->|"binds to"| PV
+    POD -->|"mounts"| PVC
+
+    style DEV fill:#1e3a5f,color:#e2e8f0
+    style CTRL fill:#1a3a2a,color:#e2e8f0
+    style AWS fill:#3d2a00,color:#e2e8f0
+        </div>
+      </div>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> Pending : kubectl apply PVC
+    Pending --> Bound : StorageClass provisions PV\n(or manual PV matched)
+    Bound --> Released : PVC deleted\n(PV data preserved)
+    Released --> Available : Admin reclaim / Retain policy
+    Released --> Deleted : reclaimPolicy=Delete
+    Bound --> Bound : Pod mounts / unmounts\n(data always present)
+    Available --> Bound : New PVC created
+    Deleted --> [*]
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow PostgreSQL on EKS</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow: Making ticket-service's Database Production-Ready</span>
+        <p>TicketFlow's <strong>ticket-service</strong> (Spring Boot) stores all ticket data in PostgreSQL. Early on, the team ran PostgreSQL as a Deployment with <code>emptyDir</code> storage — every pod restart wiped the database. After a scheduled node drain during an AWS maintenance window destroyed three hours of ticket data, the team was tasked with implementing proper persistent storage.</p>
+        <p><strong>Requirements identified by the architect team:</strong></p>
+        <ul>
+          <li>PostgreSQL data must survive pod restarts, deployments, and node failures</li>
+          <li>Storage must be fast — the ticketing platform processes 50,000 events/hour during peak concert sale events</li>
+          <li>Volumes must be encrypted at rest (SOC 2 compliance)</li>
+          <li>The team must be able to expand storage without downtime as the ticket catalog grows</li>
+          <li>Backups must be possible without stopping the database</li>
+        </ul>
+        <p><strong>Solution chosen:</strong> AWS EBS gp3 via the EBS CSI driver with a custom StorageClass, deployed as a StatefulSet with a <code>volumeClaimTemplate</code>. EBS was chosen over EFS because PostgreSQL is a single-writer database (RWO is sufficient) and EBS gp3 delivers the IOPS needed for high-concurrency transaction workloads.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">StorageClass: gp3 EBS with Encryption</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># storageclass-gp3-encrypted.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-encrypted
+  annotations:
+    # Make this the default StorageClass for the cluster
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer   # Provision in the same AZ as the pod
+reclaimPolicy: Retain                     # Keep the EBS volume when PVC is deleted
+allowVolumeExpansion: true                # Allow kubectl edit pvc to increase size
+parameters:
+  type: gp3
+  iops: "3000"                            # Baseline IOPS for gp3
+  throughput: "125"                       # MB/s baseline throughput
+  encrypted: "true"                       # Encrypt with AWS KMS
+  # kmsKeyId: arn:aws:kms:us-east-1:...  # Optionally specify a CMK</code></pre>
+      </div>
+
+      <h3 class="subsection-title">EFS StorageClass for Shared Volumes (RWX)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># storageclass-efs.yaml
+# Used for shared read-write volumes (e.g., shared config, ML datasets)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-shared
+provisioner: efs.csi.aws.com
+reclaimPolicy: Retain
+volumeBindingMode: Immediate              # EFS is multi-AZ, no zone constraint
+parameters:
+  provisioningMode: efs-ap                # EFS Access Point mode
+  fileSystemId: fs-0abc123def456789       # Your EFS file system ID
+  directoryPerms: "700"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">StatefulSet: PostgreSQL for ticket-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># postgres-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: ticketflow
+  labels:
+    app: postgres
+    service: ticket-service
+spec:
+  serviceName: postgres-headless           # Headless service for stable DNS
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:
+        runAsUser: 999                     # postgres user UID
+        fsGroup: 999                       # Ensures volume is writable by postgres user
+      containers:
+        - name: postgres
+          image: postgres:15.4-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "ticketflow"
+            - name: POSTGRES_USER
+              value: "ticket_app"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata   # Subdirectory inside the mount
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ticket_app", "-d", "ticketflow"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ticket_app", "-d", "ticketflow"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  # volumeClaimTemplates: each replica gets its OWN PVC automatically
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app: postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]     # EBS — single node mount
+        storageClassName: gp3-encrypted
+        resources:
+          requests:
+            storage: 50Gi</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Headless Service and ClusterIP Service for PostgreSQL</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># postgres-services.yaml
+# Headless service — required by StatefulSet for stable DNS (postgres-0.postgres-headless)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: ticketflow
+spec:
+  clusterIP: None                          # This is what makes it headless
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# Regular ClusterIP service — used by ticket-service to connect
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: ticketflow
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Standalone PVC (for testing or one-off usage)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># pvc-ticket-uploads.yaml
+# Standalone PVC example — for notification-service shared media storage using EFS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ticket-uploads
+  namespace: ticketflow
+spec:
+  accessModes:
+    - ReadWriteMany                        # EFS — multiple pods can write simultaneously
+  storageClassName: efs-shared
+  resources:
+    requests:
+      storage: 100Gi</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ticket-service Deployment Referencing the PVC</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># ticket-service-deployment.yaml (partial)
+# ticket-service (Spring Boot) uses postgres via env vars — but notification-service
+# shares uploaded attachments via EFS PVC
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: ticketflow
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: nexus.ticketflow.io:5000/notification-service:v2.4.1
+          env:
+            - name: UPLOAD_DIR
+              value: "/mnt/uploads"
+          volumeMounts:
+            - name: shared-uploads
+              mountPath: /mnt/uploads
+      volumes:
+        - name: shared-uploads
+          persistentVolumeClaim:
+            claimName: ticket-uploads     # All 3 replicas share the same EFS PVC (RWX)</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Volume Expansion: Growing the PostgreSQL Disk</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># After 6 months, the ticket database has grown and needs more space.
+# Expand from 50Gi to 100Gi — zero downtime with gp3 + EBS CSI driver.
+
+# Step 1: Edit the PVC (kubectl edit or apply the patched manifest)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-postgres-0          # Auto-generated name from StatefulSet
+  namespace: ticketflow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 100Gi                      # Changed from 50Gi to 100Gi</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubectl-commands" class="section-title">Essential kubectl Storage Commands</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># List all StorageClasses in the cluster
+kubectl get storageclass
+
+# List PVs (cluster-scoped — no namespace)
+kubectl get pv
+
+# List PVCs in the ticketflow namespace
+kubectl get pvc -n ticketflow
+
+# Describe a PVC — see binding status, events, capacity
+kubectl describe pvc postgres-data-postgres-0 -n ticketflow
+
+# Watch PVC reach Bound state during StatefulSet creation
+kubectl get pvc -n ticketflow -w
+
+# Expand a PVC (StorageClass must have allowVolumeExpansion: true)
+kubectl patch pvc postgres-data-postgres-0 \
+  -n ticketflow \
+  -p '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}'
+
+# Check volume expansion progress
+kubectl describe pvc postgres-data-postgres-0 -n ticketflow | grep -A5 Conditions
+
+# Get PV details including the AWS EBS volume ID
+kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.csi.volumeHandle}{"\n"}{end}'
+
+# Force delete a stuck PVC (use with caution)
+kubectl patch pvc stuck-pvc -n ticketflow \
+  -p '{"metadata":{"finalizers":null}}'
+
+# List events related to storage
+kubectl get events -n ticketflow --field-selector reason=ProvisioningSucceeded
+kubectl get events -n ticketflow --field-selector reason=ProvisioningFailed</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># List all StorageClasses in the cluster
+kubectl get storageclass
+
+# List PVs (cluster-scoped — no namespace)
+kubectl get pv
+
+# List PVCs in the ticketflow namespace
+kubectl get pvc -n ticketflow
+
+# Describe a PVC — see binding status, events, capacity
+kubectl describe pvc postgres-data-postgres-0 -n ticketflow
+
+# Watch PVC reach Bound state during StatefulSet creation
+kubectl get pvc -n ticketflow -w
+
+# Expand a PVC (StorageClass must have allowVolumeExpansion: true)
+$patch = '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}'
+kubectl patch pvc postgres-data-postgres-0 -n ticketflow -p $patch
+
+# Check volume expansion progress
+kubectl describe pvc postgres-data-postgres-0 -n ticketflow
+
+# Get PV details including the AWS EBS volume ID
+kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.csi.volumeHandle}{"\n"}{end}'
+
+# List events related to storage
+kubectl get events -n ticketflow --field-selector reason=ProvisioningSucceeded</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when a StatefulSet pod is scheduled and mounts an EBS volume?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>The StatefulSet controller detects that <code>postgres-0</code> does not yet have a PVC named <code>postgres-data-postgres-0</code>. It creates the PVC from the <code>volumeClaimTemplate</code> spec.</li>
+            <li>The PVC is created with <code>status.phase: Pending</code> and references the <code>gp3-encrypted</code> StorageClass.</li>
+            <li>Because the StorageClass uses <code>volumeBindingMode: WaitForFirstConsumer</code>, the Provisioner does NOT act yet. It waits until a pod is actually scheduled to a node.</li>
+            <li>The scheduler assigns <code>postgres-0</code> to a node in <code>us-east-1a</code>. The <code>WaitForFirstConsumer</code> binding mode kicks in: the provisioner now knows the AZ and creates an EBS volume in <code>us-east-1a</code> (not <code>1b</code> or <code>1c</code>). This prevents a cross-AZ mount that would fail.</li>
+            <li>The EBS CSI driver calls the AWS API to create a gp3 EBS volume. AWS returns a volume ID (<code>vol-0abc123def456</code>). The driver creates a PersistentVolume object in Kubernetes referencing this volume ID.</li>
+            <li>The PV is bound to the PVC. The PVC <code>status.phase</code> transitions to <code>Bound</code>.</li>
+            <li>The kubelet on the scheduled node detects the pod has a PVC-backed volume. It calls the EBS CSI node plugin to attach the EBS volume to the EC2 instance via the AWS API.</li>
+            <li>Once attached, the kubelet calls the CSI node plugin again to mount the device (format the filesystem if it's a new volume — ext4 by default, or xfs if specified) and mount it at <code>/var/lib/postgresql/data</code> inside the pod's filesystem namespace.</li>
+            <li>The pod starts. PostgreSQL initializes at <code>/var/lib/postgresql/data/pgdata</code> (the subdirectory) and begins accepting connections.</li>
+          </ol>
+          <p>When the pod is deleted and rescheduled: if it lands on the same node, the volume is already attached — only the container restart happens. If it lands on a different node, the EBS volume detaches from the old EC2 instance and re-attaches to the new one before the pod starts. This is why EBS (RWO) works fine for single-replica databases — it follows the pod across nodes.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does volume expansion work under the hood?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>You patch the PVC's <code>spec.resources.requests.storage</code> from 50Gi to 100Gi.</li>
+            <li>The PV controller detects the size mismatch between PVC request and PV capacity. It calls the EBS CSI driver's <code>ControllerExpandVolume</code> endpoint.</li>
+            <li>The CSI driver calls the AWS ModifyVolume API to resize the EBS volume from 50 GB to 100 GB. AWS performs this online — no detach required for gp3.</li>
+            <li>The PV's <code>spec.capacity.storage</code> is updated to 100Gi.</li>
+            <li>For the filesystem inside the pod to see the new space, the CSI driver must run <code>NodeExpandVolume</code> — this calls <code>resize2fs</code> (ext4) or <code>xfs_growfs</code> (xfs) inside the pod's node. This may happen automatically or require the pod to restart, depending on the CSI driver version and Kubernetes version (1.24+ supports online filesystem expansion for most drivers).</li>
+            <li>The PVC <code>status.capacity.storage</code> updates to 100Gi once the filesystem resize is complete.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>What is the difference between Retain, Delete, and Recycle reclaim policies?</summary>
+        <div class="answer-content">
+          <p>When a PVC is deleted, the PV's <code>reclaimPolicy</code> determines what happens to the underlying storage:</p>
+          <ul>
+            <li><strong>Delete</strong> — The underlying storage (EBS volume, GCE PD, etc.) is automatically deleted when the PVC is deleted. This is the default for dynamically provisioned volumes. Convenient, but dangerous: a <code>helm uninstall</code> or accidental namespace deletion can destroy production data. For TicketFlow's PostgreSQL, the architect explicitly set <code>Retain</code> to prevent this.</li>
+            <li><strong>Retain</strong> — The PV and underlying storage are preserved after PVC deletion. The PV moves to <code>Released</code> state. An administrator must manually clean up. Safer for production databases — you can recover data even after an accidental PVC deletion.</li>
+            <li><strong>Recycle</strong> — Deprecated. Was only supported by NFS and hostPath. Performed a basic <code>rm -rf</code> of the volume contents and made it available for a new claim. Do not use.</li>
+          </ul>
+          <p><strong>Production recommendation:</strong> Use <code>Retain</code> for all stateful workloads with real data. Use <code>Delete</code> only for truly ephemeral stateful workloads (e.g., test databases in CI).</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Using a Deployment Instead of a StatefulSet for Databases</span>
+        <p>A Deployment with a PVC reference works for single-replica databases — until you scale to 2 replicas. Both pods attempt to mount the same RWO EBS volume. One pod comes up; the other is stuck in <code>ContainerCreating</code> forever with a <code>Multi-Attach error: volume is already exclusively attached to one node</code> error. Databases on Deployments also lose their stable identity: after a reschedule, PostgreSQL data initialized by <code>postgres-deployment-abc</code> is mounted by <code>postgres-deployment-xyz</code> — technically fine with PVCs, but fragile without stable network names for replication setups.</p>
+        <p><strong>Fix:</strong> Always use a StatefulSet for databases. Use <code>volumeClaimTemplates</code> to give each replica its own dedicated PVC. The StatefulSet controller manages the binding between pod identity and PVC identity.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Using reclaimPolicy Delete on Production Databases</span>
+        <p>A developer runs <code>helm uninstall ticketflow-postgres</code> during a debugging session. The Helm chart deletes the StatefulSet, which deletes the pods. Kubernetes then deletes the PVCs because the StatefulSet is gone. The reclaimPolicy is <code>Delete</code> (the default for EBS CSI). The EBS volumes are destroyed. The PostgreSQL data is gone. This has happened at real companies — it is not a hypothetical.</p>
+        <p><strong>Fix:</strong> Set <code>reclaimPolicy: Retain</code> on all StorageClasses used for databases. Add <code>kubectl annotate pvc postgres-data-postgres-0 helm.sh/resource-policy=keep</code> to protect Helm-managed PVCs from deletion during <code>helm uninstall</code>.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Mounting EBS Across Availability Zones</span>
+        <p>A StorageClass with <code>volumeBindingMode: Immediate</code> creates the EBS volume immediately when the PVC is created — before a pod is scheduled. If the volume is created in <code>us-east-1a</code> but the pod is scheduled to a node in <code>us-east-1b</code>, the pod will be stuck with <code>Volume is not available in the requested zone</code>. EBS volumes are AZ-bound.</p>
+        <p><strong>Fix:</strong> Always use <code>volumeBindingMode: WaitForFirstConsumer</code> on EBS StorageClasses. This delays PV creation until the pod is scheduled, so the volume is guaranteed to be created in the correct AZ.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Writing PostgreSQL Data Directly to the Mount Root</span>
+        <p>PostgreSQL is started with <code>PGDATA=/var/lib/postgresql/data</code> — which is the mount root of the EBS volume. On a brand new EBS volume, PostgreSQL initializes the directory and writes a <code>PG_VERSION</code> file. Everything seems fine. But the EBS CSI driver also writes a <code>lost+found</code> directory at the filesystem root during mount. PostgreSQL refuses to initialize if <code>PGDATA</code> is non-empty. Result: <code>initdb: error: directory "/var/lib/postgresql/data" exists but is not empty</code> on pod restart with a recycled EBS volume.</p>
+        <p><strong>Fix:</strong> Always set <code>PGDATA</code> to a subdirectory within the mount: <code>PGDATA=/var/lib/postgresql/data/pgdata</code>. The <code>lost+found</code> at the root does not interfere, and PostgreSQL initializes cleanly into the subdirectory.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Not Setting fsGroup in Pod securityContext</span>
+        <p>A pod runs as non-root user <code>999</code> (postgres). The EBS volume is mounted with root ownership. The postgres process cannot write to <code>/var/lib/postgresql/data</code>. The container crashes with a permission denied error on startup.</p>
+        <p><strong>Fix:</strong> Set <code>spec.securityContext.fsGroup: 999</code> in the pod spec. The <code>fsGroup</code> setting instructs the kubelet to chown the mounted volume to the specified GID before the container starts, making the volume writable by the application user.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Kubernetes storage is where the "cattle, not pets" philosophy meets its limits. Databases are pets — they have names, stable identities, data that cannot be discarded. The storage abstractions (PV/PVC/StorageClass) are Kubernetes' answer to this tension, and they are well-designed, but the architect must understand the trade-offs at each layer.</p>
+
+        <p><strong>RWO vs RWX is a workload classification decision, not just a storage decision:</strong> If you're using RWX (EFS) for a stateful service because you want to scale horizontally, you are likely dealing with an application that should be redesigned to use a proper database with connection pooling (PgBouncer) and read replicas — not shared filesystem hacks. RWX is appropriate for genuinely shared read-heavy content (ML training datasets, CMS media libraries, shared configuration directories), not as a workaround for application architecture problems.</p>
+
+        <p><strong>StatefulSets are not enough for production databases:</strong> StatefulSets give you stable identities and persistent storage, but they do not give you: automated failover, replication management, backup scheduling, or point-in-time recovery. For TicketFlow's PostgreSQL, consider the Zalando Postgres Operator or CloudNativePG — these are Kubernetes operators that manage PostgreSQL clusters as first-class objects, including streaming replication, automated failover, and scheduled backups to S3. The StatefulSet you write manually is good for learning and single-replica deployments; operators are what production clusters use.</p>
+
+        <p><strong>Storage cost matters at scale:</strong> EBS gp3 costs approximately $0.08/GB-month. 100 GB = $8/month. Fine. But if you have 50 microservices each with a 100 GB EBS volume, that is $4,800/month in storage alone — before IOPS costs. Audit your PVC sizes regularly. Use VolumeSnapshot and restore to right-size over-provisioned volumes. Consider AWS RDS for relational databases in production — managed RDS often costs less total than self-managed PostgreSQL on EKS when you factor in the operational burden (patches, backups, failover, monitoring).</p>
+
+        <p><strong>Backup strategy is orthogonal to storage strategy:</strong> A Retain reclaimPolicy is not a backup. A Retain policy means you will not lose data due to accidental deletion — it does not protect against data corruption, ransomware, or application bugs that write bad data. For TicketFlow's PostgreSQL: use pgBackRest or Barman for WAL archiving to S3. Use VolumeSnapshot for crash-consistent EBS snapshots (point-in-time). Test restores quarterly.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>StorageClass uses <code>reclaimPolicy: Retain</code> for all production databases</li>
+        <li>StorageClass uses <code>volumeBindingMode: WaitForFirstConsumer</code> for zone-aware EBS provisioning</li>
+        <li><code>allowVolumeExpansion: true</code> set on StorageClass so volumes can grow without recreating</li>
+        <li>All databases deployed as StatefulSets, not Deployments</li>
+        <li>PostgreSQL <code>PGDATA</code> set to a subdirectory within the mount (e.g., <code>/data/pgdata</code>), not the root</li>
+        <li><code>spec.securityContext.fsGroup</code> set correctly so non-root processes can write to mounted volumes</li>
+        <li>EBS volumes encrypted at rest using KMS (set <code>encrypted: "true"</code> in StorageClass parameters)</li>
+        <li>PVC sizes right-sized — over-provisioning wastes money; under-provisioning causes outages</li>
+        <li>Helm-managed PVCs annotated with <code>helm.sh/resource-policy: keep</code> to survive <code>helm uninstall</code></li>
+        <li>Backup strategy implemented: WAL archiving to S3 (pgBackRest) AND EBS snapshots (VolumeSnapshot)</li>
+        <li>Restore procedure documented and tested — know your RTO before an incident, not during</li>
+        <li>PVC storage usage monitored in Grafana — alert at 80% full before hitting the limit</li>
+        <li>StatefulSet <code>podManagementPolicy: OrderedReady</code> for databases (not Parallel, which can corrupt replication)</li>
+        <li>Node affinity or topology spread constraints configured if pods must stay in specific AZs</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Deploy Stateful PostgreSQL</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires a running Kubernetes cluster (minikube, kind, or EKS)</span>
+
+        <p>This lab walks you through deploying a production-pattern PostgreSQL StatefulSet with persistent storage, verifying data survives a pod restart, and expanding the volume.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Create the namespace and secret</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash">kubectl create namespace ticketflow
+
+# Create the postgres password secret
+kubectl create secret generic postgres-secret \
+  --from-literal=password=TicketFlow2024! \
+  -n ticketflow
+
+# Verify
+kubectl get secret postgres-secret -n ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Check available StorageClasses</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># See what StorageClasses are available in your cluster
+# On minikube: "standard" (hostPath provisioner)
+# On EKS: "gp2" (default) and optionally "gp3" if you've configured EBS CSI
+kubectl get storageclass
+
+# Describe the default StorageClass to understand its capabilities
+kubectl describe storageclass $(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}')</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Deploy the StatefulSet</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Save the StatefulSet manifest (adjust storageClassName for your cluster)
+cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: ticketflow
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:15.4-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "ticketflow"
+            - name: POSTGRES_USER
+              value: "ticket_app"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard       # Change to gp3-encrypted on EKS
+        resources:
+          requests:
+            storage: 5Gi
+EOF
+---
+# Create the headless service
+cat &lt;&lt;EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: ticketflow
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Verify StatefulSet and PVC creation</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Watch the StatefulSet pod come up
+kubectl get pods -n ticketflow -w
+
+# Check the PVC was automatically created (note the name: postgres-data-postgres-0)
+kubectl get pvc -n ticketflow
+
+# Expected output:
+# NAME                       STATUS   VOLUME           CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+# postgres-data-postgres-0   Bound    pvc-abc123...    5Gi        RWO            standard       30s
+
+# Confirm the pod is running
+kubectl get pods -n ticketflow</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Write data and verify it survives a pod restart</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Connect to the pod and create a test table
+kubectl exec -it postgres-0 -n ticketflow -- psql -U ticket_app -d ticketflow -c "
+  CREATE TABLE tickets (id serial PRIMARY KEY, event TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+  INSERT INTO tickets (event) VALUES ('Coldplay London 2025'), ('Taylor Swift Toronto 2025');
+  SELECT * FROM tickets;
+"
+
+# NOW delete the pod — this simulates a pod crash / restart
+kubectl delete pod postgres-0 -n ticketflow
+
+# Watch the StatefulSet recreate postgres-0
+kubectl get pods -n ticketflow -w
+
+# Once it's Running again, verify the data is still there
+kubectl exec -it postgres-0 -n ticketflow -- psql -U ticket_app -d ticketflow -c "SELECT * FROM tickets;"
+
+# Expected output: BOTH rows still present — the EBS PVC was remounted</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: (EKS only) Expand the volume</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Expand the PVC from 5Gi to 10Gi
+kubectl patch pvc postgres-data-postgres-0 \
+  -n ticketflow \
+  -p '{"spec":{"resources":{"requests":{"storage":"10Gi"}}}}'
+
+# Monitor the expansion — watch for Conditions: FileSystemResizePending -> success
+kubectl describe pvc postgres-data-postgres-0 -n ticketflow
+
+# Verify inside the pod that the filesystem has grown
+kubectl exec -it postgres-0 -n ticketflow -- df -h /var/lib/postgresql/data</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 7: Clean up</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Delete the StatefulSet (this does NOT delete PVCs — by design)
+kubectl delete statefulset postgres -n ticketflow
+
+# Verify PVC is still present even though the StatefulSet is gone
+kubectl get pvc -n ticketflow
+
+# Manually delete PVCs when you are ready (this triggers volume deletion on Delete policy)
+kubectl delete pvc postgres-data-postgres-0 -n ticketflow
+
+# Clean up namespace
+kubectl delete namespace ticketflow</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key observations from this lab:</strong></p>
+        <ol>
+          <li>The PVC name <code>postgres-data-postgres-0</code> is auto-generated: <code>{volumeClaimTemplate name}-{statefulset name}-{ordinal}</code>.</li>
+          <li>Deleting a StatefulSet does NOT delete its PVCs — this is intentional data protection. You must delete PVCs manually.</li>
+          <li>Data survived the pod deletion because the PVC remained bound to the PV, and the new pod reattached to the same PVC.</li>
+          <li>On a real EKS cluster, notice the EBS volume appearing in the AWS console as the StatefulSet is created, and remaining in the console even after the StatefulSet is deleted (Retain policy).</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions are asked in senior engineer and platform engineer interviews. Click each to reveal a full answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is the difference between a Volume, a PersistentVolume, and a PersistentVolumeClaim in Kubernetes?</summary>
+            <div class="answer-content">
+              <p>These three concepts form a layered abstraction for storage in Kubernetes, and they are frequently confused:</p>
+              <p><strong>Volume</strong> is storage defined inline inside a Pod spec. It shares the Pod's lifecycle — it is created when the pod starts and destroyed when the pod dies. Volumes are used for ephemeral shared storage between containers in the same pod (<code>emptyDir</code>), injecting configuration (<code>configMap</code>, <code>secret</code>), or accessing host paths (<code>hostPath</code>). Volumes do not survive pod deletion.</p>
+              <p><strong>PersistentVolume (PV)</strong> is a cluster-level storage resource that exists independently of any pod. It represents actual storage — an EBS disk, an NFS share, a Ceph volume. It is provisioned either manually by an administrator or automatically by a StorageClass's provisioner. A PV has a lifecycle independent of any workload.</p>
+              <p><strong>PersistentVolumeClaim (PVC)</strong> is a namespace-scoped resource that represents an application's request for storage. The developer specifies how much storage they need and what access mode is required. The Kubernetes control plane binds the PVC to a matching PV (or creates one dynamically). The pod references the PVC by name in its spec. The PVC decouples the application from the specific storage implementation — the developer doesn't need to know if the backend is EBS, EFS, or Ceph.</p>
+              <p><strong>The binding:</strong> One PVC binds to exactly one PV (for RWO). The binding is exclusive for RWO volumes. For RWX volumes like EFS, multiple PVCs can reference the same underlying EFS file system, but each claim is still its own PVC-PV pair.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: What are the Kubernetes storage access modes and when would you use each?</summary>
+            <div class="answer-content">
+              <p>Access modes define how a volume can be mounted across nodes:</p>
+              <ul>
+                <li><strong>ReadWriteOnce (RWO)</strong> — The volume can be mounted read-write by a single node at a time. Multiple pods on the same node can access it. This is the most common mode for block storage like AWS EBS, Azure Disk, and GCE PD. Use for: databases (PostgreSQL, MySQL), single-replica stateful services. Attempting to mount an RWO EBS volume on two nodes simultaneously results in a <code>Multi-Attach error</code>.</li>
+                <li><strong>ReadOnlyMany (ROX)</strong> — The volume can be mounted read-only by many nodes simultaneously. Use for: pre-built static content that multiple pods need to read (ML model files, static assets, reference datasets). Typically backed by NFS, EFS, or CephFS.</li>
+                <li><strong>ReadWriteMany (RWX)</strong> — The volume can be mounted read-write by many nodes simultaneously. Use for: shared application data that multiple pods write to (CMS uploads, shared logs, ML training data staging). Backed by NFS, AWS EFS, Azure Files, CephFS. Avoid for databases — concurrent writes from multiple processes require application-level locking.</li>
+                <li><strong>ReadWriteOncePod (RWOP)</strong> — Added in Kubernetes 1.22. Stricter than RWO: only a single specific pod can mount the volume read-write. Even multiple pods on the same node cannot share it. Use for: workloads where you need a guarantee that exactly one pod has access at any time, even within a node (critical financial transaction processors, etc.).</li>
+              </ul>
+              <p><strong>Key rule:</strong> The access mode must be supported by the underlying storage driver. EBS only supports RWO (and RWOP). EFS supports RWX. Requesting RWX from an EBS StorageClass will result in a failed PVC binding.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: Why use a StatefulSet instead of a Deployment for a database?</summary>
+            <div class="answer-content">
+              <p>A Deployment treats all pods as identical, interchangeable units — exactly what you want for stateless services. A StatefulSet provides additional guarantees that databases require:</p>
+              <ul>
+                <li><strong>Stable, unique pod identity</strong> — StatefulSet pods are named <code>name-0</code>, <code>name-1</code>, etc. This identity is preserved across restarts and rescheduling. Deployment pods get random hash suffixes that change on every restart. For database clusters with named replicas (PostgreSQL primary, replica-1, replica-2), stable names are essential for replication configuration.</li>
+                <li><strong>Stable network identity</strong> — with a headless Service, each StatefulSet pod gets a stable DNS name: <code>postgres-0.postgres-headless.ticketflow.svc.cluster.local</code>. Deployment pods have no stable DNS per pod. Databases often need to address specific replicas (primary vs replica) by stable hostname.</li>
+                <li><strong>Per-pod PVC binding via volumeClaimTemplates</strong> — each StatefulSet replica gets its own dedicated PVC automatically. <code>postgres-0</code> always mounts <code>data-postgres-0</code>, never <code>data-postgres-1</code>. With a Deployment, all pods fight over the same PVC. On RWO storage, only one pod wins. On RWX storage, all pods share one filesystem — incorrect for databases that need isolated data directories.</li>
+                <li><strong>Ordered lifecycle management</strong> — StatefulSets start pods in order (0 before 1 before 2) and stop them in reverse order. This is critical for databases where the primary must be healthy before replicas start, and replicas should drain before the primary stops.</li>
+              </ul>
+              <p><strong>Can you use a Deployment for a single-replica database?</strong> Technically yes — if you manually create a PVC and reference it in the deployment's volumes. It works for single replica, but you lose stable naming, per-pod PVCs, and ordered lifecycle. When you later need to scale or add replicas, you will need to migrate to a StatefulSet anyway. Start with StatefulSet.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is dynamic provisioning and how does a StorageClass enable it?</summary>
+            <div class="answer-content">
+              <p>Before dynamic provisioning, storage was manually managed: a cluster administrator had to pre-create PersistentVolumes (by manually creating EBS volumes, NFS shares, etc.) and then developers claimed them with PVCs. This was slow, required admin involvement for every deployment, and frequently resulted in PVCs stuck in <code>Pending</code> because no matching PV was available.</p>
+              <p><strong>Dynamic provisioning</strong> automates this: when a PVC is created referencing a StorageClass, the StorageClass's provisioner automatically creates the underlying storage and a corresponding PV — with no manual admin work required.</p>
+              <p><strong>How it works technically:</strong></p>
+              <ol>
+                <li>Developer creates a PVC referencing <code>storageClassName: gp3-encrypted</code>.</li>
+                <li>The PV controller detects the PVC is unbound and has a StorageClass.</li>
+                <li>The controller calls the StorageClass's provisioner (e.g., <code>ebs.csi.aws.com</code>) via the CSI (Container Storage Interface) API's <code>CreateVolume</code> RPC.</li>
+                <li>The provisioner (the EBS CSI driver running as a pod in the cluster) calls the AWS API to create an EBS volume with the parameters defined in the StorageClass (<code>gp3</code>, <code>encrypted: true</code>, etc.).</li>
+                <li>The provisioner creates a PV object in Kubernetes with a reference to the new EBS volume ID.</li>
+                <li>The PV controller binds the PV to the PVC. The PVC status becomes <code>Bound</code>.</li>
+                <li>The pod can now mount the PVC.</li>
+              </ol>
+              <p><strong>CSI (Container Storage Interface)</strong> is the standard API that decouples Kubernetes from storage drivers. Any storage vendor can write a CSI driver that implements the CSI spec and instantly work with any CSI-compatible Kubernetes cluster. This replaced the old in-tree volume plugins that required Kubernetes core changes to add new storage backends.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What happens to a PersistentVolume when its PVC is deleted — and how do you protect against accidental data loss?</summary>
+            <div class="answer-content">
+              <p>When a PVC is deleted, what happens to the underlying PV and storage depends entirely on the StorageClass's <code>reclaimPolicy</code>:</p>
+              <ul>
+                <li><strong>Delete (default for dynamic provisioning)</strong> — The PV object is deleted AND the underlying storage (EBS volume, GCE PD, etc.) is deleted. This is the most dangerous setting. Any data stored on the volume is permanently destroyed. This is the default because it prevents storage leaks in dynamic environments, but it is catastrophic for production databases if triggered accidentally.</li>
+                <li><strong>Retain</strong> — The PV object persists with status <code>Released</code>. The underlying storage (EBS volume) is preserved. No data is lost. An administrator must manually recover: they can create a new PVC referencing the existing PV's volume handle, or manually delete the PV object after verifying the data is no longer needed.</li>
+              </ul>
+              <p><strong>Multi-layer protection strategy for production:</strong></p>
+              <ol>
+                <li><strong>StorageClass reclaimPolicy: Retain</strong> — First line of defense. EBS volume survives PVC deletion.</li>
+                <li><strong>Helm resource policy annotation</strong> — Add <code>helm.sh/resource-policy: keep</code> to PVC metadata. This prevents <code>helm uninstall</code> from deleting the PVC even if it is managed by a Helm chart.</li>
+                <li><strong>Kubernetes resource finalizers</strong> — Some operators add finalizers to PVCs that prevent deletion until the finalizer is explicitly removed. The CloudNativePG operator does this.</li>
+                <li><strong>RBAC restrictions</strong> — Restrict who can delete PVCs in production namespaces. Developers should not have <code>delete</code> permission on PVCs in production.</li>
+                <li><strong>Velero or EBS snapshots</strong> — Even with Retain policy, protect against data corruption and ransomware with regular automated snapshots to a separate account.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: When would you choose AWS EFS over EBS for Kubernetes storage — and what are the trade-offs?</summary>
+            <div class="answer-content">
+              <p>The choice between EFS and EBS maps directly to the access mode your workload requires and the performance characteristics you need.</p>
+              <p><strong>Choose EBS (gp3) when:</strong></p>
+              <ul>
+                <li>Your workload is a traditional relational database (PostgreSQL, MySQL) or any single-writer stateful service. Databases are single-writer by design — they do not need RWX. EBS gp3 delivers 3,000 IOPS baseline (up to 16,000 provisioned) and sub-millisecond latency, which is critical for database transaction performance.</li>
+                <li>The workload runs as a StatefulSet with one pod per replica having its own isolated storage.</li>
+                <li>You need guaranteed IOPS. EBS IOPS are provisioned; EFS IOPS scale with throughput mode and are less predictable under burst scenarios.</li>
+                <li>Cost predictability matters — EBS costs are predictable ($/GB provisioned). EFS scales automatically and can be cost-effective for variable-size datasets but more expensive than EBS for large, consistently accessed datasets.</li>
+              </ul>
+              <p><strong>Choose EFS when:</strong></p>
+              <ul>
+                <li>Multiple pods on multiple nodes need to read and write the same files simultaneously (RWX). This is EFS's defining capability — EBS simply cannot do this.</li>
+                <li>You have a Deployment (not StatefulSet) that needs to share state across replicas — e.g., a CMS that writes uploaded media files and multiple pods serve them.</li>
+                <li>You need storage that spans multiple Availability Zones. EBS is single-AZ; EFS is regional. If a node in <code>us-east-1a</code> fails and your pod rescheduled to <code>us-east-1b</code>, EFS continues working without re-provisioning.</li>
+                <li>ML training workloads where multiple training pods in a distributed job need to read a shared dataset.</li>
+              </ul>
+              <p><strong>Key trade-off to state in an interview:</strong> EFS provides higher availability (multi-AZ) and flexibility (RWX) at the cost of higher latency (~1–10ms vs &lt;1ms for EBS) and unpredictable performance under heavy random I/O. For TicketFlow's PostgreSQL, EBS is the correct choice. For TicketFlow's notification-service shared attachment storage, EFS is the correct choice.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

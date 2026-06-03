@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Production Deployment Patterns — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="20" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Expert Topics → Production Deployment Patterns</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 45 min read</span>
+          <span class="tag">Epic 7</span>
+        </div>
+        <h1 class="page-title">Production Deployment Patterns</h1>
+        <p class="page-subtitle">Master rolling updates, blue-green, canary, and feature flags — the deployment strategies that separate teams who ship fearlessly from those who dread release day.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- SECTION 1 — THE STORY -->
+      <h2 id="story" class="section-title">The Story Behind Deployment Patterns</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🚀 The Deployment Horror Show</span>
+        <p>It is 11 pm on a Friday. The release train is locked and loaded. Everyone is on the bridge call. The ops lead types <code>kubectl rollout restart deployment/payment-service</code>. For the next 8 minutes, 100% of users hit error pages. The payment-service v2 has a startup bug that crashes on launch — discovered only when real traffic hit it. Revenue is bleeding. The rollback takes another 4 minutes. By the time things are stable, $180,000 in failed transactions have piled up and the engineering team is filing incident reports at midnight.</p>
+        <p>This is not a horror story from 2010. It happened at a Fortune 500 company in 2023 — because they were still doing "big bang" deployments: replace everything at once, pray nothing breaks, scramble when it does.</p>
+        <p>Modern deployment patterns exist to make releases boring. Not exciting — <em>boring</em>. Rolling updates eliminate downtime. Blue-green deployments make rollback a 10-second operation. Canary releases catch bugs before they affect more than 1% of users. Feature flags decouple deployment from release entirely. The goal is to reach a world where "deploying to production" is so safe and routine that it happens dozens of times per day without anyone losing sleep.</p>
+      </div>
+
+      <!-- SECTION 2 — BEGINNER EXPLANATION -->
+      <h2 id="beginner-explanation" class="section-title">What Are Deployment Patterns?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>Imagine you run a restaurant and need to renovate the kitchen without closing. You have four strategies:</p>
+        <ul>
+          <li><strong>Rolling update</strong> — Renovate one workstation at a time. Chefs move to other stations temporarily. Customers never notice; the kitchen never fully closes.</li>
+          <li><strong>Blue-green</strong> — Build a brand-new kitchen (identical to the old one) next door. When it is ready, redirect all waiters to use the new kitchen in one switch. If something is wrong, flip them back instantly. Old kitchen stays warm for 30 minutes just in case.</li>
+          <li><strong>Canary</strong> — Send 1 waiter to the new kitchen first. If that waiter's orders come out fine, send 10% of waiters. If still good, send all of them. The one waiter is the "canary in the coal mine" — testing real conditions before full commitment.</li>
+          <li><strong>Feature flags</strong> — The new kitchen is already built and running. But the door is locked. You can unlock it for specific people (staff, beta testers) while everyone else still uses the old route, even though both are deployed.</li>
+        </ul>
+      </div>
+
+      <p>Deployment patterns are strategies for replacing old software versions with new ones in production environments while controlling risk, minimizing downtime, and enabling fast rollback. They are not mutually exclusive — mature engineering teams combine them. A canary release might use feature flags to target specific user segments; a blue-green deployment might use rolling updates within each environment.</p>
+
+      <!-- SECTION 3 — TECHNICAL EXPLANATION -->
+      <h2 id="technical-explanation" class="section-title">The Four Core Patterns — Technical Deep Dive</h2>
+
+      <h3 class="subsection-title">1. Rolling Update</h3>
+      <p>A rolling update replaces pod instances incrementally. Kubernetes replaces one pod at a time (or a configurable batch), waiting for the new pod to pass its readiness probe before terminating an old one. At no point does the total number of serving pods drop below the configured minimum.</p>
+      <p>Two key parameters control the rolling update behaviour in a Kubernetes Deployment:</p>
+      <ul>
+        <li><strong><code>maxSurge</code></strong> — how many extra pods above the desired count can be created simultaneously during the update. A value of <code>1</code> means at most one extra pod is running at any time. <code>25%</code> means up to 25% extra.</li>
+        <li><strong><code>maxUnavailable</code></strong> — how many pods below the desired count are allowed to be unavailable during the update. A value of <code>0</code> ensures full capacity is always maintained (no requests are dropped), at the cost of requiring extra nodes to accommodate the surge pods.</li>
+      </ul>
+      <p><strong>Best for:</strong> stateless services, microservices, most web applications. <strong>Risk:</strong> old and new versions run simultaneously — your API must be backward-compatible during the transition window (versioned endpoints, additive-only DB schema changes).</p>
+
+      <h3 class="subsection-title">2. Blue-Green Deployment</h3>
+      <p>Two identical production environments exist simultaneously — "blue" (current production) and "green" (the new version). The load balancer or ingress routes 100% of traffic to blue. When green is verified through smoke tests and integration checks, the traffic switch is made: 100% to green, instantly. Blue remains live but idle — ready to receive traffic again within seconds if green proves faulty.</p>
+      <p><strong>Best for:</strong> systems requiring instant, atomic rollback capability; compliance environments where partial rollouts are not acceptable; database schema changes (both environments share the DB, requiring careful migration discipline). <strong>Cost:</strong> you permanently run 2x the production infrastructure, doubling compute costs during every release window.</p>
+
+      <h3 class="subsection-title">3. Canary Deployment</h3>
+      <p>Named after the coal-mining practice of using canary birds to detect toxic gases, a canary deployment routes a small percentage of production traffic — typically 1–5% — to the new version while the old version continues serving the majority. Metrics (error rate, latency p99, conversion rate) are monitored for the canary cohort. If metrics are healthy, traffic is progressively shifted: 1% → 10% → 50% → 100%. If the canary shows elevated error rates or degraded latency, it is pulled back to 0% with no full-production impact.</p>
+      <p><strong>Best for:</strong> high-traffic services where even a 1% error rate represents thousands of users; performance-sensitive features; changes that could behave differently under real user traffic patterns that are impossible to reproduce in staging. <strong>Risk:</strong> user experience inconsistency — the 5% canary users see a different UI/behaviour from the 95% on stable. Session stickiness (routing the same user consistently to canary or stable) mitigates this.</p>
+
+      <h3 class="subsection-title">4. Feature Flags</h3>
+      <p>Feature flags (also called feature toggles or feature switches) decouple deployment from release. Code is deployed to 100% of instances, but a runtime configuration flag controls whether a feature is active. A flag can be:</p>
+      <ul>
+        <li><strong>On/off globally</strong> — enabled or disabled for all users at once.</li>
+        <li><strong>User-targeted</strong> — enabled only for specific user IDs (beta testers, internal staff).</li>
+        <li><strong>Percentage-based</strong> — enabled for a random 10% of users (functionally equivalent to a canary, but controlled at the application layer rather than the infrastructure layer).</li>
+        <li><strong>Attribute-based</strong> — enabled for users in specific regions, on specific plans, or with specific account ages.</li>
+      </ul>
+      <p><strong>Tools:</strong> LaunchDarkly (industry standard), Unleash (open-source), AWS AppConfig, Flagsmith. <strong>Risk:</strong> flag debt — dead code paths protected by flags that were never cleaned up accumulate over months, creating maintenance burden and potential bugs where old and new code paths diverge.</p>
+
+      <h3 class="subsection-title">A/B Testing vs Canary — Critical Distinction</h3>
+      <p>These terms are often confused but serve different purposes:</p>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>Canary Deployment</th>
+            <th>A/B Testing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Primary goal</td>
+            <td>Risk reduction — detect production bugs before full rollout</td>
+            <td>Experimentation — determine which variant drives better business outcomes</td>
+          </tr>
+          <tr>
+            <td>Duration</td>
+            <td>Short — hours to days, then converge to 100%</td>
+            <td>Longer — days to weeks, until statistical significance</td>
+          </tr>
+          <tr>
+            <td>Measured signal</td>
+            <td>Technical metrics: error rate, latency, crash rate</td>
+            <td>Business metrics: conversion rate, revenue, engagement, retention</td>
+          </tr>
+          <tr>
+            <td>Decision driver</td>
+            <td>Engineering team based on SLO compliance</td>
+            <td>Product/data science team based on statistical results</td>
+          </tr>
+          <tr>
+            <td>Routing method</td>
+            <td>Infrastructure-level (ingress weights, load balancer)</td>
+            <td>Application-level (feature flags, experiment SDK)</td>
+          </tr>
+          <tr>
+            <td>User assignment</td>
+            <td>Random percentage, not necessarily sticky</td>
+            <td>Deterministic and sticky — same user always sees same variant</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- SECTION 4 — MERMAID DIAGRAMS -->
+      <h2 id="deployment-diagrams" class="section-title">Pattern Flow Diagrams</h2>
+
+      <h3 class="subsection-title">Rolling Update Flow</h3>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+sequenceDiagram
+    participant LB as Load Balancer
+    participant P1 as Pod v1 (1)
+    participant P2 as Pod v1 (2)
+    participant P3 as Pod v1 (3)
+    participant PN as Pod v2 (new)
+
+    Note over LB,P3: Initial state — 3x v1 pods serving traffic
+    LB->>P1: Traffic (33%)
+    LB->>P2: Traffic (33%)
+    LB->>P3: Traffic (33%)
+
+    Note over PN: K8s creates v2 pod (maxSurge=1)
+    PN-->>LB: Readiness probe passes
+    LB->>PN: Traffic added (25%)
+
+    Note over P1: K8s terminates oldest v1 pod
+    P1--xP1: Graceful shutdown (SIGTERM → drain)
+
+    Note over LB,PN: 2x v1 + 1x v2 serving
+    Note over LB,PN: Repeat until all v1 replaced by v2
+        </div>
+      </div>
+
+      <h3 class="subsection-title">Blue-Green Deployment Flow</h3>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    USERS["👥 Production Traffic\n100% of users"] --> LB["Load Balancer / Ingress"]
+
+    subgraph BLUE ["🔵 Blue Environment (Active)"]
+        B1["payment-service v1\n(pod 1)"]
+        B2["payment-service v1\n(pod 2)"]
+        B3["payment-service v1\n(pod 3)"]
+    end
+
+    subgraph GREEN ["🟢 Green Environment (Standby → Active)"]
+        G1["payment-service v2\n(pod 1)"]
+        G2["payment-service v2\n(pod 2)"]
+        G3["payment-service v2\n(pod 3)"]
+    end
+
+    LB -->|"Step 1: All traffic"| B1
+    LB -.->|"Step 2: Switch to Green\n(instant cutover)"| G1
+
+    G1 --- G2
+    G2 --- G3
+
+    SMOKE["Smoke Tests\n✅ Pass → switch\n❌ Fail → keep Blue"] --> GREEN
+
+    DB[("Shared DB\n(schema must be\nbackward-compatible)")] --- BLUE
+    DB --- GREEN
+        </div>
+      </div>
+
+      <h3 class="subsection-title">Canary Deployment Flow</h3>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    USERS["👥 Production Traffic"] --> INGRESS["NGINX Ingress / Istio\n(Traffic Split Controller)"]
+
+    INGRESS -->|"95% traffic"| STABLE["payment-service v1\nStable (3 pods)"]
+    INGRESS -->|"5% traffic"| CANARY["payment-service v2\nCanary (1 pod)"]
+
+    CANARY --> METRICS["📊 Canary Metrics\nError rate < 0.1%?\nLatency p99 < 200ms?\nNo crash loops?"]
+
+    METRICS -->|"✅ Healthy for 30 min"| PROMOTE["Promote:\n5% → 25% → 50% → 100%"]
+    METRICS -->|"❌ Errors detected"| ROLLBACK["Rollback:\nSet canary weight = 0%\nDelete canary pods"]
+
+    PROMOTE --> FULL["payment-service v2\n100% traffic\nStable deployment complete"]
+        </div>
+      </div>
+
+      <h3 class="subsection-title">Feature Flag Architecture</h3>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart LR
+    subgraph DEPLOY ["Deployment (same binary for all users)"]
+        SVC["payment-service v2\n(deployed 100%)"]
+    end
+
+    subgraph FLAGS ["Feature Flag Service (LaunchDarkly / Unleash)"]
+        FLAG["flag: new-checkout-flow\n• Internal users: ON\n• Beta group: ON\n• Everyone else: OFF"]
+    end
+
+    SVC -->|"evaluate flag\nfor user_id"| FLAG
+
+    FLAG -->|"Internal / Beta"| NEW["New Checkout Flow\n(v2 code path)"]
+    FLAG -->|"General users"| OLD["Legacy Checkout Flow\n(v1 code path)"]
+
+    ADMIN["🧑‍💼 Product Manager\n(no deploy needed)"] -->|"toggle via dashboard"| FLAG
+        </div>
+      </div>
+
+      <!-- SECTION 5 — ENTERPRISE SCENARIO -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow Canary for payment-service v2</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow Real-World Scenario</span>
+        <p>TicketFlow's <strong>payment-service</strong> (Python/FastAPI) processes $2M in transactions daily. The team has developed v2 — a complete rewrite of the checkout flow with a new Stripe integration and optimised retry logic. The stakes are too high for a simple rolling update: a bug in the payment path means real money is lost, not just a page load error.</p>
+
+        <p><strong>The plan:</strong></p>
+        <ol>
+          <li>Deploy payment-service v2 alongside v1 in the same EKS namespace</li>
+          <li>Configure NGINX Ingress to route 5% of <code>/api/payment/*</code> traffic to v2</li>
+          <li>Monitor Prometheus metrics for 30 minutes: error rate, p99 latency, Stripe API error codes</li>
+          <li>If healthy, progressively increase: 5% → 25% → 50% → 100% over 2 hours</li>
+          <li>If any alarm fires, set canary weight to 0% — full rollback without touching v1</li>
+        </ol>
+
+        <p><strong>Services involved in this release:</strong></p>
+        <ul>
+          <li><code>payment-service</code> (Python) — the canary target</li>
+          <li><code>order-service</code> (Go) — calls payment-service; both versions must accept its API contract</li>
+          <li><code>notification-service</code> (Node.js) — receives payment events; both versions emit the same event schema</li>
+          <li><code>api-gateway</code> (NGINX) — routes external traffic, configured with canary weight annotations</li>
+          <li>Registry: <code>nexus.ticketflow.io:5000/payment-service:v2.1.0</code></li>
+        </ul>
+
+        <p>The monitoring stack (Prometheus + Grafana + Loki) provides a dedicated canary dashboard showing v1 vs v2 error rates side-by-side. A Grafana alert is wired to a Slack webhook — if v2 error rate exceeds 0.1% for more than 5 minutes, the on-call engineer is paged and the canary is automatically demoted via an Argo CD sync.</p>
+      </div>
+
+      <!-- SECTION 6 — CODE EXAMPLES -->
+      <h2 id="code-examples" class="section-title">Code Examples</h2>
+
+      <h3 class="subsection-title">Rolling Update — Kubernetes Deployment</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># payment-service deployment with rolling update strategy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: ticketflow-prod
+  labels:
+    app: payment-service
+    version: v2.1.0
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: payment-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # At most 1 extra pod above desired count (6+1=7 max during update)
+      maxSurge: 1
+      # Zero pods unavailable — full capacity maintained throughout
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        version: v2.1.0
+    spec:
+      containers:
+        - name: payment-service
+          image: nexus.ticketflow.io:5000/payment-service:v2.1.0
+          ports:
+            - containerPort: 8000
+          # Readiness probe — pod only receives traffic when truly ready
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          # Liveness probe — restart pod if it becomes unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          # Graceful shutdown — drain in-flight requests before pod stops
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+          terminationGracePeriodSeconds: 30
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Blue-Green — Service Switch via kubectl</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Blue deployment (current production)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service-blue
+  namespace: ticketflow-prod
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: payment-service
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        slot: blue
+        version: v1.9.0
+    spec:
+      containers:
+        - name: payment-service
+          image: nexus.ticketflow.io:5000/payment-service:v1.9.0
+          ports:
+            - containerPort: 8000
+---
+# Green deployment (new version — deployed and tested, not yet live)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service-green
+  namespace: ticketflow-prod
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: payment-service
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        slot: green
+        version: v2.1.0
+    spec:
+      containers:
+        - name: payment-service
+          image: nexus.ticketflow.io:5000/payment-service:v2.1.0
+          ports:
+            - containerPort: 8000
+---
+# The Service — points to 'blue' slot initially
+# Switch to green by patching selector to slot: green
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: ticketflow-prod
+spec:
+  selector:
+    app: payment-service
+    slot: blue          # Change to 'green' for instant cutover
+  ports:
+    - port: 80
+      targetPort: 8000</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Run smoke tests against the green deployment via a test service
+kubectl apply -f payment-service-green-test-svc.yaml
+
+# Smoke test — hit green directly (not through the main service)
+curl https://green.internal.ticketflow.io/api/payment/health
+curl -X POST https://green.internal.ticketflow.io/api/payment/test-charge \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 1, "currency": "USD", "card_token": "tok_test"}'
+
+# All tests pass — switch traffic to green (instant, atomic, zero-downtime)
+kubectl patch service payment-service \
+  -n ticketflow-prod \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/spec/selector/slot", "value": "green"}]'
+
+# Verify the switch
+kubectl get service payment-service -n ticketflow-prod -o yaml | grep -A5 selector
+
+# Monitor for 30 minutes via Prometheus
+# If all metrics are healthy — scale down blue (keep it for 24h as a safety net first)
+# If problems — instant rollback:
+kubectl patch service payment-service \
+  -n ticketflow-prod \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/spec/selector/slot", "value": "blue"}]'</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Canary — NGINX Ingress with Traffic Split Annotations</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Stable ingress — routes 95% of traffic to payment-service v1
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payment-service-stable
+  namespace: ticketflow-prod
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: api.ticketflow.io
+      http:
+        paths:
+          - path: /api/payment
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service-stable
+                port:
+                  number: 80
+---
+# Canary ingress — routes 5% of traffic to payment-service v2
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payment-service-canary
+  namespace: ticketflow-prod
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # Enable canary routing
+    nginx.ingress.kubernetes.io/canary: "true"
+    # Route 5% of requests to this ingress (weight out of 100)
+    nginx.ingress.kubernetes.io/canary-weight: "5"
+    # Optional: always route specific users to canary (for targeted testing)
+    # nginx.ingress.kubernetes.io/canary-by-header: "X-Canary-User"
+    # nginx.ingress.kubernetes.io/canary-by-header-value: "true"
+spec:
+  rules:
+    - host: api.ticketflow.io
+      http:
+        paths:
+          - path: /api/payment
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service-canary
+                port:
+                  number: 80</code></pre>
+      </div>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Progressively increase canary weight as confidence builds
+# Step 1: 5% (initial — watch for 30 minutes)
+kubectl annotate ingress payment-service-canary \
+  -n ticketflow-prod \
+  nginx.ingress.kubernetes.io/canary-weight="5" \
+  --overwrite
+
+# Step 2: 25% (after 30 min of clean metrics)
+kubectl annotate ingress payment-service-canary \
+  -n ticketflow-prod \
+  nginx.ingress.kubernetes.io/canary-weight="25" \
+  --overwrite
+
+# Step 3: 50%
+kubectl annotate ingress payment-service-canary \
+  -n ticketflow-prod \
+  nginx.ingress.kubernetes.io/canary-weight="50" \
+  --overwrite
+
+# Step 4: Full promotion — delete canary ingress, update stable deployment
+kubectl annotate ingress payment-service-canary \
+  -n ticketflow-prod \
+  nginx.ingress.kubernetes.io/canary-weight="100" \
+  --overwrite
+
+# Then roll the stable deployment to v2 and remove canary
+kubectl set image deployment/payment-service-stable \
+  payment-service=nexus.ticketflow.io:5000/payment-service:v2.1.0 \
+  -n ticketflow-prod
+
+kubectl delete ingress payment-service-canary -n ticketflow-prod
+
+# Emergency rollback — set weight to 0 instantly
+kubectl annotate ingress payment-service-canary \
+  -n ticketflow-prod \
+  nginx.ingress.kubernetes.io/canary-weight="0" \
+  --overwrite</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Canary with Istio VirtualService (Service Mesh Traffic Split)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Istio DestinationRule — defines v1 and v2 subsets
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: payment-service
+  namespace: ticketflow-prod
+spec:
+  host: payment-service
+  subsets:
+    - name: v1
+      labels:
+        version: v1.9.0
+    - name: v2
+      labels:
+        version: v2.1.0
+---
+# Istio VirtualService — weighted traffic split
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: payment-service
+  namespace: ticketflow-prod
+spec:
+  hosts:
+    - payment-service
+  http:
+    - match:
+        # Sticky routing: internal staff always see v2
+        - headers:
+            x-ticketflow-user-type:
+              exact: internal
+      route:
+        - destination:
+            host: payment-service
+            subset: v2
+          weight: 100
+    - route:
+        # General traffic: 95% v1, 5% v2
+        - destination:
+            host: payment-service
+            subset: v1
+          weight: 95
+        - destination:
+            host: payment-service
+            subset: v2
+          weight: 5</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Feature Flag Implementation in payment-service (Python)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-python"># payment_service/flags.py
+import ldclient
+from ldclient.config import Config
+import os
+
+# Initialize LaunchDarkly client (read SDK key from K8s secret)
+ldclient.set_config(Config(os.environ["LAUNCHDARKLY_SDK_KEY"]))
+client = ldclient.get()
+
+
+def is_new_checkout_enabled(user_id: str, user_email: str, plan: str) -> bool:
+    """
+    Check if the new Stripe checkout flow is enabled for this user.
+    Targeting rules (configured in LaunchDarkly dashboard):
+      - Always ON for @ticketflow.io email addresses (internal testing)
+      - Always ON for 'enterprise' plan users (beta group)
+      - 10% random rollout for all others
+    """
+    user_context = {
+        "key": user_id,
+        "email": user_email,
+        "custom": {
+            "plan": plan
+        }
+    }
+    return client.variation("new-checkout-flow", user_context, default=False)
+
+
+# payment_service/routes/checkout.py
+from fastapi import APIRouter, Depends
+from .flags import is_new_checkout_enabled
+from .checkout_v1 import process_payment_legacy
+from .checkout_v2 import process_payment_new
+
+router = APIRouter()
+
+
+@router.post("/api/payment/charge")
+async def charge(request: ChargeRequest, current_user: User = Depends(get_current_user)):
+    # Evaluate feature flag — no deployment needed to change this
+    if is_new_checkout_enabled(
+        user_id=current_user.id,
+        user_email=current_user.email,
+        plan=current_user.plan
+    ):
+        # New Stripe integration with retry logic
+        return await process_payment_new(request, current_user)
+    else:
+        # Legacy Stripe integration
+        return await process_payment_legacy(request, current_user)</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Argo CD Application for Canary via GitOps</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># argocd/payment-service-canary-app.yaml
+# Managed in: github.com/ticketflow/gitops-config
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-canary
+  namespace: argocd
+spec:
+  project: ticketflow-prod
+  source:
+    repoURL: https://github.com/ticketflow/gitops-config
+    targetRevision: HEAD
+    path: apps/payment-service/canary
+    helm:
+      values: |
+        image:
+          tag: v2.1.0
+          registry: nexus.ticketflow.io:5000
+        canary:
+          enabled: true
+          weight: 5
+        replicaCount: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ticketflow-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+  # Rollback: update canary.weight to 0 in git, ArgoCD auto-syncs</code></pre>
+      </div>
+
+      <!-- SECTION 7 — OS TABS -->
+      <h2 id="os-commands" class="section-title">Deployment Commands by Platform</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux-mac">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+          <button class="os-tab-btn" data-tab="cicd">GitHub Actions</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux-mac">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Monitor a rolling update in real time
+kubectl rollout status deployment/payment-service -n ticketflow-prod --timeout=5m
+
+# Pause a rolling update mid-way (freeze current state)
+kubectl rollout pause deployment/payment-service -n ticketflow-prod
+
+# Resume the paused rollout
+kubectl rollout resume deployment/payment-service -n ticketflow-prod
+
+# View rollout history
+kubectl rollout history deployment/payment-service -n ticketflow-prod
+
+# Immediate rollback to the previous revision
+kubectl rollout undo deployment/payment-service -n ticketflow-prod
+
+# Rollback to a specific revision (e.g. revision 3)
+kubectl rollout undo deployment/payment-service \
+  -n ticketflow-prod \
+  --to-revision=3
+
+# Watch canary pod logs in real time (filter by version label)
+kubectl logs -l app=payment-service,version=v2.1.0 \
+  -n ticketflow-prod \
+  -f --tail=100
+
+# Port-forward to the canary pod directly for manual testing
+kubectl port-forward \
+  $(kubectl get pod -l app=payment-service,version=v2.1.0 -n ticketflow-prod -o name | head -1) \
+  8080:8000 -n ticketflow-prod</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Monitor a rolling update in real time (PowerShell)
+kubectl rollout status deployment/payment-service -n ticketflow-prod --timeout=5m
+
+# View rollout history
+kubectl rollout history deployment/payment-service -n ticketflow-prod
+
+# Immediate rollback (PowerShell — same kubectl commands)
+kubectl rollout undo deployment/payment-service -n ticketflow-prod
+
+# Update canary weight annotation (PowerShell string quoting differs from bash)
+kubectl annotate ingress payment-service-canary `
+  -n ticketflow-prod `
+  "nginx.ingress.kubernetes.io/canary-weight=25" `
+  --overwrite
+
+# Patch service selector for blue-green switch (PowerShell heredoc)
+$patch = '[{"op": "replace", "path": "/spec/selector/slot", "value": "green"}]'
+kubectl patch service payment-service `
+  -n ticketflow-prod `
+  --type='json' `
+  -p=$patch
+
+# Watch pod rollout across versions
+kubectl get pods -n ticketflow-prod -l app=payment-service `
+  --watch `
+  -o 'custom-columns=NAME:.metadata.name,VERSION:.metadata.labels.version,READY:.status.conditions[?(@.type=="Ready")].status'</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="cicd">
+          <div class="code-wrapper">
+            <pre><code class="language-yaml"># .github/workflows/payment-service-canary.yml
+name: payment-service Canary Deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['services/payment-service/**']
+
+env:
+  IMAGE: nexus.ticketflow.io:5000/payment-service
+  NAMESPACE: ticketflow-prod
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version tag
+        id: meta
+        run: echo "version=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build and push to Nexus
+        run: |
+          echo "${{ secrets.NEXUS_PASSWORD }}" | \
+            docker login nexus.ticketflow.io:5000 \
+            -u "${{ secrets.NEXUS_USERNAME }}" --password-stdin
+
+          docker build \
+            -t $IMAGE:${{ steps.meta.outputs.version }} \
+            -f services/payment-service/Dockerfile \
+            services/payment-service/
+
+          docker push $IMAGE:${{ steps.meta.outputs.version }}
+
+  canary-deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure EKS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name ticketflow-prod --region eu-west-1
+
+      - name: Deploy canary at 5% traffic
+        run: |
+          # Update canary deployment image
+          kubectl set image deployment/payment-service-canary \
+            payment-service=$IMAGE:${{ needs.build-and-push.outputs.image-tag }} \
+            -n $NAMESPACE
+
+          # Set canary weight to 5%
+          kubectl annotate ingress payment-service-canary \
+            -n $NAMESPACE \
+            nginx.ingress.kubernetes.io/canary-weight="5" \
+            --overwrite
+
+          # Wait for canary rollout to complete
+          kubectl rollout status deployment/payment-service-canary \
+            -n $NAMESPACE --timeout=5m
+
+      - name: Monitor canary for 10 minutes
+        run: |
+          echo "Waiting 10 minutes, monitoring Prometheus for error rate..."
+          sleep 600
+
+          # Query Prometheus — fail if canary error rate > 0.5%
+          ERROR_RATE=$(curl -s \
+            "http://prometheus.ticketflow.io/api/v1/query?query=rate(http_requests_total{service='payment-service',version='${{ needs.build-and-push.outputs.image-tag }}',status=~'5..'}[5m])/rate(http_requests_total{service='payment-service',version='${{ needs.build-and-push.outputs.image-tag }}'}[5m])" \
+            | jq -r '.data.result[0].value[1]')
+
+          echo "Canary error rate: $ERROR_RATE"
+
+          if (( $(echo "$ERROR_RATE > 0.005" | bc -l) )); then
+            echo "ERROR: Canary error rate exceeded threshold. Rolling back."
+            kubectl annotate ingress payment-service-canary \
+              -n $NAMESPACE \
+              nginx.ingress.kubernetes.io/canary-weight="0" \
+              --overwrite
+            exit 1
+          fi
+
+          echo "Canary healthy. Promoting to 25%..."
+          kubectl annotate ingress payment-service-canary \
+            -n $NAMESPACE \
+            nginx.ingress.kubernetes.io/canary-weight="25" \
+            --overwrite</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 8 — BEHIND THE SCENES -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>How does Kubernetes actually implement a rolling update?</summary>
+        <div class="answer-content">
+          <p>When you run <code>kubectl set image deployment/payment-service payment-service=nexus.ticketflow.io:5000/payment-service:v2.1.0</code>, here is exactly what happens inside the Kubernetes control plane:</p>
+          <ol>
+            <li><strong>Deployment controller detects spec change.</strong> The Deployment object's <code>spec.template</code> has changed (the image tag). The Deployment controller in kube-controller-manager triggers a reconciliation loop.</li>
+            <li><strong>New ReplicaSet is created.</strong> Kubernetes creates a new ReplicaSet object with the v2 pod spec. The old ReplicaSet (managing v1 pods) still exists. The Deployment now manages two ReplicaSets.</li>
+            <li><strong>Scale up new ReplicaSet.</strong> The controller scales up the new ReplicaSet by one pod (respecting <code>maxSurge</code>). The scheduler assigns the pod to a node with available capacity.</li>
+            <li><strong>Kubelet pulls image and starts container.</strong> On the selected node, kubelet contacts the container runtime (containerd), which pulls <code>nexus.ticketflow.io:5000/payment-service:v2.1.0</code> from Nexus.</li>
+            <li><strong>Readiness probe polling begins.</strong> The kubelet polls the readiness endpoint every <code>periodSeconds</code>. Until it returns HTTP 200, the pod's <code>Ready</code> condition is <code>False</code> and kube-proxy does NOT add it to the Service's endpoint list — no traffic reaches it yet.</li>
+            <li><strong>Pod becomes Ready — traffic added.</strong> Once the readiness probe passes, <code>endpoints-controller</code> adds the new pod's IP to the Service's Endpoints object. kube-proxy (or the CNI plugin) updates iptables/IPVS rules on every node. The new pod starts receiving traffic.</li>
+            <li><strong>Scale down old ReplicaSet.</strong> The Deployment controller decrements the old ReplicaSet's replica count by 1. Kubernetes sends SIGTERM to the pod being terminated. The pod's <code>preStop</code> hook runs (the 5-second sleep in our config), giving in-flight requests time to complete. After <code>terminationGracePeriodSeconds</code>, SIGKILL is sent if the process hasn't exited.</li>
+            <li><strong>Steps 3–7 repeat</strong> until all pods run v2 and the old ReplicaSet has 0 replicas.</li>
+            <li><strong>Old ReplicaSet is retained</strong> (scaled to 0, not deleted) to enable <code>kubectl rollout undo</code>. The Deployment keeps the last 10 ReplicaSets by default (<code>revisionHistoryLimit</code>).</li>
+          </ol>
+          <p>The entire process is crash-safe: if the Deployment controller pod itself crashes mid-rollout, it picks up exactly where it left off when it restarts — the desired state is persisted in etcd.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does NGINX Ingress canary weight work at the network level?</summary>
+        <div class="answer-content">
+          <p>When you annotate an ingress with <code>nginx.ingress.kubernetes.io/canary: "true"</code> and <code>canary-weight: "5"</code>, the NGINX Ingress Controller rebuilds its nginx.conf with an upstream block that implements weighted round-robin:</p>
+          <ul>
+            <li>NGINX uses the <code>split_clients</code> directive combined with a hash of the connection's random variable to deterministically assign each request to either the stable or canary upstream.</li>
+            <li>For a weight of 5, 5% of incoming requests are routed to the canary upstream backend, and 95% go to the stable upstream. This is probabilistic — in a 20-request sample you might get 0 or 2 canary hits; over 10,000 requests, it converges to exactly 5%.</li>
+            <li>When <code>canary-by-header</code> is also configured, NGINX checks the header first and overrides the weight-based routing for matching requests — enabling "always show me the canary" for specific users regardless of the percentage.</li>
+            <li>The Ingress Controller watches Ingress objects via the Kubernetes API and regenerates and hot-reloads nginx.conf without dropping connections every time an annotation changes.</li>
+          </ul>
+          <p>Istio's implementation is more sophisticated: it uses Envoy sidecar proxies injected into each pod to do the traffic splitting at the pod-to-pod connection level (Layer 7), whereas NGINX Ingress splits only at the ingress (edge) level. Istio enables splitting for service-to-service calls inside the cluster — for example, <code>order-service</code> calling <code>payment-service</code> can also hit the canary.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why do database migrations make blue-green deployments hard?</summary>
+        <div class="answer-content">
+          <p>Blue-green deployments require that both environments can share — or independently access — the database at the same time during the transition window. This creates a fundamental constraint: any database schema change must be backward-compatible.</p>
+          <p>The expand-contract (or parallel-change) pattern solves this in three phases:</p>
+          <ol>
+            <li><strong>Expand (migration deploy):</strong> Deploy a migration that adds new columns/tables but does NOT remove or rename existing ones. Both old (blue) and new (green) code can now function: blue ignores the new columns, green uses them.</li>
+            <li><strong>Migrate (traffic cutover):</strong> Switch traffic from blue to green. Both database layouts are now compatible. Green runs against the expanded schema.</li>
+            <li><strong>Contract (cleanup deploy):</strong> In a subsequent release, deploy a migration that removes the old columns/tables that are no longer needed. By this point, no code references them.</li>
+          </ol>
+          <p>Breaking changes to avoid during the expand phase: renaming columns (rename = add + populate + remove across three deploys), changing column types in a way that breaks existing code, removing NOT NULL constraints that green relies on having, adding NOT NULL columns without defaults (blue cannot insert without them).</p>
+        </div>
+      </details>
+
+      <!-- SECTION 9 — COMMON MISTAKES -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: No Readiness Probe — Traffic Hits Unready Pods</span>
+        <p>The single most common rolling update mistake: deploying a new version without a readiness probe. Kubernetes marks the pod as Ready as soon as the container starts — before your application has finished initialising (database connection pool, cache warming, SSL handshake). The result: a percentage of requests hit the pod during startup and get connection refused or 502 errors, causing transient production failures with every deployment.</p>
+        <p><strong>Fix:</strong> Always define a readiness probe that reflects genuine application readiness. For FastAPI/Django, a <code>/health/ready</code> endpoint that checks DB connectivity and cache availability. Set <code>initialDelaySeconds</code> to your typical startup time + 30% buffer. Never use TCP probes for HTTP services — they only check if the port is open, not if the application is actually handling requests.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Canary Without Metrics Baseline</span>
+        <p>Teams deploy a 5% canary and declare it "healthy" because no alarms fired. But without a pre-established baseline of what "normal" looks like (error rate, latency distribution, throughput), there is nothing to compare against. If your stable service normally has a 0.3% error rate and the canary has 0.8%, that is a serious regression — but it might not trigger a threshold-based alert if the threshold was set at 2%.</p>
+        <p><strong>Fix:</strong> Before any canary deployment, record 7-day baseline metrics for the service. Set canary alert thresholds relative to baseline (e.g., alert if canary error rate is more than 2x baseline, not at a fixed absolute value). Use Prometheus recording rules to compute these baseline metrics automatically.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Blue-Green Without Warming Up Green</span>
+        <p>Green is built, smoke-tested, and the traffic switch is made. Within seconds, Grafana shows latency spiking to 10x normal. The culprit: the green pods had cold JVM/connection pools/caches. Under immediate full production load with no warmup, the application performs poorly for the first 30–60 seconds — enough to break SLAs and trigger customer-facing errors.</p>
+        <p><strong>Fix:</strong> Before the traffic switch, send synthetic "warm-up traffic" to green through a test Service for 5–10 minutes. For JVM services (ticket-service/Spring Boot), JIT compilation significantly affects cold performance. For connection-pooled services, ensure pool connections are established before real traffic arrives. Consider a brief canary phase (1% → 100%) even within a blue-green setup to warm up gradually.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Feature Flag Debt — Flags That Are Never Cleaned Up</span>
+        <p>Every feature flag is a conditional branch in your code. After a feature launches to 100% of users, the flag is often left in place "just in case we need to roll it back". Six months later, the codebase has 40 permanent flags protecting code paths that will never be disabled, creating unmaintainable conditional logic and confusion about which code actually runs in production.</p>
+        <p><strong>Fix:</strong> Treat feature flags as technical debt from day one. When creating a flag, add a calendar reminder to remove it after the full rollout. Enforce a maximum flag lifetime in your flag management tool. Schedule monthly "flag cleanup" sprints to remove stale flags and the dead code paths they protect. LaunchDarkly and Unleash both have flag staleness tracking features.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: API Contract Breaks During Rolling Update</span>
+        <p>During a rolling update, both v1 and v2 pods serve production traffic simultaneously for several minutes. If v2 renames a JSON field that other services read (e.g., <code>order-service</code> expects <code>transaction_id</code> but v2 now returns <code>txn_id</code>), requests routed to v2 pods fail while requests to v1 pods succeed. The result: intermittent errors that are nearly impossible to debug — every other request returns a different response structure.</p>
+        <p><strong>Fix:</strong> Apply the Tolerant Reader pattern — consumers ignore unknown fields. For renames, support both the old and new field name simultaneously during the transition window (return both, accept both). Use API versioning for breaking changes. Add a Consumer-Driven Contract (CDC) test suite with Pact that runs in CI before any deployment to detect API contract breaks automatically.</p>
+      </div>
+
+      <!-- SECTION 10 — ARCHITECT NOTES -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Deployment patterns are not just operational decisions — they are architectural constraints that affect how you design your services:</p>
+        <ul>
+          <li><strong>Stateless services are prerequisites.</strong> Rolling updates and canary deployments assume pods are interchangeable. If your service has local state (in-memory session, local file cache), users whose session is on a pod being terminated will lose data. All session state must be externalised to Redis or a database before any of these patterns work reliably.</li>
+          <li><strong>Choose the pattern that matches your risk tolerance.</strong> Rolling updates are the default and appropriate for 80% of services. Blue-green is warranted when you need sub-second rollback and cannot tolerate a 2-minute rolling undo. Canary is warranted when the blast radius of a bug exceeds what your SLOs allow. Feature flags are warranted when business needs require decoupled release control. You do not need all four for every service.</li>
+          <li><strong>Traffic splitting and feature flags are complementary, not competing.</strong> Infrastructure-level canary (NGINX weights) controls risk at the platform level — it requires no application code changes and works across services. Feature flags control risk at the application level — they enable user-segment targeting impossible with infrastructure weights. Use both: canary for risky infrastructure changes, feature flags for risky product feature changes.</li>
+          <li><strong>Progressive delivery is the mature form.</strong> The combination of canary releases, automated metrics evaluation, and automatic promotion/rollback is called Progressive Delivery. Tools like Argo Rollouts and Flagger implement this natively on Kubernetes — defining success criteria in code and automatically promoting or rolling back based on Prometheus metrics. This eliminates the manual weight-adjustment ceremony and makes safe deployment fully automated.</li>
+          <li><strong>Deployment frequency is a leading indicator.</strong> The DORA metrics show that high-performing engineering organisations deploy multiple times per day with lower change failure rates than teams that deploy monthly. The patterns in this chapter are the technical foundation that makes high-frequency deployment safe. The investment in rolling updates, readiness probes, and canary infrastructure pays compounding returns as deployment frequency increases.</li>
+        </ul>
+      </div>
+
+      <!-- SECTION 11 — PRODUCTION CHECKLIST -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <p>Before deploying any service in a production environment using these patterns, verify all of the following:</p>
+
+      <ul class="checklist">
+        <li>Readiness probe defined and tested — endpoint verifies DB, cache, and downstream dependency health, not just "process is alive"</li>
+        <li>Liveness probe defined with appropriate <code>initialDelaySeconds</code> to prevent premature restarts during slow startup</li>
+        <li>Graceful shutdown implemented — service handles SIGTERM by stopping new connections and draining in-flight requests before exit</li>
+        <li><code>terminationGracePeriodSeconds</code> set to actual drain time + buffer (measure your p99 request duration, add 30%)</li>
+        <li>Service is stateless — no in-memory session state, no local filesystem writes that must survive pod restarts</li>
+        <li>API contract tested with Consumer-Driven Contract tests (Pact) to detect breaking changes before they hit production</li>
+        <li>Database migrations follow expand-contract pattern — no column renames or type changes in a single migration</li>
+        <li>Canary metrics baseline documented — 7-day rolling average of error rate, p50/p99 latency, throughput stored as Prometheus recording rules</li>
+        <li>Rollback procedure documented and tested — team has performed a rollback drill in staging, knows exactly which commands to run</li>
+        <li>Canary promotion criteria defined — explicit success metrics and failure thresholds agreed upon before deployment begins</li>
+        <li>Blue environment kept warm for minimum 24 hours after blue-green cutover before decommissioning</li>
+        <li>Feature flag cleanup scheduled — ticket created at flag creation time with agreed removal deadline</li>
+        <li>On-call alert wired to deployment — Grafana alert fires if canary error rate or latency breaches SLO thresholds</li>
+      </ul>
+
+      <!-- SECTION 12 — HANDS-ON LAB -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Implement a Canary Deployment</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires kubectl and a local Kubernetes cluster (minikube, kind, or Docker Desktop)</span>
+
+        <p>This lab walks through deploying a canary release for a simulated payment-service, splitting traffic between v1 (stable) and v2 (canary), monitoring the split, and performing both a promotion and rollback.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Create the stable and canary Deployments</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create the ticketflow-lab namespace
+kubectl create namespace ticketflow-lab
+
+# Deploy stable payment-service v1 (3 replicas)
+kubectl create deployment payment-service-stable \
+  --image=nginx:1.25-alpine \
+  --replicas=3 \
+  -n ticketflow-lab
+
+kubectl label deployment payment-service-stable \
+  version=v1 app=payment-service \
+  -n ticketflow-lab
+
+# Create a stable Service
+kubectl expose deployment payment-service-stable \
+  --port=80 \
+  --name=payment-service-stable \
+  -n ticketflow-lab
+
+# Deploy canary payment-service v2 (1 replica)
+kubectl create deployment payment-service-canary \
+  --image=nginx:1.26-alpine \
+  --replicas=1 \
+  -n ticketflow-lab
+
+kubectl label deployment payment-service-canary \
+  version=v2 app=payment-service \
+  -n ticketflow-lab
+
+# Create a canary Service
+kubectl expose deployment payment-service-canary \
+  --port=80 \
+  --name=payment-service-canary \
+  -n ticketflow-lab
+
+# Verify both are running
+kubectl get pods -n ticketflow-lab -L version,app</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Differentiate the versions (simulate different responses)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Give stable pods a v1 response
+for pod in $(kubectl get pods -l version=v1 -n ticketflow-lab -o name); do
+  kubectl exec -n ticketflow-lab $pod -- \
+    sh -c 'echo "payment-service v1 - STABLE" > /usr/share/nginx/html/index.html'
+done
+
+# Give canary pod a v2 response
+kubectl exec -n ticketflow-lab \
+  $(kubectl get pod -l version=v2 -n ticketflow-lab -o name | head -1) -- \
+  sh -c 'echo "payment-service v2 - CANARY (NEW CHECKOUT)" > /usr/share/nginx/html/index.html'</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Test traffic split manually (no ingress controller required)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Run a debug pod to test from inside the cluster
+kubectl run -it --rm debug \
+  --image=curlimages/curl \
+  --restart=Never \
+  -n ticketflow-lab \
+  -- sh
+
+# Inside the debug pod — hit stable service (should always return v1)
+for i in $(seq 1 5); do curl -s payment-service-stable; done
+
+# Hit canary service (should always return v2)
+for i in $(seq 1 5); do curl -s payment-service-canary; done
+
+# Simulate weighted traffic manually (80% stable, 20% canary)
+for i in $(seq 1 10); do
+  if [ $((RANDOM % 10)) -lt 2 ]; then
+    curl -s payment-service-canary
+  else
+    curl -s payment-service-stable
+  fi
+done
+
+# Exit the debug pod
+exit</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Simulate a canary problem and roll back</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Inject a failure into the canary pod (simulate a bug)
+kubectl exec -n ticketflow-lab \
+  $(kubectl get pod -l version=v2 -n ticketflow-lab -o name | head -1) -- \
+  sh -c 'echo "500 Internal Server Error" > /usr/share/nginx/html/index.html'
+
+# Verify the canary now returns errors
+kubectl run -it --rm verify \
+  --image=curlimages/curl \
+  --restart=Never \
+  -n ticketflow-lab \
+  -- curl -s payment-service-canary
+
+# Rollback: scale canary to 0 (takes it out of rotation immediately)
+kubectl scale deployment payment-service-canary --replicas=0 -n ticketflow-lab
+
+# Verify all traffic now goes to stable v1 only
+kubectl run -it --rm verify2 \
+  --image=curlimages/curl \
+  --restart=Never \
+  -n ticketflow-lab \
+  -- sh -c 'for i in $(seq 1 5); do curl -s payment-service-stable; done'</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Promote canary to full production (simulate success)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Fix the canary (restore good response)
+kubectl scale deployment payment-service-canary --replicas=1 -n ticketflow-lab
+
+kubectl exec -n ticketflow-lab \
+  $(kubectl get pod -l version=v2 -n ticketflow-lab -o name | head -1) -- \
+  sh -c 'echo "payment-service v2 - CANARY - HEALTHY" > /usr/share/nginx/html/index.html'
+
+# Promote: scale stable down, scale canary up to full
+kubectl scale deployment payment-service-stable --replicas=0 -n ticketflow-lab
+kubectl scale deployment payment-service-canary --replicas=3 -n ticketflow-lab
+
+# Relabel for clean state (canary is now the new stable)
+kubectl label deployment payment-service-canary version=v2-stable --overwrite -n ticketflow-lab
+
+# Verify
+kubectl get pods -n ticketflow-lab -L version
+
+# Clean up the lab
+kubectl delete namespace ticketflow-lab</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>What to observe during this lab:</strong></p>
+        <ol>
+          <li>How "scaling to 0" is an instant, reversible rollback mechanism — safer than deleting deployments.</li>
+          <li>The difference between routing at the service level (this lab) vs routing at the ingress level (canary annotations) — ingress control is more granular and production-grade.</li>
+          <li>How pod labels are the mechanism that connects deployments to services — and how you can re-label pods to shift traffic without changing code.</li>
+          <li>How a canary rollback is non-destructive to the stable version — v1 continues running untouched throughout the entire canary lifecycle.</li>
+        </ol>
+      </div>
+
+      <!-- SECTION 13 — INTERVIEW QUESTIONS -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked deployment pattern questions in senior engineering and architect-level interviews. Click each question to reveal a complete, structured answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is the difference between a rolling update, blue-green deployment, and canary release? When would you choose each?</summary>
+            <div class="answer-content">
+              <p>These three patterns differ in how they manage the transition period between old and new versions:</p>
+              <p><strong>Rolling update:</strong> Pods are replaced incrementally. Old and new versions run simultaneously for a few minutes. Zero downtime with no extra infrastructure cost. Risk: API contract breaks affect live traffic during the transition window. Best for: stateless services with backward-compatible changes, the default for 80% of deployments.</p>
+              <p><strong>Blue-green:</strong> Two complete environments run in parallel. Traffic switches instantly from old to new. Rollback is a 10-second operation (flip the load balancer back). Cost: 2x infrastructure during every release. Risk: cold-start performance issues if green is not warmed up. Best for: compliance environments, database schema changes, services where partial rollout is unacceptable.</p>
+              <p><strong>Canary:</strong> Small percentage of real production traffic routes to the new version. Bugs surface with minimal user impact. Progressive traffic shift with automated metrics evaluation. Best for: high-traffic services, changes with uncertain production behaviour, performance-sensitive code paths where staging cannot simulate real load patterns.</p>
+              <p><strong>Decision framework:</strong> Start with rolling updates for all services. Add blue-green when you need sub-second rollback capability. Add canary when a bug in the new version affects more users than your SLO allows before detection.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: How do feature flags differ from canary deployments? Can they be used together?</summary>
+            <div class="answer-content">
+              <p><strong>Canary deployment</strong> splits traffic at the infrastructure level. The routing decision is made by the load balancer or ingress controller before the request reaches application code. A user hitting a canary pod gets v2 regardless of who they are. Canary is used for risk reduction — detecting bugs in production with minimal blast radius.</p>
+              <p><strong>Feature flags</strong> split behaviour at the application level. 100% of traffic hits the same version of the code, but a runtime flag controls which code path executes for each user. Flags support sophisticated targeting: specific user IDs, user attributes, geographies, account plans. Flags are used for controlled rollout, A/B testing, and kill-switch capabilities.</p>
+              <p><strong>Used together:</strong> Yes, and this is the powerful combination. Use a canary deployment to gradually shift 5% → 100% of traffic to the new pod version (infrastructure-level risk control). Within that new version, use feature flags to enable the new feature only for internal users initially, then beta users, then all users (application-level rollout control). This gives you two independent rollback levers: you can roll back the infrastructure (reduce canary weight) or roll back the feature (flip the flag) independently.</p>
+              <p>Example at TicketFlow: Canary deployment ensures payment-service v2 pods do not crash. Feature flag <code>new-checkout-flow</code> ensures the new payment UX only shows to users who have opted into the beta — even on v2 pods.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: How would you handle database migrations during a blue-green deployment?</summary>
+            <div class="answer-content">
+              <p>Database migrations are the hardest part of blue-green deployment because both blue and green environments typically share the same database. The migration must be compatible with both versions of the application code simultaneously.</p>
+              <p>The solution is the <strong>expand-contract pattern</strong> (also called parallel-change), which breaks migrations into three separate deployments:</p>
+              <ol>
+                <li><strong>Expand:</strong> Deploy a migration that only adds (never removes or renames). Add the new column/table/index. Both blue (old) and green (new) code are written to work with this expanded schema. Old code ignores the new columns; new code reads and writes them.</li>
+                <li><strong>Migrate:</strong> Switch traffic from blue to green. Now only green is active, and it uses the new columns. Old data in the legacy columns may need a background migration job to populate the new columns for existing rows.</li>
+                <li><strong>Contract:</strong> In the next release cycle, deploy a migration that removes the old columns/tables that are now unused. By this point, no deployed code references them.</li>
+              </ol>
+              <p><strong>Operations to strictly avoid</strong> in the Expand phase: renaming columns (breaks existing code immediately), removing NOT NULL constraints on new columns without defaults (old code cannot insert), changing column types incompatibly.</p>
+              <p>This approach means breaking schema changes always take at least two release cycles — a cost you pay to enable zero-downtime blue-green deployments.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is progressive delivery and how does Argo Rollouts implement it?</summary>
+            <div class="answer-content">
+              <p><strong>Progressive delivery</strong> is the automated, metrics-driven promotion and rollback of canary releases. Rather than a human manually watching dashboards and adjusting traffic weights, progressive delivery defines success criteria in code. The system automatically promotes the canary when metrics are healthy and rolls it back when they are not.</p>
+              <p><strong>Argo Rollouts</strong> is a Kubernetes controller that replaces standard Deployments with a Rollout custom resource. It supports multiple strategies:</p>
+              <ul>
+                <li><strong>Canary</strong> with <code>steps</code> — define a sequence of percentage increases with pause durations and metric checks between them.</li>
+                <li><strong>BlueGreen</strong> — built-in support with <code>autoPromotionEnabled</code> and pre/post-promotion analysis hooks.</li>
+                <li><strong>Analysis</strong> — <code>AnalysisTemplate</code> objects query Prometheus, Datadog, or custom metrics providers. The rollout pauses at each step, runs an analysis, and proceeds only if the analysis passes.</li>
+              </ul>
+              <p>At TicketFlow, an Argo Rollout for payment-service might look like: set 5% weight → wait 10 min → query Prometheus for error rate → if &lt; 0.1%, set 25% weight → wait 20 min → repeat until 100%. If any analysis fails, canary weight is automatically set to 0 and a Slack notification is sent. Zero human intervention required for happy-path promotions; human escalation only for failures.</p>
+              <p>Argo Rollouts integrates natively with Argo CD — GitOps workflows trigger Rollouts, and Argo CD shows Rollout status (progressing/healthy/degraded) in its UI, enabling full observability over progressive delivery from the GitOps dashboard.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: How do you implement instant rollback for a deployment that has already reached 100%?</summary>
+            <div class="answer-content">
+              <p>The rollback strategy depends on how the deployment was done:</p>
+              <p><strong>Rolling update rollback:</strong> Kubernetes retains previous ReplicaSets (controlled by <code>revisionHistoryLimit</code>, default 10). Run <code>kubectl rollout undo deployment/payment-service</code> to instantly start a rolling update back to the previous version. Kubernetes begins replacing new pods with old pods using the same rolling update mechanics (respecting maxUnavailable and maxSurge). This takes a few minutes — it is not instant at the traffic level, but it is fully automated and zero-touch.</p>
+              <p><strong>Blue-green rollback:</strong> Truly instant (sub-second). The blue environment is still running. Patch the Service selector back to <code>slot: blue</code>. All traffic immediately returns to the old version. No pod churn, no startup delays. This is the defining advantage of blue-green — rollback is the same operation as the original cutover.</p>
+              <p><strong>Canary rollback:</strong> Set the canary ingress weight annotation to 0. The ingress controller hot-reloads its config (1–2 seconds). All traffic is now on stable v1. The canary pods continue running at 0% — they are not deleted, making it trivial to re-enable the canary if needed.</p>
+              <p><strong>Feature flag rollback:</strong> Truly instant and the safest option. Toggle the flag to OFF in the LaunchDarkly/Unleash dashboard. The SDK evaluates the flag on the next request — no pod restarts, no ingress changes, no downtime. The new code path simply stops being called for any user. Rollback latency is less than 1 second, and it can be done by a product manager without any infrastructure access.</p>
+              <p><strong>For automated rollback:</strong> Wire Prometheus alerting rules to trigger rollback automatically. An Alertmanager webhook or Argo Rollouts analysis failure can trigger a weight reset or Argo CD sync to the previous revision without human intervention.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: What is the difference between canary deployment and A/B testing? How would you implement A/B testing in a microservices environment?</summary>
+            <div class="answer-content">
+              <p><strong>Canary deployment</strong> is an engineering risk-reduction technique. Its goal is to detect production bugs (elevated error rate, increased latency, crashes) before they affect all users. The decision to promote is based on technical metrics, made by engineers, over a short timeframe (hours to days). User assignment to the canary is often random and not necessarily sticky.</p>
+              <p><strong>A/B testing</strong> is a product experimentation technique. Its goal is to determine which variant drives better business outcomes (higher conversion, more engagement, greater revenue). The decision is based on statistical significance of business metrics, made by product and data teams, over a longer timeframe (days to weeks for sufficient sample size). User assignment must be sticky — the same user always sees the same variant to avoid confounding the experiment.</p>
+              <p><strong>Implementing A/B testing in microservices:</strong></p>
+              <ol>
+                <li><strong>Experiment assignment service:</strong> A dedicated service (or feature flag SDK like LaunchDarkly) assigns users to experiment variants deterministically using a hash of user_id + experiment_id. Same user always gets same variant.</li>
+                <li><strong>Propagate assignment across services:</strong> The variant assignment is embedded in the auth token or passed as a request header (<code>X-Experiment-Variant: checkout-v2</code>). Each downstream service (payment-service, order-service) reads this header to select the appropriate code path.</li>
+                <li><strong>Event tracking:</strong> Each service emits business events (page_viewed, checkout_started, payment_completed) with the experiment variant as a property. Events flow to an analytics pipeline (Kafka → BigQuery/Redshift).</li>
+                <li><strong>Statistical analysis:</strong> A data science tool (Statsig, Optimizely, or custom Python) computes statistical significance. The experiment runs until the minimum detectable effect is reached at the target significance level (typically p &lt; 0.05).</li>
+              </ol>
+              <p>The critical difference from canary: A/B testing never promotes based on error rates. It promotes based on business metrics after statistical confidence is achieved. A canary might be promoted in 2 hours; an A/B test might run for 3 weeks.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: How would you design a zero-downtime deployment pipeline for a stateful service (e.g., a payment-service that processes in-flight transactions)?</summary>
+            <div class="answer-content">
+              <p>Stateful services with in-flight requests are the hardest deployment problem because a pod termination that cuts an active transaction in half causes data inconsistency — not just an error, but potentially a financial discrepancy (payment deducted but order not created).</p>
+              <p><strong>The complete solution has five components:</strong></p>
+              <ol>
+                <li><strong>Idempotency keys:</strong> Every payment request carries a client-generated idempotency key. If a transaction is interrupted, the client retries with the same key. The service detects the duplicate key and returns the original result instead of double-charging. This makes retries safe and is the foundational requirement for any stateful service deployment.</li>
+                <li><strong>Graceful shutdown with connection draining:</strong> When Kubernetes sends SIGTERM, payment-service stops accepting new connections but completes all in-flight requests. The <code>preStop</code> hook delays SIGTERM handling to allow kube-proxy to remove the pod from the Service endpoints first (there is a race condition where traffic continues arriving for ~1-2 seconds after SIGTERM). Set <code>terminationGracePeriodSeconds</code> to your p99.9 transaction duration + 30 seconds.</li>
+                <li><strong>Async processing with a queue:</strong> Move payment processing out of the synchronous HTTP request. The API endpoint writes to a Kafka topic and returns a <code>202 Accepted</code> with a transaction ID. A separate worker pod processes the payment from the queue. Deployments to the API pods are instantly safe (they just write to Kafka). Worker pod deployments drain their current message before terminating.</li>
+                <li><strong>Distributed transaction tracking:</strong> Store transaction state in the database, not in pod memory. A transaction record has states: INITIATED → PROCESSING → COMPLETED/FAILED. If a pod is killed mid-transaction, a background reconciliation job (running on a separate, non-rolling deployment) detects PROCESSING transactions older than 60 seconds and retries them using the idempotency key.</li>
+                <li><strong>Canary over blue-green for payment changes:</strong> Blue-green requires both environments to share the database. For payment services, the transaction processing logic must be validated against real traffic patterns before full promotion. Use canary (5% of transactions on new code) with automated rollback on Stripe error rate elevation, rather than blue-green, for payment-critical logic changes.</li>
+              </ol>
+              <p>At TicketFlow, this means: ticket purchases hit the API which enqueues to Kafka → payment-service workers consume from Kafka, use idempotency keys, store state in PostgreSQL → workers implement graceful shutdown by finishing current message before pod stop → a reconciliation cron job runs every 5 minutes to retry stuck PROCESSING payments. Deployments to the API are zero-downtime. Deployments to workers have a maximum inflight-transaction window of ~30 seconds with no failures visible to users.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

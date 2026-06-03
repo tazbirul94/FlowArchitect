@@ -14,10 +14,10 @@
 </head>
 <body data-page-id="04" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
 <aside id="sidebar">
-  <div class="logo">
+  <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
     <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
     <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
-  </div>
+  </a>
   <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
   <nav id="sidebar-nav"></nav>
 </aside>
@@ -54,8 +54,11 @@
          ============================================================ -->
     <div class="story-card">
       <span class="story-card-label">Story</span>
-      <p>Running a modern application isn't just one container. It's an app server, a database, a cache, a message queue, maybe a search engine. Starting them all manually — <code>docker run</code> this, <code>docker run</code> that, remember the right network, the right environment variable, the right port mapping — is like building flat-pack furniture without the instruction sheet. Every time.</p>
-      <p>Docker Compose is the instruction sheet. One YAML file describes your entire application stack: all services, how they connect, what storage they use, what environment they need. One command — <code>docker compose up</code> — starts everything in the right order. <code>docker compose down</code> tears it all down cleanly. Share the file with a teammate and they have your entire environment in minutes.</p>
+      <ul>
+        <li>One YAML file describes your entire stack: services, networks, storage, environment.</li>
+        <li><code>docker compose up</code> starts everything in the right order. <code>docker compose down</code> cleans up.</li>
+        <li>Share the file — teammate has your full environment in minutes.</li>
+      </ul>
     </div>
 
     <!-- ============================================================
@@ -65,19 +68,19 @@
 
     <div class="beginner-note">
       <span class="beginner-note-label">Beginner</span>
-      <p>Think of Docker Compose like a recipe for your entire kitchen setup. The recipe (<code>docker-compose.yml</code>) says: "heat the oven to 180° (start the database), prepare the dough (start the app), preheat the pan (start Redis)". You don't do each step manually every time — you just say "make dinner" and it follows the recipe.</p>
+      <p>Compose is your recipe: one file describes every service, network, and volume. One command starts everything in order. No manual <code>docker run</code> juggling.</p>
     </div>
 
-    <p>Docker Compose reads a single YAML file and manages the full lifecycle of a multi-container application. Services are defined declaratively — you describe the desired state and Compose figures out how to achieve it. It handles creating networks so services can talk to each other by name, creating volumes so data persists across restarts, and starting services in the right order when dependencies are declared.</p>
+    <p>Compose reads a YAML file and manages the full lifecycle — creates networks (services talk by name), creates volumes (data persists), starts services in dependency order.</p>
 
-    <p>Compose ships as part of the Docker CLI since Docker Desktop 3.4 and Docker Engine 20.10. You invoke it as <code>docker compose</code> (with a space, the modern V2 plugin) rather than the older <code>docker-compose</code> (hyphenated, the legacy standalone tool). The two are functionally equivalent for most use cases, but V2 is the maintained version.</p>
+    <p>Use <code>docker compose</code> (space, V2 plugin — maintained) not <code>docker-compose</code> (hyphen, legacy).</p>
 
     <!-- ============================================================
          SECTION 3 — Full docker-compose.yml Anatomy
          ============================================================ -->
     <h2 id="compose-file-anatomy" class="section-title">Full docker-compose.yml Anatomy</h2>
 
-    <p>The following is a complete, production-informed <code>docker-compose.yml</code> for the <strong>TicketFlow</strong> platform — a realistic multi-service application. Every key is annotated so you can understand not just what it does, but why it's there.</p>
+    <p>Full annotated <code>docker-compose.yml</code> for the <strong>TicketFlow</strong> platform — every key explained.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-yaml"># docker-compose.yml for TicketFlow Platform
@@ -316,7 +319,7 @@ networks:
          ============================================================ -->
     <h2 id="service-dependency-diagram" class="section-title">Service Dependency Diagram</h2>
 
-    <p>The diagram below maps each service's dependencies and the ports exposed for local access. The API gateway is the only public-facing entry point. All backend services live on an internal network that cannot reach the internet directly.</p>
+    <p>API gateway is the only public entry point. Backend services live on an internal network.</p>
 
     <div class="mermaid-wrapper">
       <div class="mermaid">
@@ -343,7 +346,7 @@ flowchart TD
          ============================================================ -->
     <h2 id="essential-commands" class="section-title">Essential Compose Commands</h2>
 
-    <p>All commands below assume you are in the directory that contains your <code>docker-compose.yml</code> file. Compose automatically discovers the file by walking up the directory tree.</p>
+    <p>Run from the directory containing <code>docker-compose.yml</code>.</p>
 
     <div class="os-tabs" id="commands-tabs">
       <div class="os-tab-buttons">
@@ -475,7 +478,7 @@ docker compose run --rm user-service env</code></pre>
          ============================================================ -->
     <h2 id="override-files" class="section-title">Override Files</h2>
 
-    <p>Docker Compose supports a file layering pattern that keeps base configuration clean while allowing per-environment customizations. Compose merges multiple files together at startup — values in later files override values in earlier ones, and new keys are added.</p>
+    <p>Compose merges multiple files — later files override earlier ones. Keep base config clean; customize per environment.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-text">docker-compose.yml          ← base config (committed to git)
@@ -484,9 +487,9 @@ docker-compose.staging.yml  ← staging config
 docker-compose.prod.yml     ← prod config</code></pre>
     </div>
 
-    <p>When you run <code>docker compose up</code> with no <code>-f</code> flags, Compose automatically reads <code>docker-compose.yml</code> and then merges <code>docker-compose.override.yml</code> on top of it. This automatic merge only applies to these two specific filenames — all other environment files must be specified explicitly with <code>-f</code>.</p>
+    <p><code>docker compose up</code> auto-merges <code>docker-compose.override.yml</code> — other files need explicit <code>-f</code> flags.</p>
 
-    <p>A typical override file for local development adds hot-reload volume mounts, debug logging, and extra tooling without touching the base file that every team member shares:</p>
+    <p>Override file adds dev-only extras: hot-reload mounts, debug logging, extra tooling.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-yaml"># docker-compose.override.yml
@@ -516,7 +519,7 @@ services:
 
     <div class="production-tip">
       <span class="production-tip-label">Production Tip</span>
-      <p>Commit a <code>docker-compose.override.yml.example</code> to your repository showing the shape of the override file with placeholder values. Developers copy it to <code>docker-compose.override.yml</code> and fill in their local paths. The actual override file goes in <code>.gitignore</code> — this way everyone has the file, no one's local paths or tool choices end up in git, and the team always knows what overrides are expected.</p>
+      <p>Commit <code>docker-compose.override.yml.example</code> with placeholder values. Each dev copies it locally and fills in their paths. Keep the real override in <code>.gitignore</code>.</p>
     </div>
 
     <!-- ============================================================
@@ -524,7 +527,7 @@ services:
          ============================================================ -->
     <h2 id="healthchecks" class="section-title">Health Checks Deep Dive</h2>
 
-    <p>Health checks are the mechanism that tells Docker whether a container is actually functioning — not just running. A container can be started (the process launched) while the service inside is still initialising, loading data, warming up caches, or establishing database connections. Health checks distinguish between these states.</p>
+    <p>Health checks tell Docker if the service is actually ready — not just that the process started.</p>
 
     <div class="code-wrapper">
       <pre><code class="language-yaml">healthcheck:
@@ -536,7 +539,7 @@ services:
   start_period: 60s  # grace period (don't count failures)</code></pre>
     </div>
 
-    <p>A container moves through three health states during its lifetime:</p>
+    <p>Three health states:</p>
 
     <div style="overflow-x:auto;">
       <table class="decision-table">

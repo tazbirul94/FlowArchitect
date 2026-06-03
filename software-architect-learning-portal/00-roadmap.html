@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learning Roadmap — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    /* Roadmap-specific styles */
+    .roadmap-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      border-radius: 1rem;
+      padding: 3rem 2.5rem;
+      margin-bottom: 2.5rem;
+      color: #f1f5f9;
+      position: relative;
+      overflow: hidden;
+    }
+    .roadmap-hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 50%, rgba(59,130,246,0.12) 0%, transparent 50%),
+                  radial-gradient(circle at 70% 50%, rgba(99,102,241,0.10) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .roadmap-hero h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    .roadmap-hero p {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      max-width: 680px;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .hero-stats {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .hero-stat {
+      text-align: center;
+    }
+    .hero-stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #60a5fa;
+      line-height: 1;
+    }
+    .hero-stat-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.25rem;
+    }
+    .level-track {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+      position: relative;
+    }
+    .level-track-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .level-track-item::after {
+      content: '→';
+      color: #334155;
+    }
+    .level-track-item:last-child::after {
+      content: '';
+    }
+
+    /* Section group headers */
+    .section-group-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .section-group-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.625rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .section-group-meta {
+      flex: 1;
+    }
+    .section-group-meta small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* Page cards grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .page-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .page-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 4px 20px rgba(59,130,246,0.15);
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+    .page-card-num {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .page-card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .page-card-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      flex: 1;
+    }
+    .page-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.25rem;
+    }
+    .page-card-time {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .page-card-status {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .status-done {
+      background: rgba(34,197,94,0.12);
+      color: #16a34a;
+    }
+    .dark .status-done {
+      background: rgba(34,197,94,0.15);
+      color: #4ade80;
+    }
+    .status-pending {
+      background: rgba(148,163,184,0.12);
+      color: #64748b;
+    }
+    .page-card-arrow {
+      color: var(--accent);
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .page-card:hover .page-card-arrow {
+      opacity: 1;
+    }
+
+    /* How-to-use card */
+    .how-to-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 2.5rem;
+    }
+    .how-to-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+    .how-to-step {
+      display: flex;
+      gap: 0.875rem;
+      align-items: flex-start;
+    }
+    .how-to-step-num {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .how-to-step-text strong {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.2rem;
+    }
+    .how-to-step-text span {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* Progress bar strip */
+    .progress-strip {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.75rem;
+      margin-bottom: 2.5rem;
+    }
+    .progress-bar-track {
+      background: var(--bg-tertiary);
+      border-radius: 9999px;
+      height: 0.5rem;
+      margin: 0.75rem 0 0.5rem;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, #3b82f6, #6366f1);
+      width: 100%; /* 25 of 25 pages done */
+      transition: width 0.4s ease;
+    }
+    .progress-legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .progress-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .legend-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+    }
+
+    /* Section divider line */
+    .section-group-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.5rem 0 1.75rem;
+    }
+  </style>
+</head>
+<body data-page-id="00" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">DevArchitect → Learning Roadmap</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           HERO
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="roadmap-hero">
+        <h1>Beginner → Architect</h1>
+        <p>A structured, hands-on learning path from your first Docker container to production-grade distributed systems on Kubernetes. Every page covers the story, the internals, the enterprise reality at TicketFlow, and the interview questions that get you hired.</p>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-number">24</div>
+            <div class="hero-stat-label">Pages</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-number">9</div>
+            <div class="hero-stat-label">Sections</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-number">~12h</div>
+            <div class="hero-stat-label">Total read time</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-number">4</div>
+            <div class="hero-stat-label">Skill levels</div>
+          </div>
+        </div>
+        <div class="level-track">
+          <div class="level-track-item">
+            <span class="level-badge badge-beginner" style="font-size:0.7rem;padding:0.2rem 0.6rem;">Beginner</span>
+            Docker Basics (01–04)
+          </div>
+          <div class="level-track-item">
+            <span class="level-badge badge-intermediate" style="font-size:0.7rem;padding:0.2rem 0.6rem;">Intermediate</span>
+            Networking, Volumes, K8s Core (05–10)
+          </div>
+          <div class="level-track-item">
+            <span class="level-badge badge-advanced" style="font-size:0.7rem;padding:0.2rem 0.6rem;">Advanced</span>
+            K8s Advanced, Helm, GitOps (11–17)
+          </div>
+          <div class="level-track-item">
+            <span class="level-badge badge-expert" style="font-size:0.7rem;padding:0.2rem 0.6rem;">Expert</span>
+            Observability, Security, Architecture (18–24)
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PROGRESS
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="progress-strip">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+          <strong style="font-size:0.9rem;">Portal Progress</strong>
+          <span style="font-size:0.8rem;color:var(--text-muted);">25 of 25 pages complete</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill"></div>
+        </div>
+        <div class="progress-legend">
+          <div class="progress-legend-item">
+            <div class="legend-dot" style="background:#22c55e;"></div>
+            Complete (25)
+          </div>
+          <div class="progress-legend-item">
+            <div class="legend-dot" style="background:#22c55e;"></div>
+            Coming soon (0)
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION: HOW TO USE THIS PORTAL
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="how-to-use" class="section-title">How to Use This Portal</h2>
+
+      <div class="how-to-card">
+        <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:0.5rem;">Follow the path in order, or jump to any topic. Each page is self-contained but builds on the previous one.</p>
+        <div class="how-to-steps">
+          <div class="how-to-step">
+            <div class="how-to-step-num">1</div>
+            <div class="how-to-step-text">
+              <strong>Read the story first</strong>
+              <span>Every page opens with a real-world analogy that makes the concept stick before the technical details land.</span>
+            </div>
+          </div>
+          <div class="how-to-step">
+            <div class="how-to-step-num">2</div>
+            <div class="how-to-step-text">
+              <strong>Follow the TicketFlow scenario</strong>
+              <span>Each page applies concepts to the same fictional company — so you see how everything connects in a real microservices architecture.</span>
+            </div>
+          </div>
+          <div class="how-to-step">
+            <div class="how-to-step-num">3</div>
+            <div class="how-to-step-text">
+              <strong>Run the hands-on lab</strong>
+              <span>Labs are runnable on Docker Desktop or a local cluster. Do not skip them — reading alone does not build muscle memory.</span>
+            </div>
+          </div>
+          <div class="how-to-step">
+            <div class="how-to-step-num">4</div>
+            <div class="how-to-step-text">
+              <strong>Quiz yourself with interview Q&amp;A</strong>
+              <span>Every page ends with the questions you will actually face in senior engineering and DevOps interviews, with full model answers.</span>
+            </div>
+          </div>
+          <div class="how-to-step">
+            <div class="how-to-step-num">5</div>
+            <div class="how-to-step-text">
+              <strong>Use the sidebar search</strong>
+              <span>Press <kbd style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:3px;padding:0 4px;font-size:0.72rem;">Ctrl+K</kbd> to search any topic across all pages instantly.</span>
+            </div>
+          </div>
+          <div class="how-to-step">
+            <div class="how-to-step-num">6</div>
+            <div class="how-to-step-text">
+              <strong>Read the architect notes</strong>
+              <span>Architect callout boxes explain the "why" at a systems-design level — the insight that separates senior engineers from mid-level ones.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           LEARNING PATH DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="learning-path-diagram" class="section-title">Learning Path Flow</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    START(["🚀 Start Here"])
+
+    subgraph B["🟢 Beginner — Docker Basics"]
+      direction LR
+      P01["01\nDocker Fundamentals"] --> P02["02\nDocker Commands"] --> P03["03\nDockerfile"] --> P04["04\nDocker Compose"]
+    end
+
+    subgraph I["🔵 Intermediate — Networking, Volumes & K8s Core"]
+      direction LR
+      P05["05\nDocker Networking"] --> P06["06\nDocker Volumes"] --> P07["07\nRegistries & Nexus"] --> P08["08\nCI/CD"] --> P09["09\nK8s Fundamentals"] --> P10["10\nK8s Workloads"]
+    end
+
+    subgraph A["🟠 Advanced — Kubernetes Deep Dive & GitOps"]
+      direction LR
+      P11["11\nServices &\nLoad Balancing"] --> P12["12\nIngress &\nAPI Gateway"] --> P13["13\nConfig &\nSecrets"] --> P14["14\nStorage"] --> P15["15\nAutoscaling\nHPA/VPA"] --> P16["16\nHelm"] --> P17["17\nArgo CD\n& GitOps"]
+    end
+
+    subgraph E["🔴 Expert — Production, Architecture & Operations"]
+      direction LR
+      P18["18\nObservability"] --> P19["19\nSecurity"] --> P20["20\nDeployment\nPatterns"] --> P21["21\nArchitecture\nThinking"] --> P22["22\nSystem\nDesign"] --> P23["23\nTroubleshooting\nPlaybook"] --> P24["24\nInterview\nQuestions"]
+    end
+
+    FINISH(["🏛️ Architect Ready"])
+
+    START --> B
+    B --> I
+    I --> A
+    A --> E
+    E --> FINISH
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — DOCKER (01–06)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="docker-section" class="section-title">Docker</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;">🐳</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 01 – 06</div>
+          <small>Beginner — from zero to containerising your first multi-service app</small>
+        </div>
+        <span class="level-badge badge-beginner">Beginner</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/01-docker-fundamentals.html" class="page-card">
+          <div class="page-card-num">Page 01</div>
+          <div class="page-card-title">Docker Fundamentals</div>
+          <div class="page-card-desc">Why Docker exists, how containers work under the hood (namespaces, cgroups, OverlayFS), and what separates containers from VMs.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/02-docker-commands.html" class="page-card">
+          <div class="page-card-num">Page 02</div>
+          <div class="page-card-title">Docker Commands</div>
+          <div class="page-card-desc">The essential CLI toolkit — run, exec, logs, inspect, build, push, pull, prune. Every command with real-world flags and usage patterns.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 20 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/03-dockerfile.html" class="page-card">
+          <div class="page-card-num">Page 03</div>
+          <div class="page-card-title">Dockerfile</div>
+          <div class="page-card-desc">FROM, RUN, COPY, CMD, ENTRYPOINT, ARG, ENV, HEALTHCHECK. Multi-stage builds. Layer caching strategies. Minimal production images.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/04-docker-compose.html" class="page-card">
+          <div class="page-card-num">Page 04</div>
+          <div class="page-card-title">Docker Compose</div>
+          <div class="page-card-desc">Orchestrate multi-container apps locally. Services, networks, volumes, depends_on, health checks, environment overrides, and profiles.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/05-docker-networking.html" class="page-card">
+          <div class="page-card-num">Page 05</div>
+          <div class="page-card-title">Docker Networking</div>
+          <div class="page-card-desc">Bridge, host, overlay, macvlan, and none networks. DNS resolution between containers. Port mapping internals. Network isolation patterns.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/06-docker-volumes.html" class="page-card">
+          <div class="page-card-num">Page 06</div>
+          <div class="page-card-title">Docker Volumes</div>
+          <div class="page-card-desc">Named volumes, bind mounts, tmpfs. When to use each. Volume drivers for cloud storage. Backup strategies for stateful containers.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 20 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — REGISTRIES & CI/CD (07–08)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="registries-cicd-section" class="section-title">Registries &amp; CI/CD</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(99,102,241,0.1);color:#6366f1;">📦</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 07 – 08</div>
+          <small>Intermediate — store images securely and automate your build pipeline</small>
+        </div>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/07-container-registries-nexus.html" class="page-card">
+          <div class="page-card-num">Page 07</div>
+          <div class="page-card-title">Container Registries &amp; Nexus</div>
+          <div class="page-card-desc">Docker Hub, Nexus, ECR, Harbor, and ACR. Private registry setup. Proxy caching. Image scanning with Trivy. Tag promotion strategies.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/08-cicd.html" class="page-card">
+          <div class="page-card-num">Page 08</div>
+          <div class="page-card-title">CI/CD Pipelines</div>
+          <div class="page-card-desc">GitHub Actions pipelines that build, scan, push, and deploy container images. Semantic versioning. Environment promotion. Rollback strategies.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — KUBERNETES CORE (09–10)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubernetes-core-section" class="section-title">Kubernetes Core</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">☸️</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 09 – 10</div>
+          <small>Intermediate — understand the Kubernetes control plane and run your first workloads</small>
+        </div>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/09-kubernetes-fundamentals.html" class="page-card">
+          <div class="page-card-num">Page 09</div>
+          <div class="page-card-title">Kubernetes Fundamentals</div>
+          <div class="page-card-desc">Control plane components, worker nodes, the API server, etcd, scheduler, kubelet, and kube-proxy. How Kubernetes decides where pods run.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 35 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/10-kubernetes-workloads.html" class="page-card">
+          <div class="page-card-num">Page 10</div>
+          <div class="page-card-title">Kubernetes Workloads</div>
+          <div class="page-card-desc">Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets, Jobs, and CronJobs. When to use each. Rolling updates and rollback mechanics.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — KUBERNETES ADVANCED (11–15)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubernetes-advanced-section" class="section-title">Kubernetes Advanced</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;">⚡</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 11 – 15</div>
+          <small>Advanced — services, ingress, config management, storage, and autoscaling</small>
+        </div>
+        <span class="level-badge badge-advanced">Advanced</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/11-kubernetes-services-load-balancing.html" class="page-card">
+          <div class="page-card-num">Page 11</div>
+          <div class="page-card-title">Services &amp; Load Balancing</div>
+          <div class="page-card-desc">ClusterIP, NodePort, LoadBalancer, and ExternalName services. kube-proxy iptables mode. AWS ELB integration. Service mesh introduction.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/12-kubernetes-ingress-api-gateway.html" class="page-card">
+          <div class="page-card-num">Page 12</div>
+          <div class="page-card-title">Ingress &amp; API Gateway</div>
+          <div class="page-card-desc">NGINX Ingress Controller, path-based and host-based routing, TLS termination, rate limiting, and when to use a dedicated API gateway vs Ingress.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/13-kubernetes-config-secrets.html" class="page-card">
+          <div class="page-card-num">Page 13</div>
+          <div class="page-card-title">ConfigMaps &amp; Secrets</div>
+          <div class="page-card-desc">Separating config from code. ConfigMap and Secret lifecycle. External Secrets Operator. Vault integration. Encryption at rest. Secret rotation.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/14-kubernetes-storage.html" class="page-card">
+          <div class="page-card-num">Page 14</div>
+          <div class="page-card-title">Kubernetes Storage</div>
+          <div class="page-card-desc">PersistentVolumes, PersistentVolumeClaims, StorageClasses, dynamic provisioning, ReadWriteMany vs ReadWriteOnce, and EBS/EFS on AWS EKS.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 25 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/15-kubernetes-autoscaling-hpa-vpa-cluster.html" class="page-card">
+          <div class="page-card-num">Page 15</div>
+          <div class="page-card-title">Autoscaling: HPA, VPA &amp; Cluster</div>
+          <div class="page-card-desc">Horizontal Pod Autoscaler, Vertical Pod Autoscaler, and Cluster Autoscaler. KEDA event-driven scaling. Scaling pitfalls in production.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — HELM & GITOPS (16–17)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="helm-gitops-section" class="section-title">Helm &amp; GitOps</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(139,92,246,0.1);color:#8b5cf6;">⛵</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 16 – 17</div>
+          <small>Advanced — package Kubernetes manifests and implement GitOps with Argo CD</small>
+        </div>
+        <span class="level-badge badge-advanced">Advanced</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/16-helm.html" class="page-card">
+          <div class="page-card-num">Page 16</div>
+          <div class="page-card-title">Helm</div>
+          <div class="page-card-desc">Charts, templates, values files, releases, and repositories. Helm hooks. Chart testing. Publishing to Nexus. Multi-environment value overrides.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/17-argocd-gitops.html" class="page-card">
+          <div class="page-card-num">Page 17</div>
+          <div class="page-card-title">Argo CD &amp; GitOps</div>
+          <div class="page-card-desc">GitOps principles, the Argo CD sync loop, ApplicationSet, multi-cluster deployments, sync waves, and self-healing infrastructure.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — EXPERT TOPICS (18–20)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="expert-topics-section" class="section-title">Expert Topics</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(239,68,68,0.1);color:#ef4444;">🔥</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 18 – 20</div>
+          <small>Expert — observability, security, and production deployment patterns</small>
+        </div>
+        <span class="level-badge badge-expert">Expert</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/18-observability.html" class="page-card">
+          <div class="page-card-num">Page 18</div>
+          <div class="page-card-title">Observability</div>
+          <div class="page-card-desc">Metrics (Prometheus + Grafana), logs (Loki + Promtail), and distributed tracing (Jaeger/Tempo). The three pillars. SLOs, SLIs, and error budgets.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 35 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/19-security.html" class="page-card">
+          <div class="page-card-num">Page 19</div>
+          <div class="page-card-title">Security</div>
+          <div class="page-card-desc">RBAC, NetworkPolicies, PodSecurity, image scanning, OPA/Gatekeeper, mTLS with Istio, CVE management, and the 4C security model.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 35 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/20-production-deployment-patterns.html" class="page-card">
+          <div class="page-card-num">Page 20</div>
+          <div class="page-card-title">Production Deployment Patterns</div>
+          <div class="page-card-desc">Blue-green, canary, rolling, recreate, and A/B deployments. Feature flags. Flagger for progressive delivery. Database migration strategies.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 30 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — ARCHITECTURE (21–22)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architecture-section" class="section-title">Architecture</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(20,184,166,0.1);color:#14b8a6;">🏛️</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 21 – 22</div>
+          <small>Expert — architectural thinking and system design at scale</small>
+        </div>
+        <span class="level-badge badge-expert">Expert</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/21-software-architecture-thinking.html" class="page-card">
+          <div class="page-card-num">Page 21</div>
+          <div class="page-card-title">Software Architecture Thinking</div>
+          <div class="page-card-desc">Architectural decision records, trade-off analysis, CAP theorem, microservices vs monolith, event-driven design, and how architects make decisions under uncertainty.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 40 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/22-system-design.html" class="page-card">
+          <div class="page-card-num">Page 22</div>
+          <div class="page-card-title">System Design</div>
+          <div class="page-card-desc">Design a URL shortener, rate limiter, notification system, and distributed cache. Capacity estimation, database selection, and drawing architecture diagrams.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 45 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — OPERATIONS (23–24)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="operations-section" class="section-title">Operations</h2>
+      <hr class="section-group-divider">
+
+      <div class="section-group-header">
+        <div class="section-group-icon" style="background:rgba(234,179,8,0.1);color:#eab308;">🔧</div>
+        <div class="section-group-meta">
+          <div style="font-weight:700;font-size:0.95rem;">Pages 23 – 24</div>
+          <small>Expert — troubleshooting playbooks and interview preparation</small>
+        </div>
+        <span class="level-badge badge-expert">Expert</span>
+      </div>
+
+      <div class="cards-grid">
+        <a href="pages/23-troubleshooting-playbook.html" class="page-card">
+          <div class="page-card-num">Page 23</div>
+          <div class="page-card-title">Troubleshooting Playbook</div>
+          <div class="page-card-desc">Systematic approach to debugging CrashLoopBackOff, OOMKilled, ImagePullBackOff, pending pods, and service unreachability in production K8s clusters.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 35 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+
+        <a href="pages/24-interview-questions.html" class="page-card">
+          <div class="page-card-num">Page 24</div>
+          <div class="page-card-title">Interview Questions</div>
+          <div class="page-card-desc">100+ curated questions spanning Docker, Kubernetes, CI/CD, security, architecture, and system design — with full model answers for senior and staff-level roles.</div>
+          <div class="page-card-footer">
+            <span class="page-card-time">⏱ 50 min</span>
+
+            <span class="page-card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           ENTERPRISE CONTEXT
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-context" class="section-title">The TicketFlow Enterprise Scenario</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 Meet TicketFlow — Your Learning Context</span>
+        <p>Every page in this portal uses the same fictional company: <strong>TicketFlow</strong>, a high-traffic ticketing platform processing millions of events per month. The company runs a microservices architecture across AWS EKS, and every concept you learn is applied directly to a realistic problem their engineering team faces.</p>
+        <p><strong>The team and their services:</strong></p>
+        <ul>
+          <li><strong>user-service</strong> — Node.js: authentication, profiles, preferences</li>
+          <li><strong>ticket-service</strong> — Spring Boot (Java): ticket inventory, reservations, pricing</li>
+          <li><strong>payment-service</strong> — Python (FastAPI): payment processing, refunds, fraud detection</li>
+          <li><strong>order-service</strong> — Go: order lifecycle, confirmation, history</li>
+          <li><strong>notification-service</strong> — Node.js: email, SMS, and push via third-party APIs</li>
+          <li><strong>api-gateway</strong> — NGINX: routing, rate limiting, SSL termination</li>
+        </ul>
+        <p><strong>Their infrastructure stack:</strong></p>
+        <ul>
+          <li>Container registry: Nexus at <code>nexus.ticketflow.io:5000</code></li>
+          <li>Kubernetes: AWS EKS (multi-AZ, production + staging clusters)</li>
+          <li>CI/CD: GitHub Actions → Nexus → Helm → Argo CD</li>
+          <li>Monitoring: Prometheus + Grafana + Loki + Jaeger</li>
+        </ul>
+        <p>By the end of this portal, you will have seen every part of this stack in depth — and you will understand how every technology choice connects to a business requirement.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           ARCHITECT NOTE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-perspective" class="section-title">Architect's Perspective on This Path</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>This roadmap is deliberately bottom-up. Many engineers try to learn Kubernetes without understanding Docker, or try to learn Argo CD without understanding Kubernetes deployments. The result is fragile knowledge: they can follow a tutorial but cannot reason through a production incident or a design decision.</p>
+        <p>The sequence matters:</p>
+        <ul>
+          <li><strong>Docker first</strong> — containers are the fundamental unit. Until you understand how images, layers, namespaces, and cgroups work, Kubernetes is magic you cannot debug.</li>
+          <li><strong>Networking and volumes before K8s</strong> — K8s networking is a superset of Docker networking. Understanding bridge networks, DNS, and port mapping makes the Kubernetes network model obvious rather than mysterious.</li>
+          <li><strong>CI/CD before GitOps</strong> — Argo CD is a better CI/CD. You will only appreciate why if you have first experienced the limitations of imperative pipelines.</li>
+          <li><strong>Observability before security</strong> — You cannot secure what you cannot see. Understanding metrics, logs, and traces first makes security hardening decisions concrete and measurable.</li>
+          <li><strong>Architecture last</strong> — Architecture patterns are only valuable when you understand the tools well enough to reason about their trade-offs. Pattern names without deep tool knowledge are just vocabulary.</li>
+        </ul>
+        <p>The engineers who command the highest salaries and the most influence are not the ones who have memorised the most kubectl commands. They are the ones who can look at a failing system and reason from first principles about what is wrong — and why a particular architectural decision made two years ago is causing today's incident.</p>
+        <p>That is the goal of this portal. Not just the "how," but the "why."</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           CHECKLIST — PREREQUISITES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="prerequisites" class="section-title">Prerequisites Checklist</h2>
+
+      <p>Before starting, make sure your environment is ready. You only need a few things to follow every lab in this portal:</p>
+
+      <ul class="checklist">
+        <li>Docker Desktop installed (<a href="https://docs.docker.com/desktop/" target="_blank" rel="noopener">docs.docker.com/desktop</a>) — required for pages 01–08</li>
+        <li>A terminal with bash or zsh (macOS/Linux native; Windows users use WSL2 or Git Bash)</li>
+        <li>A code editor — VS Code recommended (free, cross-platform, excellent Docker and Kubernetes extensions)</li>
+        <li>kubectl installed (<a href="https://kubernetes.io/docs/tasks/tools/" target="_blank" rel="noopener">kubernetes.io/docs/tasks/tools</a>) — required for pages 09+</li>
+        <li>A local Kubernetes cluster — enable Kubernetes in Docker Desktop, or install kind (<code>kind.sigs.k8s.io</code>) or minikube</li>
+        <li>Helm CLI installed (<a href="https://helm.sh/docs/intro/install/" target="_blank" rel="noopener">helm.sh</a>) — required for pages 16+</li>
+        <li>Git installed and a GitHub account — required for CI/CD and GitOps pages</li>
+        <li>Basic Linux command-line familiarity (ls, cd, cat, grep, curl) — assumed throughout</li>
+      </ul>
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>

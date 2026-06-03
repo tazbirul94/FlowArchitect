@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Services &amp; Load Balancing — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="11" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Advanced → Services &amp; Load Balancing</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 3</span>
+        </div>
+        <h1 class="page-title">Kubernetes Services &amp; Load Balancing</h1>
+        <p class="page-subtitle">How Kubernetes routes network traffic to Pods — ClusterIP, NodePort, LoadBalancer, ExternalName, headless services, DNS-based discovery, and the kube-proxy machinery underneath.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind Kubernetes Services</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">📞 The Hotel Switchboard Problem</span>
+        <p>Imagine a large hotel in the 1950s. Guests need to reach staff, but staff move around constantly — a bellhop could be on any floor, a housekeeper in any room. If every guest had to know the exact room a specific staff member was in at this exact moment, the system would collapse. No one would ever reach anyone.</p>
+        <p>The solution was the hotel switchboard. A guest dials a single, stable extension — "dial 0 for housekeeping." The switchboard operator knows which staff members are available right now and connects the call to one of them. Guests never need to know individual staff locations. Staff can move freely. The switchboard handles it all.</p>
+        <p>Kubernetes Services are the hotel switchboard for your microservices. Pods are ephemeral — they get created, scaled, rescheduled, and terminated constantly. Each Pod gets a unique IP address that changes every time it is replaced. If <code>payment-service</code> had to know the exact Pod IP of <code>ticket-service</code> in order to call it, every restart of <code>ticket-service</code> would break <code>payment-service</code>. A Service gives each workload a stable, virtual IP and DNS name. Traffic sent to that stable address is automatically distributed across healthy Pods — no matter how many there are or where they live in the cluster.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="beginner-explanation" class="section-title">Services in Plain English</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🍕 Beginner Analogy</span>
+        <p>Think of a Kubernetes Service like a pizza shop's phone number. The shop might have 5 phones and 10 staff members taking orders — they change shifts, some go on break, new ones start. But the phone number never changes. You call the same number every time. The shop's internal routing system decides which available staff member picks up your call.</p>
+        <p>A Kubernetes Service is that phone number for your app. You always call <code>ticket-service</code>. Behind the scenes, Kubernetes decides which of the 3 (or 10, or 1) running Pods of <code>ticket-service</code> actually handles the request. Your calling code never has to change, no matter how many Pods exist or when they restart.</p>
+      </div>
+
+      <p>Every Kubernetes Service has three key properties:</p>
+      <ul>
+        <li><strong>Selector</strong> — a label query that identifies which Pods the Service routes traffic to. Any Pod with matching labels is automatically included as a backend endpoint.</li>
+        <li><strong>ClusterIP</strong> — a virtual IP address assigned to the Service (from a dedicated IP range). This IP is stable for the lifetime of the Service and is only reachable inside the cluster.</li>
+        <li><strong>Ports</strong> — the port the Service listens on, and the target port it forwards to on the Pod (these can differ).</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL EXPLANATION: SERVICE TYPES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="service-types" class="section-title">The Four Service Types</h2>
+
+      <p>Kubernetes provides four distinct Service types, each designed for a different networking requirement. Choosing the wrong type is a common mistake — understand each one before reaching for the keyboard.</p>
+
+      <h3 class="subsection-title">1. ClusterIP (Default)</h3>
+      <p>ClusterIP is the default Service type. It creates a virtual IP address that is only reachable from inside the cluster. Nothing outside the cluster can talk to a ClusterIP service directly. This is what you use for internal service-to-service communication — the vast majority of your Services will be ClusterIP.</p>
+      <ul>
+        <li><strong>Use for:</strong> internal microservice communication (e.g., <code>payment-service</code> calling <code>ticket-service</code>)</li>
+        <li><strong>Not reachable from:</strong> outside the Kubernetes cluster</li>
+        <li><strong>DNS name:</strong> <code>ticket-service.default.svc.cluster.local</code></li>
+        <li><strong>Stability guarantee:</strong> the ClusterIP address never changes for the lifetime of the Service</li>
+      </ul>
+
+      <h3 class="subsection-title">2. NodePort</h3>
+      <p>NodePort extends ClusterIP by also opening a static port (between 30000–32767 by default) on every node in the cluster. External traffic sent to <code>&lt;any-node-IP&gt;:&lt;NodePort&gt;</code> is routed into the cluster and forwarded to the Service's Pods. NodePort is rarely used in production — it requires clients to know node IPs, exposes a non-standard port number, and provides no load balancing across nodes. It is primarily used for local development, quick demos, or when you have no cloud load balancer available.</p>
+      <ul>
+        <li><strong>Use for:</strong> local development exposure, on-premises clusters without a cloud LB, quick testing</li>
+        <li><strong>Access via:</strong> <code>http://&lt;node-ip&gt;:30080</code></li>
+        <li><strong>Port range:</strong> 30000–32767 (configurable in kube-apiserver flags)</li>
+        <li><strong>Risk:</strong> exposes all nodes; requires firewall rules on each node; no TLS termination</li>
+      </ul>
+
+      <h3 class="subsection-title">3. LoadBalancer</h3>
+      <p>LoadBalancer extends NodePort by additionally provisioning an external cloud load balancer. When you create a LoadBalancer Service on AWS EKS, Kubernetes calls the AWS API to create an ELB/NLB with a public IP. That load balancer forwards traffic to the NodePort on your cluster nodes. This is the standard way to expose a single externally-facing service. TicketFlow uses this type exclusively for the <code>api-gateway</code> service — it is the single entry point from the internet.</p>
+      <ul>
+        <li><strong>Use for:</strong> exposing a single public-facing service (API gateway, public API)</li>
+        <li><strong>Requires:</strong> a cloud provider with a load balancer controller (AWS, GCP, Azure) or MetalLB on bare metal</li>
+        <li><strong>Cost:</strong> each LoadBalancer Service provisions a separate cloud LB — can become expensive with many services</li>
+        <li><strong>Better pattern:</strong> one LoadBalancer for the Ingress controller, use Ingress rules for individual services (see page 12)</li>
+      </ul>
+
+      <h3 class="subsection-title">4. ExternalName</h3>
+      <p>ExternalName is a special type that does not create a virtual IP or proxy traffic. Instead it creates a DNS CNAME alias inside the cluster. When any Pod resolves the Service name, it gets back the CNAME's target DNS name. This is useful for pointing cluster workloads at external services (a managed RDS database, a third-party API) using a stable in-cluster DNS name that can be changed without modifying application configuration.</p>
+      <ul>
+        <li><strong>Use for:</strong> aliasing external DNS names into the cluster (e.g., <code>db.ticketflow.io</code> → <code>ticketflow-db.us-east-1.rds.amazonaws.com</code>)</li>
+        <li><strong>Does NOT:</strong> proxy traffic, perform health checks, or load balance</li>
+        <li><strong>Migration pattern:</strong> create an ExternalName pointing at the old service; later change it to ClusterIP pointing at the new in-cluster service — zero application code changes required</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="service-types-diagram" class="section-title">Service Types: Visual Comparison</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TB
+    INTERNET["🌐 Internet\nExternal Client"]
+    ELB["☁️ AWS ELB / NLB\n(Cloud Load Balancer)"]
+
+    subgraph CLUSTER["Kubernetes Cluster (AWS EKS)"]
+      direction TB
+
+      subgraph NODE1["Node 1"]
+        NP1["NodePort :30080"]
+        KPROXY1["kube-proxy\n(iptables)"]
+      end
+
+      subgraph NODE2["Node 2"]
+        NP2["NodePort :30080"]
+        KPROXY2["kube-proxy\n(iptables)"]
+      end
+
+      GW_SVC["Service: api-gateway\ntype: LoadBalancer\nClusterIP: 10.96.100.1:80"]
+
+      TICKET_SVC["Service: ticket-service\ntype: ClusterIP\nClusterIP: 10.96.10.5:8080"]
+
+      PAYMENT_SVC["Service: payment-service\ntype: ClusterIP\nClusterIP: 10.96.10.6:5000"]
+
+      EXT_SVC["Service: legacy-crm\ntype: ExternalName\nCNAME → crm.external.io"]
+
+      GW_POD1["Pod: api-gateway-1\n10.244.1.5"]
+      GW_POD2["Pod: api-gateway-2\n10.244.2.5"]
+      TICKET_POD1["Pod: ticket-service-1\n10.244.1.10"]
+      TICKET_POD2["Pod: ticket-service-2\n10.244.2.10"]
+      PAYMENT_POD["Pod: payment-service-1\n10.244.1.20"]
+    end
+
+    EXTERNAL_CRM["🏢 crm.external.io\n(External Service)"]
+
+    INTERNET --> ELB
+    ELB --> NP1
+    ELB --> NP2
+    NP1 --> KPROXY1
+    NP2 --> KPROXY2
+    KPROXY1 --> GW_SVC
+    KPROXY2 --> GW_SVC
+    GW_SVC --> GW_POD1
+    GW_SVC --> GW_POD2
+    GW_POD1 --> TICKET_SVC
+    GW_POD2 --> PAYMENT_SVC
+    TICKET_SVC --> TICKET_POD1
+    TICKET_SVC --> TICKET_POD2
+    PAYMENT_SVC --> PAYMENT_POD
+    GW_POD1 -.->|DNS CNAME| EXT_SVC
+    EXT_SVC -.-> EXTERNAL_CRM
+        </div>
+      </div>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Internal Access</th>
+            <th>External Access</th>
+            <th>Use Case</th>
+            <th>TicketFlow Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>ClusterIP</strong></td>
+            <td>Yes (stable virtual IP)</td>
+            <td>No</td>
+            <td>Internal microservice communication</td>
+            <td><code>payment-service</code> → <code>ticket-service</code></td>
+          </tr>
+          <tr>
+            <td><strong>NodePort</strong></td>
+            <td>Yes</td>
+            <td>Yes (via node IP + high port)</td>
+            <td>Dev/testing, on-premises without cloud LB</td>
+            <td>Local developer testing of <code>user-service</code></td>
+          </tr>
+          <tr>
+            <td><strong>LoadBalancer</strong></td>
+            <td>Yes</td>
+            <td>Yes (cloud LB provisioned)</td>
+            <td>Expose a single public service</td>
+            <td><code>api-gateway</code> public endpoint</td>
+          </tr>
+          <tr>
+            <td><strong>ExternalName</strong></td>
+            <td>DNS alias only</td>
+            <td>Proxies to external DNS</td>
+            <td>Alias external services into cluster DNS</td>
+            <td><code>db</code> → RDS endpoint DNS name</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — SERVICE DISCOVERY & DNS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="service-discovery" class="section-title">Service Discovery via DNS</h2>
+
+      <p>Kubernetes includes CoreDNS — a cluster-internal DNS server that automatically creates DNS records for every Service. This is how microservices find each other without hardcoding IP addresses.</p>
+
+      <h3 class="subsection-title">DNS Name Format</h3>
+      <p>Every Service gets a fully qualified domain name (FQDN) following this pattern:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-text">&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local
+
+# Examples for TicketFlow:
+ticket-service.default.svc.cluster.local
+payment-service.default.svc.cluster.local
+user-service.default.svc.cluster.local
+api-gateway.default.svc.cluster.local
+notification-service.default.svc.cluster.local</code></pre>
+      </div>
+
+      <p>Because Kubernetes automatically adds the namespace and cluster suffix to DNS searches, in-cluster code can use just the short name:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-python"># payment-service (Python) calling ticket-service
+# Short name works because both services are in 'default' namespace
+import httpx
+
+response = httpx.get("http://ticket-service:8080/api/tickets/42")
+
+# Full FQDN — required when calling across namespaces
+# e.g., calling a service in the 'monitoring' namespace
+response = httpx.get("http://prometheus.monitoring.svc.cluster.local:9090/api/v1/query")</code></pre>
+      </div>
+
+      <h3 class="subsection-title">How CoreDNS Works</h3>
+      <p>When a Pod makes a DNS query for <code>ticket-service</code>, here is what happens:</p>
+      <ol>
+        <li>The Pod's <code>/etc/resolv.conf</code> (injected by kubelet) points to the CoreDNS ClusterIP address (typically <code>10.96.0.10</code>).</li>
+        <li>The query is sent to CoreDNS with the cluster search domains appended: <code>ticket-service.default.svc.cluster.local</code>.</li>
+        <li>CoreDNS has a watch on the Kubernetes API and maintains a real-time map of all Service ClusterIPs. It returns the ClusterIP for <code>ticket-service</code>.</li>
+        <li>The Pod connects to that ClusterIP. kube-proxy on the node intercepts the connection and load-balances it to one of the healthy Pod IPs registered as endpoints for the Service.</li>
+      </ol>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — KUBE-PROXY & IPTABLES/IPVS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kube-proxy" class="section-title">kube-proxy: The Traffic Plumber</h2>
+
+      <p>kube-proxy runs as a DaemonSet on every node in the cluster. Its job is to implement the Service abstraction by maintaining network rules that intercept traffic destined for Service ClusterIPs and rewrite it to target actual Pod IPs. It watches the Kubernetes API for Service and Endpoint changes and keeps the rules up to date automatically.</p>
+
+      <h3 class="subsection-title">iptables Mode (Default)</h3>
+      <p>In iptables mode, kube-proxy programs Linux netfilter rules that intercept packets at the kernel level. When a packet arrives destined for a Service ClusterIP, the kernel's PREROUTING chain hits a rule that randomly selects one of the available Pod IPs and rewrites the destination (DNAT). The selection uses probability-weighted rules to achieve load balancing. This is purely kernel-space — no process needs to handle each packet individually.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># View the iptables rules kube-proxy creates for a service
+# (Run on a cluster node)
+sudo iptables -t nat -L KUBE-SERVICES -n | grep ticket-service
+
+# View the actual endpoint rules (DNAT to Pod IPs)
+sudo iptables -t nat -L KUBE-SVC-XXXXXXXXXXXX -n
+
+# Example output shows probability-weighted rules:
+# -j KUBE-SEP-AAAAAA  /* first pod */     statistic --probability 0.33
+# -j KUBE-SEP-BBBBBB  /* second pod */    statistic --probability 0.50
+# -j KUBE-SEP-CCCCCC  /* third pod */     (catches the rest)</code></pre>
+      </div>
+
+      <h3 class="subsection-title">IPVS Mode (Recommended for Large Clusters)</h3>
+      <p>IPVS (IP Virtual Server) is a Linux kernel module originally built for high-performance load balancing. In IPVS mode, kube-proxy creates a virtual server per Service ClusterIP using the kernel's IPVS subsystem rather than iptables chains. IPVS uses a hash table internally, so lookup time is O(1) regardless of the number of Services — iptables is O(n) and degrades significantly at thousands of services. IPVS also supports richer load balancing algorithms: round-robin, least connections, source hashing, etc.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Check if IPVS mode is active
+kubectl get configmap kube-proxy -n kube-system -o yaml | grep mode
+
+# View virtual servers created by kube-proxy in IPVS mode
+sudo ipvsadm -L -n
+
+# Example output:
+# TCP  10.96.10.5:8080 rr          &lt;-- ticket-service ClusterIP, round-robin
+#   -&gt; 10.244.1.10:8080  Masq  1  0  0   &lt;-- Pod 1
+#   -&gt; 10.244.2.10:8080  Masq  1  0  0   &lt;-- Pod 2</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — HEADLESS SERVICES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="headless-services" class="section-title">Headless Services (StatefulSets)</h2>
+
+      <p>A headless Service is created by setting <code>clusterIP: None</code>. Kubernetes does not assign a virtual IP to the Service. Instead, DNS queries return the IP addresses of all backing Pods directly — the client receives a list of A records, one per Pod. This bypasses kube-proxy entirely and gives the client full visibility and control over which Pod to talk to.</p>
+
+      <h3 class="subsection-title">Why StatefulSets Need Headless Services</h3>
+      <p>Regular Services are designed for stateless workloads where any Pod is interchangeable. StatefulSets run stateful applications (databases, message queues, distributed caches) where each Pod has a stable identity and may have a different role — in a PostgreSQL cluster, the primary Pod accepts writes while replica Pods handle reads. The application must be able to address individual Pods by name.</p>
+      <p>A headless Service paired with a StatefulSet creates stable, predictable DNS names for each Pod:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-text"># With headless Service named 'postgres' and StatefulSet named 'postgres':
+# Each Pod gets a stable DNS name:
+postgres-0.postgres.default.svc.cluster.local  &lt;-- primary
+postgres-1.postgres.default.svc.cluster.local  &lt;-- replica 1
+postgres-2.postgres.default.svc.cluster.local  &lt;-- replica 2
+
+# These names survive Pod restarts — postgres-0 always resolves to the
+# same StatefulSet Pod, even if it gets rescheduled to a different node</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — ENTERPRISE SCENARIO: TICKETFLOW
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow Service Mesh</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow — How Services Wire the Platform</span>
+        <p>TicketFlow runs 6 microservices on AWS EKS. Here is the complete networking topology and why each Service type was chosen:</p>
+        <ul>
+          <li><strong>api-gateway (NGINX)</strong> — <code>type: LoadBalancer</code>. The only public entry point. AWS provisions an NLB with a stable public IP. All HTTP/HTTPS traffic from the internet enters here. TLS is terminated at the NLB.</li>
+          <li><strong>user-service (Node.js)</strong> — <code>type: ClusterIP</code>. Only called by <code>api-gateway</code> internally. Stable internal DNS: <code>user-service.default.svc.cluster.local</code>.</li>
+          <li><strong>ticket-service (Spring Boot)</strong> — <code>type: ClusterIP</code>. Called by <code>api-gateway</code>, <code>payment-service</code>, and <code>order-service</code>. Port 8080 on the Service maps to port 8080 on Pods.</li>
+          <li><strong>payment-service (Python)</strong> — <code>type: ClusterIP</code>. Called by <code>order-service</code>. Calls <code>ticket-service</code> to validate ticket availability before charging. Calls an ExternalName Service to reach the Stripe API via an internal alias.</li>
+          <li><strong>order-service (Go)</strong> — <code>type: ClusterIP</code>. Orchestrates <code>ticket-service</code> + <code>payment-service</code>. High throughput — scaled to 5 replicas during peak. The Service transparently distributes load across all 5 Pods.</li>
+          <li><strong>notification-service (Node.js)</strong> — <code>type: ClusterIP</code>. Receives events from other services. Connects to SES via an ExternalName Service: <code>email-provider</code> → <code>email.us-east-1.amazonaws.com</code>.</li>
+        </ul>
+        <p>This design means <strong>only one cloud load balancer</strong> is provisioned (saving ~$20/month per avoided LB). All internal traffic uses ClusterIP — no external exposure, no unnecessary cost, no attack surface.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">Service YAML Examples</h2>
+
+      <h3 class="subsection-title">ClusterIP Service — ticket-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-service
+  namespace: default
+  labels:
+    app: ticket-service
+    team: platform
+spec:
+  type: ClusterIP          # Default — only reachable inside the cluster
+  selector:
+    app: ticket-service    # Routes traffic to Pods with this label
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080           # Port the Service listens on (stable ClusterIP:8080)
+      targetPort: 8080     # Port on the Pod to forward traffic to
+---
+# Corresponding Deployment — note matching labels
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ticket-service
+  template:
+    metadata:
+      labels:
+        app: ticket-service   # Must match Service selector
+    spec:
+      containers:
+        - name: ticket-service
+          image: nexus.ticketflow.io:5000/ticket-service:2.4.1
+          ports:
+            - containerPort: 8080</code></pre>
+      </div>
+
+      <h3 class="subsection-title">LoadBalancer Service — api-gateway</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: default
+  annotations:
+    # AWS-specific: request an NLB instead of classic ELB
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # AWS-specific: NLB scheme (internet-facing = public IP)
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # AWS-specific: cross-zone load balancing for high availability
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+# After creation, kubectl get svc api-gateway shows:
+# NAME          TYPE           CLUSTER-IP     EXTERNAL-IP
+# api-gateway   LoadBalancer   10.96.100.1    ab12cd.us-east-1.elb.amazonaws.com</code></pre>
+      </div>
+
+      <h3 class="subsection-title">NodePort Service — user-service (dev/test)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-debug
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000           # ClusterIP port (still accessible inside cluster)
+      targetPort: 3000     # Pod port
+      nodePort: 30300      # Exposed on every node at this port (30000-32767)
+                           # Access: http://&lt;any-node-ip&gt;:30300
+                           # Omit nodePort to let Kubernetes auto-assign</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ExternalName Service — Stripe payment gateway alias</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: stripe-api
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: api.stripe.com   # DNS CNAME target
+  # No selector — there are no Pods backing this service
+  # No ClusterIP — kube-proxy is not involved
+# payment-service (Python) calls: http://stripe-api/v1/charges
+# CoreDNS resolves 'stripe-api' to CNAME 'api.stripe.com'
+# Benefit: if Stripe changes their domain, update this Service —
+# payment-service code doesn't change at all</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Headless Service — PostgreSQL StatefulSet</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  clusterIP: None          # This is what makes it headless
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# payment-service connects to primary:
+# postgres-0.postgres.default.svc.cluster.local:5432
+#
+# order-service read replica connection pool:
+# postgres-1.postgres.default.svc.cluster.local:5432
+# postgres-2.postgres.default.svc.cluster.local:5432</code></pre>
+      </div>
+
+      <h3 class="subsection-title">payment-service calling ticket-service (Python)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-python"># payment-service/src/services/ticket_validator.py
+import httpx
+import logging
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# DNS name resolves to ticket-service ClusterIP via CoreDNS
+# No hardcoded IPs — this works regardless of Pod restarts or scaling
+TICKET_SERVICE_URL = "http://ticket-service:8080"
+
+async def validate_ticket_availability(
+    ticket_id: str,
+    quantity: int,
+    correlation_id: str
+) -> dict:
+    """
+    Check ticket availability before processing payment.
+    Called as part of the order-service orchestration flow.
+    """
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            response = await client.get(
+                f"{TICKET_SERVICE_URL}/api/v2/tickets/{ticket_id}/availability",
+                params={"quantity": quantity},
+                headers={
+                    "X-Correlation-ID": correlation_id,
+                    "X-Source-Service": "payment-service",
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            logger.info(
+                "ticket_availability_check",
+                ticket_id=ticket_id,
+                available=data["available"],
+                quantity_requested=quantity,
+            )
+            return data
+
+        except httpx.TimeoutException:
+            logger.error("ticket_service_timeout", ticket_id=ticket_id)
+            raise ServiceUnavailableError("ticket-service timeout")
+        except httpx.HTTPStatusError as e:
+            logger.error("ticket_service_error", status=e.response.status_code)
+            raise</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — OS TABS: KUBECTL COMMANDS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubectl-commands" class="section-title">Managing Services with kubectl</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows (PowerShell)</button>
+          <button class="os-tab-btn" data-tab="cloud">Cloud Shell (AWS EKS)</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># List all Services in the default namespace
+kubectl get services
+kubectl get svc     # shorthand
+
+# List Services across all namespaces
+kubectl get svc -A
+
+# Describe a Service — shows endpoints, events, selector
+kubectl describe svc ticket-service
+
+# View the actual Pod IPs registered as endpoints for a Service
+kubectl get endpoints ticket-service
+
+# Apply a Service YAML file
+kubectl apply -f ticket-service-svc.yaml
+
+# Delete a Service
+kubectl delete svc ticket-service
+
+# Port-forward a Service to your local machine for debugging
+# Access ticket-service at localhost:8080 without NodePort/LoadBalancer
+kubectl port-forward svc/ticket-service 8080:8080
+
+# Watch Services live (Ctrl+C to stop)
+kubectl get svc -w
+
+# Check which Pods a Service is currently routing to
+kubectl get pods -l app=ticket-service -o wide</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># List all Services in default namespace
+kubectl get services
+kubectl get svc
+
+# List Services across all namespaces
+kubectl get svc -A
+
+# Describe a Service — shows selector, endpoints, events
+kubectl describe svc ticket-service
+
+# View Pod IPs registered as endpoints
+kubectl get endpoints ticket-service
+
+# Apply Service manifest
+kubectl apply -f ticket-service-svc.yaml
+
+# Delete a Service
+kubectl delete svc ticket-service
+
+# Port-forward for local debugging
+# Exposes ticket-service at localhost:8080 on your Windows machine
+kubectl port-forward svc/ticket-service 8080:8080
+
+# Get Pods backing a Service (PowerShell — label selector works the same)
+kubectl get pods -l app=ticket-service -o wide</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="cloud">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Connect to TicketFlow EKS cluster
+aws eks update-kubeconfig --region us-east-1 --name ticketflow-prod
+
+# Verify Service is healthy — check EXTERNAL-IP for LoadBalancer type
+kubectl get svc api-gateway
+# NAME          TYPE           CLUSTER-IP     EXTERNAL-IP                            PORT(S)
+# api-gateway   LoadBalancer   10.96.100.1    ab12cd.us-east-1.elb.amazonaws.com     443:30443/TCP
+
+# Verify DNS resolution inside the cluster (run a debug pod)
+kubectl run dns-test --image=busybox:1.28 --rm -it --restart=Never -- \
+  nslookup ticket-service.default.svc.cluster.local
+
+# Check endpoints — are all Pods registered and healthy?
+kubectl get endpoints ticket-service -o yaml
+
+# Force-describe to diagnose routing issues
+kubectl describe svc ticket-service
+
+# Check if kube-proxy has programmed iptables rules on a node
+# (SSH into a node or use kubectl debug)
+kubectl debug node/ip-10-0-1-100.ec2.internal -it --image=nicolaka/netshoot -- \
+  iptables -t nat -L KUBE-SERVICES -n | grep ticket-service</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when payment-service calls ticket-service for the first time?</summary>
+        <div class="answer-content">
+          <ol>
+            <li><strong>DNS resolution:</strong> The Python runtime in <code>payment-service</code> Pod calls <code>httpx.get("http://ticket-service:8080/...")</code>. The OS resolver consults <code>/etc/resolv.conf</code>, which lists CoreDNS at <code>10.96.0.10</code> as the nameserver, with search domain <code>default.svc.cluster.local</code>.</li>
+            <li><strong>CoreDNS lookup:</strong> CoreDNS receives a query for <code>ticket-service.default.svc.cluster.local</code>. CoreDNS maintains an in-memory map built by watching the Kubernetes API. It returns the ClusterIP: <code>10.96.10.5</code>. DNS TTL is 30 seconds — the result is cached in the Pod's resolver for that duration.</li>
+            <li><strong>TCP connection to ClusterIP:</strong> The HTTP client opens a TCP connection to <code>10.96.10.5:8080</code>. The kernel on the node processes the outgoing packet.</li>
+            <li><strong>iptables DNAT intercept:</strong> kube-proxy has pre-programmed a PREROUTING/OUTPUT rule in netfilter that matches destination <code>10.96.10.5:8080</code>. The kernel randomly selects one of the three Endpoints (Pod IPs: <code>10.244.1.10</code>, <code>10.244.2.10</code>, <code>10.244.3.10</code>) using probability-weighted rules and rewrites the destination IP (DNAT). The source IP is also NAT'd (MASQUERADE) so the response routes back correctly.</li>
+            <li><strong>Pod receives connection:</strong> The selected <code>ticket-service</code> Pod at <code>10.244.2.10:8080</code> receives the connection. From the Pod's perspective it is a direct connection — it has no visibility into the ClusterIP or the NAT that occurred.</li>
+            <li><strong>Response returns:</strong> The response travels back through the conntrack table, which maintains the DNAT mapping. The kernel rewrites the source IP back to <code>10.96.10.5</code> (SNAT) so the calling service sees the ClusterIP in the response, not a Pod IP. The HTTP response arrives in <code>payment-service</code>.</li>
+            <li><strong>Subsequent calls:</strong> If a Pod fails or is scaled, kube-proxy detects the Endpoint change (via API watch) and updates the iptables rules within milliseconds. The DNS TTL of 30 seconds means some calls may briefly use a stale ClusterIP — but the ClusterIP never changes, so this is not an issue. New Pods are added to the iptables rules automatically.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>What happens when a Pod backing a Service is terminated?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>Kubernetes marks the Pod as <code>Terminating</code>. The endpoint controller removes this Pod's IP from the Service's Endpoints object immediately.</li>
+            <li>kube-proxy detects the Endpoints change via its API watch and removes the terminated Pod's IP from the iptables rules. This happens within ~100ms on a well-tuned cluster.</li>
+            <li>The Pod's container receives SIGTERM. Kubernetes waits for <code>terminationGracePeriodSeconds</code> (default 30s) before sending SIGKILL.</li>
+            <li>In-flight requests that were already routed to this Pod will complete if the app handles SIGTERM gracefully. New requests will never reach this Pod — they go to the remaining healthy Pods.</li>
+            <li>The key risk: there is a small window between Pod Termination and kube-proxy updating iptables where a new connection might still be routed to the terminating Pod. This is why well-behaved apps handle SIGTERM with a brief delay before shutting down the listener — to let kube-proxy catch up.</li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 1: Service Selector Does Not Match Pod Labels</span>
+        <p>The Service has <code>selector: app: ticket-service</code> but the Deployment pods are labeled <code>app: ticketservice</code> (no hyphen). The Service has zero Endpoints — all traffic silently times out. This is the most common mistake when setting up Services for the first time.</p>
+        <p><strong>Diagnose:</strong> <code>kubectl get endpoints ticket-service</code>. If the Endpoints list shows <code>&lt;none&gt;</code> where you expect Pod IPs, your selector does not match any Pods. Run <code>kubectl get pods --show-labels</code> to compare actual labels against the Service selector.</p>
+        <p><strong>Fix:</strong> Ensure the Service <code>spec.selector</code> matches the Pod template <code>metadata.labels</code> exactly — case-sensitive, hyphen-sensitive.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 2: Creating a LoadBalancer for Every Microservice</span>
+        <p>A team creates 10 microservices and gives each one a <code>type: LoadBalancer</code> because "it needs to be accessible." On AWS EKS, each LoadBalancer Service provisions a separate NLB or Classic ELB. That is 10 load balancers × $18/month = $180/month in unnecessary LB costs, plus 10 public IPs in your security surface.</p>
+        <p><strong>Fix:</strong> Use a single LoadBalancer Service for an Ingress controller (nginx-ingress or AWS Load Balancer Controller). Route all public traffic through the Ingress with host/path rules. All internal microservices use ClusterIP. See page 12 for Ingress deep-dive.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 3: Hardcoding Pod IP Addresses</span>
+        <p>A developer finds a Pod IP by running <code>kubectl get pods -o wide</code> and hardcodes <code>10.244.3.7:8080</code> into the application config. Pods are ephemeral — they can be rescheduled, scaled, or replaced at any time. That IP will stop working the next time the Pod is terminated. Pod IPs are not stable and must never be used directly.</p>
+        <p><strong>Fix:</strong> Always use Service DNS names (<code>http://ticket-service:8080</code>). Service ClusterIPs and DNS names are stable for the lifetime of the Service. That is exactly what Services exist to provide.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 4: Wrong targetPort Causes Connection Refused</span>
+        <p>The Service defines <code>port: 8080</code> and <code>targetPort: 8080</code> but the application inside the container actually listens on port <code>3000</code> (a Node.js app). Connections to the Service reach the Pod but get an immediate ECONNREFUSED because nothing is listening on 3000 at the Pod's 8080. Error messages in the calling service say "connection refused" rather than "timeout," which is the key diagnostic clue.</p>
+        <p><strong>Fix:</strong> The <code>targetPort</code> must match the actual port the container process is listening on. Best practice: use named ports. In the Pod template, name the container port (<code>name: http</code>), then reference that name in the Service's <code>targetPort: http</code> — this makes the mapping explicit and self-documenting.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">❌ Mistake 5: Using NodePort in Production for External Traffic</span>
+        <p>A team exposes their API using NodePort :30080 for external access, reasoning "it works just like LoadBalancer but cheaper." In production: if a node goes down, clients hitting that node get connection refused — there is no health checking of nodes. NodePort provides no TLS termination. The non-standard port (30080 vs 443) gets blocked by enterprise firewalls. Auto-scaling adds new nodes that clients don't know about. NodePort was not designed for production external traffic.</p>
+        <p><strong>Fix:</strong> Use LoadBalancer type (with a single Ingress controller) for any externally-facing production service. The cloud load balancer handles node health checks, SSL termination, and automatic node registration.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">🏛️ Architect Note</span>
+        <p>Kubernetes Services are a <strong>stable contract boundary</strong>. When you define a Service, you are declaring: "this is the stable interface for this workload." The Service name, port, and protocol form a contract that all consumers depend on. The underlying Pods — their count, IPs, node placement — are implementation details that you can change freely.</p>
+        <p>This separation is architecturally significant for several reasons:</p>
+        <ul>
+          <li><strong>Deployment independence:</strong> You can replace all Pods behind a Service (rolling update, blue-green) without the callers noticing. As long as the Service contract is preserved, callers are unaffected.</li>
+          <li><strong>The single LoadBalancer pattern:</strong> Production clusters should have exactly one external LoadBalancer — the one fronting the Ingress controller. Everything behind it uses ClusterIP. This principle — one gateway, many internal services — is the architecture that scales to hundreds of services without runaway cloud costs.</li>
+          <li><strong>Services are not enough for resilience:</strong> Services provide load balancing and Pod discovery, but they do not handle retries, circuit breaking, timeouts, or mutual TLS. For production microservice resilience, Services are the foundation that a service mesh (Istio, Linkerd) or application-level client library (Resilience4j, Polly) builds on top of. Services handle the "where" — service mesh handles the "how well."</li>
+          <li><strong>ExternalName for migration:</strong> When migrating from a legacy system to an in-cluster service, ExternalName provides a zero-code-change migration path. Start with ExternalName pointing at the legacy system. Once the in-cluster replacement is ready, change the Service type to ClusterIP — all callers automatically route to the new service. This technique is valuable for incremental strangler fig migrations.</li>
+          <li><strong>Endpoint slices at scale:</strong> In clusters with hundreds of Services and thousands of Pods, the original Endpoints API becomes a bottleneck — every change to any endpoint rebuilds the entire object and floods the API server. Kubernetes 1.21+ introduced EndpointSlices (enabled by default), which shard endpoints into groups of 100. kube-proxy on each node only needs to sync the slices that changed. At 5,000+ Pods, this is not optional — it is the difference between a responsive cluster and a broken one.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>All internal microservices use <code>type: ClusterIP</code> — not NodePort or LoadBalancer</li>
+        <li>Only one <code>type: LoadBalancer</code> Service exists per cluster (or per namespace), fronting the Ingress controller</li>
+        <li>Service selector labels exactly match Pod template labels — verified with <code>kubectl get endpoints</code></li>
+        <li>Named container ports are used in Pod templates and referenced by name in Service <code>targetPort</code></li>
+        <li><code>terminationGracePeriodSeconds</code> set appropriately and apps handle SIGTERM gracefully to avoid dropped connections during rolling updates</li>
+        <li>LoadBalancer Services on AWS EKS use NLB annotations, not Classic ELB (better performance, lower cost)</li>
+        <li>Service port names follow protocol naming convention (<code>http</code>, <code>grpc</code>, <code>tcp</code>) for Istio/service mesh compatibility</li>
+        <li>ExternalName Services used instead of hardcoded external FQDNs in application configs</li>
+        <li>Kubernetes 1.21+ clusters have EndpointSlice feature enabled (default) — do not disable it</li>
+        <li>Network policies applied to restrict which Services can communicate with each other (principle of least privilege)</li>
+        <li>kube-proxy mode set to <code>ipvs</code> for clusters with &gt;500 Services to avoid iptables O(n) performance degradation</li>
+        <li>Service discovery tested with <code>kubectl run dns-test ... nslookup &lt;service&gt;</code> before go-live</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Expose user-service</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">🧪 Lab — Requires a running Kubernetes cluster (minikube, kind, or EKS)</span>
+
+        <p>This lab deploys <code>user-service</code> and exposes it via ClusterIP, then demonstrates DNS discovery, port-forwarding, and endpoint inspection. Estimated time: 20 minutes.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Deploy user-service</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create the Deployment and Service from inline YAML
+kubectl apply -f - &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+        version: "1.0"
+    spec:
+      containers:
+        - name: user-service
+          image: nginx:1.25-alpine    # Using nginx as a stand-in for the lab
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http    # References the named containerPort
+EOF</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Verify Service and Endpoints</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Check Service was created — note the ClusterIP assigned
+kubectl get svc user-service
+
+# Verify Endpoints — should show 2 Pod IPs (one per replica)
+# If this shows &lt;none&gt;, your selector does not match your Pod labels
+kubectl get endpoints user-service
+
+# Describe the Service for full details (ports, selector, events)
+kubectl describe svc user-service
+
+# Check that Pods are Ready (READY should show 2/2)
+kubectl get pods -l app=user-service -o wide</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Test DNS discovery inside the cluster</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Launch a temporary debug Pod to test DNS resolution
+kubectl run dns-tester \
+  --image=busybox:1.28 \
+  --rm \
+  -it \
+  --restart=Never \
+  -- sh
+
+# Inside the debug Pod:
+# 1. Check /etc/resolv.conf — verify CoreDNS address and search domains
+cat /etc/resolv.conf
+
+# 2. Resolve user-service using short name (within same namespace)
+nslookup user-service
+
+# 3. Resolve using full FQDN
+nslookup user-service.default.svc.cluster.local
+
+# 4. Make an HTTP request using the Service DNS name
+wget -qO- http://user-service:3000/
+
+# 5. Run multiple requests to observe load balancing
+for i in $(seq 1 5); do wget -qO- http://user-service:3000/ 2>&amp;1 | head -1; done
+
+exit  # Back to host — the debug Pod is automatically removed</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Port-forward for local access (no NodePort needed)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Forward local port 9090 to user-service port 3000
+# This creates a tunnel — no NodePort or LoadBalancer needed
+kubectl port-forward svc/user-service 9090:3000
+
+# In a second terminal, test it:
+curl http://localhost:9090/
+
+# The port-forward is session-scoped — Ctrl+C to stop</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Scale and observe Endpoints update</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Scale user-service to 4 replicas
+kubectl scale deployment user-service --replicas=4
+
+# Watch Endpoints update in real time (run in separate terminal)
+kubectl get endpoints user-service -w
+
+# You should see the Endpoints object updated within seconds
+# as new Pods become Ready and are registered
+
+# Scale back down and watch Endpoints shrink
+kubectl scale deployment user-service --replicas=1</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Cleanup</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash">kubectl delete svc user-service
+kubectl delete deployment user-service</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key observations from this lab:</strong></p>
+        <ol>
+          <li>The Endpoints object updates within seconds of Pod readiness changes — this is kube-proxy staying in sync.</li>
+          <li>DNS short names work because <code>/etc/resolv.conf</code> adds <code>default.svc.cluster.local</code> as a search domain automatically.</li>
+          <li><code>kubectl port-forward</code> is the correct way to test internal ClusterIP Services locally — not NodePort, not SSH tunneling to nodes.</li>
+          <li>A Service with zero Endpoints means either: (a) the selector does not match any Pods, or (b) Pods exist but are not yet Ready (failing readiness probes).</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 16 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These questions appear frequently in Kubernetes and platform engineering interviews. Each answer is written to demonstrate depth beyond surface definitions.</p>
+
+      <div class="interview-section">
+
+        <details class="interview-q">
+          <summary>Q1: What is a Kubernetes Service and why is it necessary? Why can't microservices just talk directly to Pod IPs?</summary>
+          <div class="answer-content">
+            <p>A Kubernetes Service is a stable, virtual network endpoint that provides a consistent address for a dynamic set of Pods. It is necessary because Pods are ephemeral — they are created and destroyed constantly due to scaling events, rolling updates, node failures, and scheduling decisions. Each new Pod receives a new, randomly assigned IP address.</p>
+            <p>If <code>payment-service</code> hardcoded the IP of a <code>ticket-service</code> Pod, that IP would become invalid the next time the Pod was rescheduled. The calling service would need to re-discover the new IP somehow. At scale with dozens of services and hundreds of Pods, this becomes unmanageable.</p>
+            <p>A Service solves this by providing: a stable ClusterIP that never changes, automatic registration/deregistration of healthy Pods as Endpoints, load balancing across all healthy Pods, and a stable DNS name via CoreDNS. Services decouple the consumer (who needs a stable address) from the producer (whose Pods change constantly).</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q2: Explain the difference between ClusterIP, NodePort, and LoadBalancer. When would you choose each?</summary>
+          <div class="answer-content">
+            <p><strong>ClusterIP</strong> is the default. It creates a virtual IP accessible only from within the cluster. Use it for all internal service-to-service communication. In a typical microservices platform, 90%+ of your Services should be ClusterIP. It has zero cloud cost and is the most secure choice since the service is unreachable from outside.</p>
+            <p><strong>NodePort</strong> extends ClusterIP by additionally opening a static port (30000–32767) on every cluster node. External traffic can reach the service via <code>&lt;node-IP&gt;:&lt;nodePort&gt;</code>. Use it for local development clusters, on-premises setups without a cloud LB, or quick testing. Avoid it in production for external traffic — no health-checked load balancing across nodes, non-standard port numbers, and all nodes are exposed.</p>
+            <p><strong>LoadBalancer</strong> extends NodePort by provisioning an external cloud load balancer (AWS NLB, GCP Network LB, Azure Load Balancer). This is the standard way to expose a service to the internet. However, each LoadBalancer Service provisions a separate, billed cloud resource. The recommended pattern is: one LoadBalancer for the Ingress controller, and all other services use ClusterIP with Ingress rules for external routing.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q3: How does Kubernetes DNS-based service discovery work? What is CoreDNS's role?</summary>
+          <div class="answer-content">
+            <p>When a Pod is created, kubelet injects a <code>/etc/resolv.conf</code> file that points the DNS nameserver to CoreDNS's ClusterIP (typically <code>10.96.0.10</code>) and sets search domains including <code>default.svc.cluster.local</code>.</p>
+            <p>CoreDNS runs as a Deployment in the <code>kube-system</code> namespace and watches the Kubernetes API for Service creation/deletion events. For every Service, it maintains a DNS record: <code>&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local</code> pointing to the Service's ClusterIP.</p>
+            <p>When application code calls <code>http://ticket-service:8080</code>, the OS resolver queries CoreDNS with <code>ticket-service.default.svc.cluster.local</code> (after appending search domains). CoreDNS returns the ClusterIP. The application connects to that ClusterIP, and kube-proxy intercepts the connection to load-balance it to a real Pod IP.</p>
+            <p>Short names work within the same namespace because the search domain is appended automatically. Cross-namespace calls require the full FQDN: <code>ticket-service.payments.svc.cluster.local</code>.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q4: What is kube-proxy and how does it implement load balancing in iptables mode vs IPVS mode?</summary>
+          <div class="answer-content">
+            <p>kube-proxy is a DaemonSet that runs on every cluster node. Its job is to implement the Service abstraction by maintaining network rules that route traffic from ClusterIPs to actual Pod IPs. It watches the Kubernetes API for Service and Endpoints changes and updates routing rules accordingly.</p>
+            <p><strong>iptables mode (default):</strong> kube-proxy programs netfilter chains in the Linux kernel's NAT table. When a packet destined for a ClusterIP hits the PREROUTING or OUTPUT chain, a DNAT rule randomly selects one of the Endpoints (Pod IPs) using probability-weighted rules and rewrites the destination. This is entirely kernel-space — no userspace process handles individual packets. However, iptables rule evaluation is O(n) — with 10,000 Services, every packet must traverse all rules linearly. This degrades performance at scale.</p>
+            <p><strong>IPVS mode (recommended at scale):</strong> kube-proxy uses the Linux kernel's IPVS (IP Virtual Server) subsystem, which uses hash tables for O(1) lookup regardless of the number of Services. IPVS also supports richer algorithms: round-robin, least connections, source IP hash, etc. For clusters with more than ~500 Services, IPVS mode is strongly recommended to avoid the iptables performance cliff. Enable it by setting <code>mode: ipvs</code> in the kube-proxy ConfigMap.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q5: What is a headless Service and when would you use one?</summary>
+          <div class="answer-content">
+            <p>A headless Service is created by setting <code>clusterIP: None</code> in the Service spec. Unlike regular Services, Kubernetes does not assign a virtual IP. Instead, DNS queries for the Service name return multiple A records — one for each backing Pod's IP. kube-proxy does not create any iptables/IPVS rules for headless Services because there is no VIP to intercept.</p>
+            <p>The primary use case is <strong>StatefulSets</strong>. StatefulSets run stateful workloads like databases and message queues where individual Pods have distinct roles. A headless Service paired with a StatefulSet creates stable, predictable DNS names: <code>postgres-0.postgres.default.svc.cluster.local</code>, <code>postgres-1.postgres.default.svc.cluster.local</code>, etc. These names survive Pod restarts and rescheduling — a critical requirement for replication and primary/replica configurations.</p>
+            <p>Headless Services are also used when you want the client to perform its own load balancing or service discovery — for example, with gRPC's client-side load balancing, where the client needs to know all Pod IPs to establish connections to each one directly.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q6: A Service has been created but traffic is not reaching the Pods — how do you diagnose this?</summary>
+          <div class="answer-content">
+            <p>This is one of the most common Kubernetes networking issues. Here is a systematic diagnostic approach:</p>
+            <ol>
+              <li><strong>Check Endpoints:</strong> <code>kubectl get endpoints &lt;service-name&gt;</code>. If the output shows <code>&lt;none&gt;</code>, the selector does not match any Pods — the Service is routing to nothing. Compare the Service selector (<code>kubectl describe svc</code>) against actual Pod labels (<code>kubectl get pods --show-labels</code>).</li>
+              <li><strong>Check Pod readiness:</strong> If Endpoints shows IPs but traffic fails, verify Pods are Ready: <code>kubectl get pods -l &lt;selector&gt;</code>. Only Ready Pods are included as Endpoints. Failing readiness probes prevent a Pod from receiving traffic even if it is running.</li>
+              <li><strong>Check targetPort:</strong> Verify <code>targetPort</code> matches the port the container actually listens on. A ECONNREFUSED error (not timeout) suggests the Pod is reachable but nothing is listening on the target port.</li>
+              <li><strong>Test DNS from inside the cluster:</strong> Run a debug Pod (<code>kubectl run test --image=busybox -- nslookup &lt;service&gt;</code>). If DNS resolution fails, the problem is in CoreDNS, not kube-proxy.</li>
+              <li><strong>Check Network Policies:</strong> If all the above are correct, a NetworkPolicy may be blocking the traffic. <code>kubectl get networkpolicy</code> and check if the policy allows the specific source-to-destination traffic.</li>
+              <li><strong>Check kube-proxy rules:</strong> On a node, run <code>iptables -t nat -L KUBE-SERVICES -n</code> to verify kube-proxy has programmed rules for the Service's ClusterIP.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q7: What is an ExternalName Service and what problem does it solve in a migration scenario?</summary>
+          <div class="answer-content">
+            <p>An ExternalName Service is a special Service type that creates a DNS CNAME alias. When any Pod in the cluster resolves the Service name, CoreDNS returns the CNAME target instead of a ClusterIP. kube-proxy is not involved — no VIP, no iptables rules, no load balancing. It is purely a DNS alias.</p>
+            <p>The primary value is <strong>decoupling application code from external service locations</strong>. Instead of hardcoding <code>ticketflow-db.us-east-1.rds.amazonaws.com</code> in 5 services, each service uses the in-cluster name <code>postgres-primary</code> which is an ExternalName pointing at the RDS endpoint. If the RDS hostname changes (e.g., after a failover or migration to a different instance), you update the ExternalName Service once — no application config changes needed.</p>
+            <p>The <strong>migration pattern</strong> is powerful: when migrating a dependency from external to in-cluster, create an ExternalName Service first, point all consumers at it. When the in-cluster replacement is ready, change the Service type from ExternalName to ClusterIP with a selector pointing at the new Pods. The switch is atomic from DNS's perspective — zero application code changes across all consuming services. This is the Strangler Fig pattern applied at the Kubernetes networking layer.</p>
+          </div>
+        </details>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

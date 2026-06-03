@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Design — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="22" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Architecture → System Design</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-expert">Expert</span>
+          <span class="tag">⏱ 60 min read</span>
+          <span class="tag">Epic 7</span>
+        </div>
+        <h1 class="page-title">System Design</h1>
+        <p class="page-subtitle">Master the framework, estimation math, and scalability patterns to design any large-scale system from scratch — and ace every system design interview.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind System Design</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏗️ The Bridge Builder Problem</span>
+        <p>Imagine you are asked to build a bridge. You could walk up to the river and start laying concrete — but without knowing whether 10 people or 10,000 cars cross per day, whether the river floods, or whether trains will use it, you will build the wrong bridge. A footbridge for pedestrians and a suspension bridge for interstate traffic are both bridges, but they are completely different systems.</p>
+        <p>Software systems are exactly the same. A system that handles 1,000 requests per day is architected completely differently from one that handles 1,000,000. The data model that works for 1 GB of data collapses under 1 TB. The single database server that performs fine for a startup becomes the single point of failure that takes down a company worth billions.</p>
+        <p>System design is the discipline of asking the right questions first, then making deliberate architectural choices — choosing the right bridge for the right river. Every senior engineer and architect needs this skill not just for interviews, but because systems designed without this rigor become the expensive, unscalable legacy systems of the future.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="beginner" class="section-title">What Is System Design?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🥪 Beginner Analogy</span>
+        <p>Think of system design like planning a restaurant. Before you start cooking, you need to answer: How many customers will you serve? Will it be fast food or sit-down? Will you deliver? Do you need a walk-in fridge or just a regular one? How many chefs do you need? System design asks the same questions about software — how many users, what data, how fast, how reliable — and gives you a blueprint before you write a single line of code.</p>
+      </div>
+
+      <p>System design is the process of defining the architecture, components, modules, interfaces, and data flow of a software system to satisfy specified requirements. It bridges the gap between a product requirement ("we need to handle millions of users") and the actual technical choices (databases, caches, queues, services) that make it possible.</p>
+
+      <p>There are two broad contexts where system design matters:</p>
+      <ul>
+        <li><strong>Interviews</strong> — A 45-minute structured conversation where you are given a problem ("design Twitter", "design Uber") and expected to walk the interviewer through your thought process: clarifying scope, estimating scale, choosing components, and discussing trade-offs.</li>
+        <li><strong>Real-world architecture</strong> — Designing new systems or evolving existing ones at work. Here you have more time, more information, and real constraints — but the same framework applies.</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL: THE INTERVIEW FRAMEWORK
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-framework" class="section-title">The System Design Interview Framework</h2>
+
+      <p>Every system design problem — regardless of domain — can be approached with the same five-step framework. Interviewers are not just looking for the right answer; they are evaluating your structured thinking.</p>
+
+      <h3 class="subsection-title">Step 1: Clarify Requirements (5 minutes)</h3>
+      <p>Never jump to drawing boxes. Start by understanding what you are actually building. Ask:</p>
+      <ul>
+        <li><strong>Functional requirements</strong> — What must the system do? ("Users can post tweets, follow other users, see a feed.") Define the core features explicitly.</li>
+        <li><strong>Non-functional requirements</strong> — How well must it do it? Availability target (99.9% vs 99.99%)? Latency target (p99 under 200ms)? Consistency model (strong vs eventual)?</li>
+        <li><strong>Scale</strong> — How many daily active users? Read-heavy or write-heavy? Any traffic spikes (sporting events, Black Friday)?</li>
+        <li><strong>Constraints</strong> — Budget? On-premise vs cloud? Existing systems to integrate with?</li>
+      </ul>
+
+      <h3 class="subsection-title">Step 2: Capacity Estimation (5–10 minutes)</h3>
+      <p>Do back-of-envelope math. Interviewers want to see you can reason about scale. This drives your architectural choices — a system processing 100 QPS needs very different infrastructure from one processing 100,000 QPS.</p>
+
+      <h3 class="subsection-title">Step 3: High-Level Design (10–15 minutes)</h3>
+      <p>Draw the major components and how they connect. Clients, load balancers, API gateway, services, databases, caches, message queues. Focus on the main user journey — the happy path — first. Do not get lost in edge cases yet.</p>
+
+      <h3 class="subsection-title">Step 4: Deep Dive (15–20 minutes)</h3>
+      <p>Pick the two or three most critical or challenging components and drill into them. The interviewer will often guide you. Typical deep-dive areas: database schema, caching strategy, feed generation algorithm, how you handle hot keys, data partitioning.</p>
+
+      <h3 class="subsection-title">Step 5: Trade-offs and Bottlenecks (5 minutes)</h3>
+      <p>Proactively discuss what your design sacrifices. Where is the bottleneck? What breaks first at 10x scale? What would you do differently with more time? This is where senior engineers separate themselves — they know what they gave up and why.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — LOAD ESTIMATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="load-estimation" class="section-title">Capacity Estimation: The Math</h2>
+
+      <p>Back-of-envelope estimation is a core interview skill. The goal is not to get the exact answer — it is to demonstrate that you can reason about magnitude. Here are the key numbers to internalize:</p>
+
+      <h3 class="subsection-title">Key Numbers to Memorize</h3>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Value</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Seconds in a day</td>
+            <td>~86,400 ≈ 100,000</td>
+            <td>Use 100K for easy math</td>
+          </tr>
+          <tr>
+            <td>1 million users, 1 action/day</td>
+            <td>~12 QPS</td>
+            <td>1M / 86400 ≈ 12</td>
+          </tr>
+          <tr>
+            <td>1 billion users, 1 action/day</td>
+            <td>~12,000 QPS</td>
+            <td>Scale linearly</td>
+          </tr>
+          <tr>
+            <td>Peak traffic multiplier</td>
+            <td>2x–5x average</td>
+            <td>Size for peak, not average</td>
+          </tr>
+          <tr>
+            <td>Read/Write ratio (typical social)</td>
+            <td>100:1</td>
+            <td>Reads dominate; optimise reads</td>
+          </tr>
+          <tr>
+            <td>1 GB in bytes</td>
+            <td>10^9</td>
+            <td>Use powers of 10</td>
+          </tr>
+          <tr>
+            <td>SSD random read</td>
+            <td>~0.1 ms</td>
+            <td>100 microseconds</td>
+          </tr>
+          <tr>
+            <td>Network round trip (same DC)</td>
+            <td>~0.5 ms</td>
+            <td>Cross-DC: ~30–100 ms</td>
+          </tr>
+          <tr>
+            <td>Redis GET latency</td>
+            <td>~0.1 ms</td>
+            <td>10,000x faster than DB on disk</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="subsection-title">Worked Example: TicketFlow QPS Estimation</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">TicketFlow System Design — Capacity Estimation
+
+Given:
+  - 10 million daily active users (DAU)
+  - Each user performs ~5 actions per day (view events, search, book, check order)
+  - Read/write ratio: 80:20 (most users browse, fewer book)
+
+QPS Calculations:
+  Total requests/day     = 10M users × 5 actions = 50M requests/day
+  Average QPS            = 50M / 86,400 ≈ 580 QPS
+  Peak QPS (3x average)  = 580 × 3 ≈ 1,740 QPS
+
+  Read QPS (80%)         = 1,740 × 0.8 ≈ 1,400 QPS
+  Write QPS (20%)        = 1,740 × 0.2 ≈ 350 QPS
+
+Storage Calculations:
+  Ticket event record    = ~500 bytes
+  New events/day         = ~10,000 (events added to platform)
+  Event storage/day      = 10K × 500B = 5 MB/day → 1.8 GB/year
+
+  Order record           = ~1 KB
+  Orders/day             = ~50,000 (at 0.5% booking conversion)
+  Order storage/day      = 50K × 1KB = 50 MB/day → 18 GB/year
+
+  User profile           = ~2 KB
+  Total user profiles    = 50M users × 2KB = 100 GB (total, not per day)
+
+Bandwidth:
+  Avg response size      = 5 KB (JSON API responses)
+  Outbound bandwidth     = 1,740 QPS × 5 KB = 8.7 MB/s ≈ 70 Gbps/day
+  → Need CDN for static assets; API responses cacheable at edge</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="scalable-architecture" class="section-title">Generic Scalable Architecture</h2>
+
+      <p>This is the canonical architecture that underlies most large-scale web systems. Every component has a specific role and a specific reason for being there.</p>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    CLIENT["📱 Clients\n(Web / Mobile / API)"]
+    CDN["🌐 CDN\n(CloudFront / Akamai)\nStatic assets, edge cache"]
+    LB["⚖️ Load Balancer\n(AWS ALB / NGINX)\nL7 routing, SSL termination"]
+    GW["🚪 API Gateway\n(NGINX / Kong)\nAuth, rate limiting, routing"]
+
+    subgraph Services["Microservices Layer (EKS)"]
+      US["user-service\n(Node.js)"]
+      TS["ticket-service\n(Spring Boot)"]
+      PS["payment-service\n(Python)"]
+      OS["order-service\n(Go)"]
+      NS["notification-service\n(Node.js)"]
+    end
+
+    subgraph Cache["Caching Layer"]
+      REDIS["Redis Cluster\nSessions, hot data\nRate limit counters"]
+    end
+
+    subgraph MQ["Message Queue"]
+      KAFKA["Apache Kafka\nOrder events\nNotification events\nAudit log"]
+    end
+
+    subgraph DB["Persistence Layer"]
+      PGPRIMARY["PostgreSQL Primary\n(Writes)"]
+      PGREPLICA["PostgreSQL Replicas\n(Reads × 3)"]
+      S3["S3 / Object Store\nMedia, tickets, receipts"]
+    end
+
+    subgraph Observability["Observability"]
+      PROM["Prometheus + Grafana\nMetrics"]
+      LOKI["Loki\nLogs"]
+    end
+
+    CLIENT --> CDN
+    CDN --> LB
+    LB --> GW
+    GW --> US
+    GW --> TS
+    GW --> PS
+    GW --> OS
+
+    US --> REDIS
+    TS --> REDIS
+    PS --> REDIS
+    OS --> REDIS
+
+    OS --> KAFKA
+    PS --> KAFKA
+    KAFKA --> NS
+
+    TS --> PGPRIMARY
+    OS --> PGPRIMARY
+    US --> PGPRIMARY
+    PGPRIMARY --> PGREPLICA
+    TS --> PGREPLICA
+    OS --> PGREPLICA
+
+    PS --> S3
+    TS --> S3
+
+    Services --> PROM
+    Services --> LOKI
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — HORIZONTAL VS VERTICAL SCALING
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="scaling" class="section-title">Horizontal vs Vertical Scaling</h2>
+
+      <p>Scaling is the practice of increasing your system's capacity to handle load. There are two fundamental approaches, and knowing when to use each is a core architectural decision.</p>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th>Vertical Scaling (Scale Up)</th>
+            <th>Horizontal Scaling (Scale Out)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>What it means</td>
+            <td>Bigger machine (more CPU, RAM, faster SSD)</td>
+            <td>More machines running the same workload</td>
+          </tr>
+          <tr>
+            <td>Analogy</td>
+            <td>Replace your car with a bigger truck</td>
+            <td>Add more delivery trucks to the fleet</td>
+          </tr>
+          <tr>
+            <td>Ceiling</td>
+            <td>Hard limit — the largest instance type available</td>
+            <td>Virtually unlimited with good architecture</td>
+          </tr>
+          <tr>
+            <td>Downtime required</td>
+            <td>Usually yes (resize requires restart)</td>
+            <td>No — add nodes while running</td>
+          </tr>
+          <tr>
+            <td>Cost curve</td>
+            <td>Superlinear — 2x RAM costs more than 2x</td>
+            <td>Linear — each additional node costs the same</td>
+          </tr>
+          <tr>
+            <td>Fault tolerance</td>
+            <td>Single point of failure remains</td>
+            <td>Node failure is non-critical with N+1 or more</td>
+          </tr>
+          <tr>
+            <td>Application changes needed</td>
+            <td>None — transparent to the app</td>
+            <td>App must be stateless (sessions in Redis, not memory)</td>
+          </tr>
+          <tr>
+            <td>When to prefer</td>
+            <td>Databases (short term), single-threaded workloads, legacy apps</td>
+            <td>Stateless services, APIs, read replicas, worker pools</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="production-tip">
+        <span class="production-tip-label">💡 The Practical Rule</span>
+        <p>Vertical scale early (it's fast and requires no code changes), horizontal scale when you hit the vertical ceiling or need fault tolerance. Most modern architectures aim for horizontal scalability as the long-term strategy. On Kubernetes (like TicketFlow on AWS EKS), HPA (Horizontal Pod Autoscaler) makes horizontal scaling automatic.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — DATABASE SHARDING
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="database-sharding" class="section-title">Database Sharding Strategies</h2>
+
+      <p>When a single database can no longer handle the write throughput or storage requirements, you need to partition data across multiple database instances. This is called <strong>sharding</strong>.</p>
+
+      <h3 class="subsection-title">Range-Based Sharding</h3>
+      <p>Partition data by value ranges (e.g., user IDs 1–1M on shard 1, 1M–2M on shard 2). Simple to implement and range queries are efficient. Problem: hot spots if certain ranges receive disproportionate traffic (new users all land on the latest shard).</p>
+
+      <h3 class="subsection-title">Hash-Based Sharding</h3>
+      <p>Apply a hash function to the shard key (<code>shard = hash(user_id) % num_shards</code>). Distributes data evenly, eliminates hot spots. Problem: range queries are impossible and resharding when adding nodes is expensive (rebalancing all keys).</p>
+
+      <h3 class="subsection-title">Directory-Based Sharding</h3>
+      <p>A lookup service (shard directory) maps each key to its shard. Most flexible — you can move data between shards easily. Problem: the directory itself is a bottleneck and single point of failure unless replicated.</p>
+
+      <h3 class="subsection-title">Consistent Hashing</h3>
+      <p>A sophisticated form of hash-based sharding where adding or removing a node only requires remapping a fraction of keys (1/N keys rather than all of them). Used in distributed caches (Redis Cluster, Cassandra, DynamoDB) and most modern distributed databases. The practical standard for distributed key-value stores.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-text">TicketFlow — Sharding Decision
+
+Tables that need sharding at scale:
+
+orders table:
+  Shard key: order_id (hash-based)
+  Rationale: orders are write-heavy, no cross-shard order queries needed
+  Shards: 8 (can grow to 16 with consistent hashing, remapping only 50% of keys)
+
+  shard = murmurhash(order_id) % 8
+  shard 0: orders where hash mod 8 == 0
+  shard 1: orders where hash mod 8 == 1
+  ...
+
+user_activity table (for feed/analytics):
+  Shard key: user_id (hash-based)
+  Rationale: activity is always looked up by user; no cross-user queries
+  Each user's entire history lives on one shard (avoids scatter-gather)
+
+ticket_events table (the event catalog):
+  NOT sharded — read-heavy, ~10K events, fits on a single well-indexed PostgreSQL instance
+  Use read replicas instead (3 replicas behind a load balancer)
+
+Cross-shard queries:
+  Avoid by denormalising: embed user name into order record at write time
+  Use Kafka event stream to maintain secondary aggregation tables</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — CACHING LAYERS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="caching" class="section-title">Caching Layers</h2>
+
+      <p>Caching is the single most effective technique for improving read performance in large-scale systems. The key insight: <strong>fetch expensive data once, serve it cheaply many times</strong>. A well-designed cache can reduce database load by 95%+ and cut API response times by an order of magnitude.</p>
+
+      <h3 class="subsection-title">CDN (Content Delivery Network)</h3>
+      <p>A globally distributed network of edge servers that cache static and semi-static content close to users. When a user in Tokyo requests a page from a US-hosted service, the CDN serves cached assets from a Tokyo edge node instead of routing all the way to the origin. Typical content: images, videos, CSS/JS bundles, pre-rendered HTML pages, API responses that are the same for all users (event listings).</p>
+
+      <h3 class="subsection-title">Application-Level Cache (Redis)</h3>
+      <p>An in-memory key-value store sitting between your application and the database. Redis operates at sub-millisecond latency (0.1 ms vs 5–50 ms for a database query). Critical for:</p>
+      <ul>
+        <li><strong>Session storage</strong> — HTTP sessions stored in Redis, not in-memory (enables horizontal scaling)</li>
+        <li><strong>Computed results</strong> — expensive aggregations, leaderboards, recommendation lists</li>
+        <li><strong>Rate limiting counters</strong> — atomic increment operations, sliding window counts</li>
+        <li><strong>Hot data</strong> — top 1,000 most-viewed event pages, frequently accessed user profiles</li>
+      </ul>
+
+      <h3 class="subsection-title">Database Query Cache</h3>
+      <p>Most databases have an internal query result cache, but this is often disabled in modern PostgreSQL setups because it is coarse-grained and can cause problems. Application-level caching (Redis) gives you explicit control and is more effective.</p>
+
+      <h3 class="subsection-title">Cache Invalidation Patterns</h3>
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Pattern</th>
+            <th>How It Works</th>
+            <th>When to Use</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cache-Aside (Lazy Loading)</td>
+            <td>App checks cache first; on miss, fetches DB and populates cache</td>
+            <td>Read-heavy, unpredictable access patterns</td>
+            <td>Cache stampede on cold start</td>
+          </tr>
+          <tr>
+            <td>Write-Through</td>
+            <td>Every DB write also updates cache synchronously</td>
+            <td>Read-heavy, data must always be fresh</td>
+            <td>Cache fills with data never read</td>
+          </tr>
+          <tr>
+            <td>Write-Behind (Write-Back)</td>
+            <td>Write to cache first; asynchronously persist to DB</td>
+            <td>Write-heavy, can tolerate some data loss window</td>
+            <td>Data loss if cache crashes before flush</td>
+          </tr>
+          <tr>
+            <td>TTL Expiry</td>
+            <td>Every cache entry expires after a fixed time</td>
+            <td>Semi-static data (event listings, prices)</td>
+            <td>Stale data within the TTL window</td>
+          </tr>
+          <tr>
+            <td>Event-Driven Invalidation</td>
+            <td>Kafka event triggers cache key deletion on update</td>
+            <td>Microservices; when write and read services are separate</td>
+            <td>Complexity; brief window of staleness</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code-wrapper">
+        <pre><code class="language-javascript">// ticket-service (Spring Boot) — Cache-Aside pattern in Node.js style
+// (user-service caching ticket availability)
+
+async function getEventAvailability(eventId) {
+  const cacheKey = `event:availability:${eventId}`;
+
+  // 1. Check Redis cache first
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached); // Cache hit — ~0.1ms
+  }
+
+  // 2. Cache miss — fetch from PostgreSQL
+  const availability = await db.query(
+    `SELECT seats_total, seats_sold, seats_available
+     FROM ticket_events WHERE event_id = $1`,
+    [eventId]
+  );
+
+  // 3. Populate cache with 60-second TTL
+  // Short TTL for availability — it changes frequently during sales
+  await redis.setex(cacheKey, 60, JSON.stringify(availability));
+
+  return availability; // DB query — ~5-20ms (vs 0.1ms for cached)
+}
+
+// Cache invalidation on ticket purchase (order-service publishes Kafka event)
+kafkaConsumer.on('order.completed', async ({ eventId }) => {
+  // Immediately invalidate so next read gets fresh availability
+  await redis.del(`event:availability:${eventId}`);
+});
+</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — MESSAGE QUEUES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="message-queues" class="section-title">Message Queues: Kafka vs RabbitMQ</h2>
+
+      <p>Message queues decouple the producer of work from the consumer of that work. Instead of service A calling service B directly (tight coupling, B's failure fails A), A drops a message in the queue and B processes it when ready. This enables asynchronous processing, peak-load buffering, and resilience to downstream failures.</p>
+
+      <h3 class="subsection-title">Apache Kafka</h3>
+      <p>A distributed event streaming platform built for high-throughput, durable, ordered event logs. Key properties:</p>
+      <ul>
+        <li><strong>Persistent log</strong> — messages are stored on disk and retained for days or weeks. Consumers can replay events from any point in the past.</li>
+        <li><strong>Topic partitions</strong> — topics are split into N partitions, each consumed by one consumer in a consumer group. This gives you horizontal scaling of consumers.</li>
+        <li><strong>At-least-once delivery</strong> — default guarantee. Producers get acknowledgement; consumers commit offsets to track position.</li>
+        <li><strong>High throughput</strong> — designed for millions of messages per second, low-latency sequential disk I/O via log compaction.</li>
+        <li><strong>Use when</strong>: event sourcing, audit logs, analytics pipelines, high-volume event streams, need to replay historical events.</li>
+      </ul>
+
+      <h3 class="subsection-title">RabbitMQ</h3>
+      <p>A traditional message broker implementing AMQP. Key properties:</p>
+      <ul>
+        <li><strong>Smart routing</strong> — exchanges route messages to queues via flexible binding rules (direct, fanout, topic, headers). Kafka has no equivalent native routing.</li>
+        <li><strong>Messages are deleted on acknowledgement</strong> — unlike Kafka's log, once a message is consumed and acked, it is gone. No replay.</li>
+        <li><strong>Simpler operational model</strong> — easier to set up than Kafka for simpler use cases.</li>
+        <li><strong>Use when</strong>: task queues, job scheduling, complex routing (fan-out, topic routing), RPC patterns, when messages don't need replay.</li>
+      </ul>
+
+      <table class="decision-table">
+        <thead>
+          <tr>
+            <th>Criteria</th>
+            <th>Use Kafka</th>
+            <th>Use RabbitMQ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Throughput</td>
+            <td>Millions of messages/second</td>
+            <td>Thousands of messages/second</td>
+          </tr>
+          <tr>
+            <td>Message replay</td>
+            <td>Yes — consumers can re-read old events</td>
+            <td>No — message gone after consumption</td>
+          </tr>
+          <tr>
+            <td>Message routing</td>
+            <td>Basic (by key/partition)</td>
+            <td>Rich (exchanges, bindings, patterns)</td>
+          </tr>
+          <tr>
+            <td>Message ordering</td>
+            <td>Per partition</td>
+            <td>Per queue</td>
+          </tr>
+          <tr>
+            <td>Primary use case</td>
+            <td>Event streaming, audit logs, analytics</td>
+            <td>Task queues, async job processing</td>
+          </tr>
+          <tr>
+            <td>TicketFlow use</td>
+            <td>order.completed events, audit stream, analytics</td>
+            <td>Email/SMS notification job queue</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — API RATE LIMITING
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="rate-limiting" class="section-title">API Rate Limiting Patterns</h2>
+
+      <p>Rate limiting protects your system from abuse (DDoS, scrapers, runaway clients) and ensures fair resource allocation across all clients. It is implemented at the API gateway layer and enforced with Redis for distributed state.</p>
+
+      <h3 class="subsection-title">Fixed Window Counter</h3>
+      <p>Count requests in a fixed time window (e.g., 100 requests per 60-second window). Simple to implement with a Redis key that expires after the window. Problem: a burst at the boundary of two windows can allow 2x the limit (100 at second 59, 100 at second 61 = 200 requests in 2 seconds).</p>
+
+      <h3 class="subsection-title">Sliding Window Log</h3>
+      <p>Store a timestamp for every request in a sorted set; count entries within the last N seconds. Perfectly accurate. Problem: high memory usage for high-traffic clients (storing every timestamp).</p>
+
+      <h3 class="subsection-title">Sliding Window Counter (Hybrid)</h3>
+      <p>Weighted average of two adjacent fixed windows. Approximates a true sliding window with much lower memory usage than the log approach. Recommended for most production use cases.</p>
+
+      <h3 class="subsection-title">Token Bucket</h3>
+      <p>Each client has a bucket that fills with tokens at a fixed rate. Each request consumes one token. Allows short bursts (if bucket is full) but enforces average rate. AWS API Gateway and most enterprise rate limiters use this model.</p>
+
+      <h3 class="subsection-title">Leaky Bucket</h3>
+      <p>Requests enter a queue (the "bucket") and are processed at a fixed rate (the "leak"). Smooths out bursts completely — the output rate is always constant. Good for protecting downstream services that cannot handle spikes. Used in traffic shaping at network level.</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-javascript">// api-gateway (NGINX + Kong) — Sliding window counter in Redis
+// Implemented in Node.js middleware for illustration
+
+async function rateLimitMiddleware(req, res, next) {
+  const userId = req.headers['x-user-id'] || req.ip;
+  const windowSize = 60;     // 60-second window
+  const maxRequests = 100;   // 100 requests per window
+
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - windowSize;
+  const key = `ratelimit:${userId}`;
+
+  // Sliding window log using Redis sorted set
+  const pipeline = redis.pipeline();
+  pipeline.zremrangebyscore(key, 0, windowStart);       // remove old entries
+  pipeline.zadd(key, now, `${now}-${Math.random()}`);   // add current request
+  pipeline.zcard(key);                                   // count requests in window
+  pipeline.expire(key, windowSize);                      // auto-expire key
+
+  const results = await pipeline.exec();
+  const requestCount = results[2][1];
+
+  // Set rate limit headers (RFC 6585 standard)
+  res.set('X-RateLimit-Limit', maxRequests);
+  res.set('X-RateLimit-Remaining', Math.max(0, maxRequests - requestCount));
+  res.set('X-RateLimit-Reset', now + windowSize);
+
+  if (requestCount > maxRequests) {
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Rate limit: ${maxRequests} requests per ${windowSize}s`,
+      retryAfter: windowSize
+    });
+  }
+
+  next();
+}
+
+// Applied in TicketFlow api-gateway:
+// - ticket-service: 200 req/min (browsing is fine)
+// - payment-service: 10 req/min per user (prevent payment spam)
+// - order-service: 50 req/min (some bulk buyers)
+// - user-service /auth: 5 req/min (brute-force protection)
+</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — ENTERPRISE SCENARIO: TICKETFLOW FROM SCRATCH
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: Design TicketFlow From Scratch</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 System Design Walkthrough — TicketFlow</span>
+        <p>You are the architect brought in to design TicketFlow — a ticketing platform like Ticketmaster. Walk through the full system design interview framework applied to a real-world system.</p>
+      </div>
+
+      <h3 class="subsection-title">Step 1: Clarify Requirements</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">Functional Requirements (agreed with stakeholder):
+  - Users can browse events (concerts, sports, theatre)
+  - Users can search events by name, date, city, category
+  - Users can view seat maps and select specific seats
+  - Users can purchase tickets (credit card / PayPal)
+  - Users can view and download their tickets (PDF/QR code)
+  - Event organisers can create events and manage inventory
+  - Support for flash sales (high concurrency ticket release)
+
+Non-Functional Requirements:
+  - Availability: 99.99% (max ~52 min downtime/year) — tickets = revenue
+  - Latency: p99 < 200ms for browse/search; p99 < 500ms for checkout
+  - Consistency: STRONG for seat reservation (cannot double-sell a seat)
+  - Scalability: handle 10x traffic spike during popular event releases
+  - Geographic: serve users in North America, Europe, Australia
+
+Out of Scope (for this design):
+  - Secondary ticket market / resale
+  - Fraud detection ML models
+  - Box office / venue integrations</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Step 2: Capacity Estimation</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">Users:
+  DAU: 10 million
+  Peak (Taylor Swift on-sale): 50 million concurrent (5x normal)
+
+QPS:
+  Normal: ~1,400 read QPS / 350 write QPS (from earlier estimate)
+  Peak:   ~7,000 read QPS / 1,750 write QPS
+
+Critical calculation — seat reservation concurrency:
+  A stadium has 50,000 seats
+  On-sale window: first 30 seconds sees 90% of demand
+  50,000 seat requests in 30 seconds = ~1,667 transactions/second
+  BUT: millions of users hitting "buy" simultaneously
+  → Must use distributed lock / reservation queue to prevent oversell
+
+Storage:
+  Events: 10K events × 1 KB = 10 MB (trivial)
+  Seats per event: 50K seats × 200B = 10 MB per event
+  Orders: 50K/day × 1KB = 50 MB/day → 18 GB/year
+  User data: 50M users × 2KB = 100 GB total</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Step 3: High-Level Architecture</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">Components:
+  1. CDN (CloudFront)
+     → Static assets: React SPA, images, venue diagrams
+     → Edge-cached: event listings (5 min TTL), search results
+
+  2. API Gateway (NGINX on EKS)
+     → Route: /events/* → ticket-service
+     → Route: /orders/* → order-service
+     → Route: /payments/* → payment-service
+     → Route: /users/* → user-service
+     → Rate limiting: per-user, per-endpoint
+     → JWT validation (forward token to services)
+
+  3. ticket-service (Spring Boot)
+     → Event CRUD, seat map queries
+     → Read from PostgreSQL replicas
+     → Cache event data in Redis (TTL: 5 min for listings, 10s for availability)
+
+  4. order-service (Go)
+     → Seat reservation (2-step: hold → confirm)
+     → Distributed lock via Redis (SETNX with TTL: 10-minute hold)
+     → Strong consistency via PostgreSQL transactions
+
+  5. payment-service (Python)
+     → Payment processing via Stripe/PayPal
+     → Idempotency keys (prevent double-charge on retry)
+     → Publish order.completed to Kafka on success
+
+  6. user-service (Node.js)
+     → Registration, login, JWT issuance
+     → Profile management
+
+  7. notification-service (Node.js)
+     → Consume Kafka: order.completed → send email/SMS
+     → Send ticket PDF generation job to worker queue
+
+  8. Persistence
+     → PostgreSQL (primary + 3 replicas): orders, seats, users
+     → Redis Cluster: sessions, seat holds, rate limiting, hot data
+     → S3: ticket PDFs, event images, venue diagrams
+     → Elasticsearch: full-text event search (name, artist, city)</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Step 4: Deep Dive — Seat Reservation (The Hard Problem)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">The core challenge: prevent double-selling a seat when thousands of users
+hit "buy" for the same seat simultaneously.
+
+Naive approach (WRONG):
+  1. SELECT seat WHERE seat_id=X AND status='available'
+  2. UPDATE seat SET status='reserved' WHERE seat_id=X
+  Problem: race condition. Two users can both pass step 1 before step 2 runs.
+
+Correct approach — Optimistic locking with version counter:
+  1. SELECT seat, version WHERE seat_id=X AND status='available'
+  2. UPDATE seat SET status='held', version=version+1
+     WHERE seat_id=X AND version=$previous_version AND status='available'
+  3. If 0 rows updated → another user got it first → return "seat taken"
+  4. If 1 row updated → hold successful → start 10-minute timer
+  5. SET Redis key seat:hold:{seat_id} = {user_id} EXPIRY 600
+  6. User completes checkout → UPDATE seat SET status='sold'
+  7. If 10 minutes elapse → Redis key expires → background job resets seat to 'available'
+
+For flash sales (millions of concurrent requests):
+  Add a request queue: users enter a virtual queue (Redis sorted set by timestamp)
+  Queue is processed at the rate the system can handle (e.g., 1,000 reservations/second)
+  Users get a queue position and estimated wait time
+  This prevents thundering herd from crashing the database</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Step 5: Trade-offs Discussion</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-text">Trade-off 1: Strong consistency vs Availability for seat reservation
+  Choice: strong consistency (PostgreSQL ACID transactions + optimistic locking)
+  Cost: higher latency (~20ms DB transaction vs ~1ms eventual read)
+  Justification: double-selling a seat is a business disaster; latency acceptable
+
+Trade-off 2: Event search — PostgreSQL LIKE vs Elasticsearch
+  Choice: Elasticsearch for search
+  Cost: operational complexity; data sync lag (~1 second)
+  Justification: full-text search across millions of events with typo tolerance and ranking
+  Risk: if Elasticsearch lags, users may not see very new events — acceptable (eventual)
+
+Trade-off 3: Notification delivery — synchronous vs async (Kafka)
+  Choice: async via Kafka
+  Cost: email arrives ~2-10 seconds after order, not instantaneously
+  Justification: email delivery should NEVER block the checkout critical path;
+  if notification-service is down, orders still complete; Kafka retains events for replay
+
+Trade-off 4: Monolith vs microservices
+  Choice: microservices (already stated in requirements)
+  Cost: operational complexity, network overhead, distributed tracing required
+  Justification: at this scale and team size, independent deployability and scalability
+  of each service (payment-service scales differently than notification-service) justifies it
+
+Bottleneck at 10x scale:
+  PostgreSQL primary write throughput becomes the bottleneck
+  Mitigation: shard orders table by order_id; keep seat table on dedicated instance
+  with connection pooling (PgBouncer) in front</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — OS TABS (TOOLING COMMANDS)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="tooling" class="section-title">System Design Tooling and Commands</h2>
+
+      <p>When validating your designs in practice, these commands help you measure and understand the actual behaviour of the components you have designed.</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux / macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># ──────────────────────────────────────
+# LOAD TESTING — measure actual throughput
+# ──────────────────────────────────────
+
+# Install k6 (load testing tool)
+brew install k6  # macOS
+# or: sudo apt install k6  # Ubuntu
+
+# Quick load test on ticket-service
+k6 run --vus 100 --duration 30s - <<EOF
+import http from 'k6/http';
+export default function() {
+  http.get('http://ticket-service:8080/events');
+}
+EOF
+
+# Install hey (simpler HTTP benchmarker)
+brew install hey
+
+# 1000 requests, 50 concurrent to ticket-service
+hey -n 1000 -c 50 http://localhost:8080/api/events
+
+# ──────────────────────────────────────
+# REDIS — validate caching behaviour
+# ──────────────────────────────────────
+
+# Connect to Redis cluster
+redis-cli -h redis.ticketflow.internal -p 6379
+
+# Check cache hit rate (info stats)
+redis-cli INFO stats | grep keyspace_hits
+redis-cli INFO stats | grep keyspace_misses
+
+# View all rate limit keys for a user
+redis-cli KEYS "ratelimit:user123*"
+
+# Check seat hold TTL
+redis-cli TTL "seat:hold:SEAT-ABC-123"
+
+# Monitor real-time Redis commands (dangerous on prod)
+redis-cli MONITOR
+
+# ──────────────────────────────────────
+# KAFKA — verify message flow
+# ──────────────────────────────────────
+
+# Check consumer group lag (are consumers keeping up?)
+kafka-consumer-groups.sh \
+  --bootstrap-server kafka.ticketflow.internal:9092 \
+  --describe \
+  --group notification-service-group
+
+# Tail a topic in real time
+kafka-console-consumer.sh \
+  --bootstrap-server kafka.ticketflow.internal:9092 \
+  --topic order.completed \
+  --from-beginning
+
+# ──────────────────────────────────────
+# POSTGRESQL — check query performance
+# ──────────────────────────────────────
+
+# Connect to PostgreSQL
+psql -h postgres-primary.ticketflow.internal -U ticketflow -d ticketflowdb
+
+# Check slow queries
+SELECT query, mean_exec_time, calls
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 10;
+
+# Check index usage
+SELECT relname, idx_scan, seq_scan
+FROM pg_stat_user_tables
+ORDER BY seq_scan DESC;
+
+# Analyse query plan for a slow query
+EXPLAIN (ANALYSE, BUFFERS)
+SELECT * FROM orders WHERE user_id = 'user123'
+ORDER BY created_at DESC LIMIT 20;
+</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># ──────────────────────────────────────
+# LOAD TESTING — Windows alternatives
+# ──────────────────────────────────────
+
+# Install k6 via winget
+winget install k6
+
+# Run load test against ticket-service
+k6 run --vus 100 --duration 30s script.js
+
+# Install Apache JMeter (GUI load tester)
+# Download from jmeter.apache.org
+# Run: bin\jmeter.bat
+
+# ──────────────────────────────────────
+# REDIS — Windows (use WSL2 or Docker)
+# ──────────────────────────────────────
+
+# Run Redis in Docker on Windows
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+
+# Connect via Docker exec
+docker exec -it redis redis-cli
+
+# Check hit rate
+docker exec redis redis-cli INFO stats | Select-String "keyspace"
+
+# Check seat hold TTL
+docker exec redis redis-cli TTL "seat:hold:SEAT-ABC-123"
+
+# ──────────────────────────────────────
+# KAFKA — Windows (via Docker Compose)
+# ──────────────────────────────────────
+
+# Start Kafka locally (use docker-compose with confluentinc/cp-kafka)
+docker compose up -d kafka zookeeper
+
+# Check consumer group lag
+docker exec kafka kafka-consumer-groups `
+  --bootstrap-server localhost:9092 `
+  --describe `
+  --group notification-service-group
+
+# ──────────────────────────────────────
+# POSTGRESQL — Windows
+# ──────────────────────────────────────
+
+# Connect to PostgreSQL (install psql via winget)
+winget install PostgreSQL.PostgreSQL
+
+# Connect
+psql -h localhost -U ticketflow -d ticketflowdb
+
+# Check slow queries (same SQL as Linux)
+# SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;
+</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What actually happens during a ticket purchase at scale?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>User clicks "Buy" on seat A1 for the Taylor Swift concert on-sale at exactly 10:00am. Simultaneously, 2 million other users click the same button.</li>
+            <li>Each click is a POST request that passes through CloudFront (CDN) → ALB → api-gateway (rate limiting check via Redis atomic increment) → order-service.</li>
+            <li>order-service attempts an atomic seat hold: <code>UPDATE seats SET status='held', hold_expires_at=NOW()+600s, held_by_user=$user WHERE seat_id='A1' AND status='available' AND version=$v RETURNING *</code>. Only the first transaction to execute wins. All others get 0 rows affected — seat is already held.</li>
+            <li>For users who lost the seat: order-service returns a 409 Conflict. The frontend shows "Seat taken — select another." The losing users' requests completed in ~20ms (just a failed DB transaction).</li>
+            <li>For the winning user: order-service stores a Redis key <code>seat:hold:A1 → {user_id, order_draft_id}</code> with 600-second TTL. This is the 10-minute checkout window.</li>
+            <li>The user fills in payment details. Frontend calls payment-service with an idempotency key <code>X-Idempotency-Key: {order_draft_id}</code> to prevent double-charging on network retries.</li>
+            <li>payment-service calls Stripe. On success, it publishes <code>order.completed</code> to Kafka with full order payload.</li>
+            <li>order-service consumes the Kafka event: runs a PostgreSQL transaction that marks seat as 'sold', creates the final order record, and returns 200 to the user.</li>
+            <li>notification-service consumes <code>order.completed</code>: generates a ticket PDF, uploads to S3, and sends confirmation email with a signed S3 URL to download the PDF.</li>
+            <li>If the user abandons checkout: the Redis key TTL expires after 10 minutes. A background cron job (every 5 minutes) queries <code>SELECT seat_id FROM seats WHERE status='held' AND hold_expires_at &lt; NOW()</code> and resets those seats to 'available'. The Kafka event is never published — no order, no charge.</li>
+          </ol>
+          <p>Total latency breakdown: CDN edge → ALB → gateway: ~5ms. Gateway → order-service (including Redis rate limit check): ~2ms. PostgreSQL seat reservation transaction: ~15ms. Total p99: ~30–50ms for the reservation step. The payment step is dominated by Stripe's API latency (~200–800ms).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does consistent hashing work for Redis Cluster?</summary>
+        <div class="answer-content">
+          <p>Redis Cluster uses consistent hashing over a 16,384-slot hash ring. Every key is mapped to a slot: <code>slot = CRC16(key) % 16384</code>. The ring has 16,384 slots and each Redis node is responsible for a range of slots.</p>
+          <p>With 3 master nodes: node A owns slots 0–5460, node B owns slots 5461–10922, node C owns slots 10923–16383. When a client writes key "user:123", the Redis client library computes the slot (e.g., slot 7201) and routes the request to node B — without asking a coordinator.</p>
+          <p>When you add a 4th node: only 1/4 of the slots need to move — the slots that fall into the new node's range. The other 3/4 of slots and their data stay exactly where they are. This is the key property that makes consistent hashing ideal for elastic scaling.</p>
+          <p>Each master has N replica slaves for fault tolerance. If node B fails, one of B's replicas is elected the new master for slots 5461–10922 automatically. This happens in ~15 seconds (configurable) without operator intervention, providing automatic failover.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Jumping to Solutions Before Understanding Requirements</span>
+        <p>The most common interview mistake: starting to draw architecture diagrams within 30 seconds of hearing the problem. Without knowing the expected scale (100 vs 100 million users), consistency requirements, and feature scope, you are drawing the wrong system. You waste interview time and signal poor engineering judgment.</p>
+        <p><strong>Fix:</strong> Always spend the first 5 minutes asking clarifying questions. Write the requirements on the whiteboard. Get explicit agreement on what is in scope before drawing anything.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Designing for Day 1 Traffic Instead of Projected Scale</span>
+        <p>Designing a system that handles current load without planning for growth leads to expensive re-architectures later. Conversely, over-engineering a system for 10x future load that never arrives wastes months of engineering time and operational complexity.</p>
+        <p><strong>Fix:</strong> Design for ~3x current load with a clear growth path to 10x. Identify the scaling bottlenecks explicitly ("this DB will become a bottleneck at 10x — we would shard at that point"). Demonstrate you can reason about both the current and future state.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Ignoring Failure Modes</span>
+        <p>Most system designs assume every component works perfectly. Real systems fail. If your design has a single database with no replicas, a Redis with no persistence, a Kafka with a single broker, or a service without health checks, you have built a fragile system that fails in production.</p>
+        <p><strong>Fix:</strong> For every component, ask "what happens when this fails?" Add replicas for databases, configure Redis AOF persistence, use Kafka with replication factor 3, and implement circuit breakers for inter-service calls. In TicketFlow on EKS, all services run with minimum 2 replicas across 2 availability zones.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Caching Everything Without a Cache Invalidation Strategy</span>
+        <p>Adding Redis to every query without thinking about when the cache needs to be updated leads to stale data, incorrect inventory counts (double-selling), and users seeing outdated prices. This is a correctness bug, not just a performance issue.</p>
+        <p><strong>Fix:</strong> For every cached value, explicitly define: what is the TTL? What event triggers invalidation? Is eventual consistency acceptable here? For seat availability in TicketFlow, the answer is no — availability must be fresh to prevent overselling. For event descriptions and images, a 5-minute TTL is completely acceptable.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Treating All Data as Requiring Strong Consistency</span>
+        <p>Adding ACID transactions and synchronous replication everywhere in pursuit of "correctness" crushes write throughput and increases latency. Most data in most systems does not require strong consistency. Analytics data, notification delivery, social feed ordering, recommendation scores — all are fine with eventual consistency. Applying strong consistency universally is over-engineering.</p>
+        <p><strong>Fix:</strong> Explicitly classify each data type. Seat inventory and payment records require strong consistency. User feed order, recommendation data, and notification delivery status are fine with eventual consistency. Design your persistence layer accordingly — PostgreSQL for the former, Cassandra or DynamoDB for the latter.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>System design is fundamentally a discipline of trade-offs, not correct answers. The mark of a senior architect is not knowing the "right" architecture — it is being able to articulate clearly what each design choice costs and gains. Every architectural decision buys you something (scalability, simplicity, performance) and costs you something else (complexity, consistency, money).</p>
+
+        <p>The five meta-principles that underpin every scalable system design:</p>
+        <ul>
+          <li><strong>Separate read and write paths</strong> — reads and writes have fundamentally different performance profiles. PostgreSQL read replicas, Redis caching, CDN edge caching, and CQRS all serve this principle. At scale, your read path and write path will use different databases, different infrastructure, and have different SLAs.</li>
+          <li><strong>Embrace asynchrony at the boundaries</strong> — any cross-service interaction that does not need to be synchronous should not be synchronous. Kafka decouples payment-service from notification-service. An email delivery failure should never fail a payment. The queue absorbs the burst; the consumer processes at its own pace.</li>
+          <li><strong>Stateless services, stateful storage</strong> — your application services should hold zero state. Sessions in Redis. Configuration in environment variables. Uploaded files in S3. This is what makes horizontal scaling trivial. If your service holds state in memory, you cannot scale it out, and any node failure loses that state.</li>
+          <li><strong>Design for the 99th percentile</strong> — do not optimise for average latency. A p50 of 50ms and a p99 of 5,000ms means 1% of your users are having a terrible experience. Size your caches, replicas, and connection pools based on peak load, not average load.</li>
+          <li><strong>Operational simplicity is a feature</strong> — a distributed system that requires a PhD to operate is a liability. Favour managed services (AWS RDS, ElastiCache, MSK) over self-managed ones when operational burden outweighs cost savings. The engineering hours spent managing a self-hosted Kafka cluster at TicketFlow scale would far exceed the cost differential of using Amazon MSK.</li>
+        </ul>
+
+        <p><strong>On microservices vs monolith:</strong> Do not choose microservices because they are fashionable. Choose them because your team size, deployment frequency, and scaling requirements justify the operational overhead. A 5-person team shipping one feature per sprint should start with a well-modularised monolith and extract services only when a specific service's scaling or deployment requirements diverge. TicketFlow's microservice boundary between payment-service and ticket-service makes sense: payment-service has PCI-DSS compliance requirements, different scaling needs, and a different team owning it.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 16 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>Requirements clarified: functional, non-functional, scale, and consistency requirements explicitly documented</li>
+        <li>Capacity estimation completed: QPS, storage growth, bandwidth, and database sizing calculated</li>
+        <li>All stateless services: no in-memory session state; sessions stored in Redis</li>
+        <li>All services have at least 2 replicas across 2 availability zones (EKS multi-AZ node groups)</li>
+        <li>Database has a primary and at least 2 read replicas; automated failover configured (RDS Multi-AZ)</li>
+        <li>Redis Cluster configured with persistence (AOF) and at least 1 replica per master</li>
+        <li>Kafka topics have replication factor 3; consumer group lag monitored in Grafana</li>
+        <li>All critical write paths use idempotency keys (prevent duplicate charges on payment retry)</li>
+        <li>Seat reservation uses optimistic locking or distributed lock to prevent double-selling</li>
+        <li>Rate limiting applied at the API gateway for all endpoints; limits tuned per endpoint sensitivity</li>
+        <li>Circuit breakers configured for all inter-service HTTP calls (Hystrix / Resilience4j)</li>
+        <li>CDN configured for static assets and cacheable API responses; cache-control headers set correctly</li>
+        <li>Database queries are indexed; slow query log enabled; EXPLAIN ANALYSE run on all critical paths</li>
+        <li>Distributed tracing (Jaeger / X-Ray) enabled across all services; trace IDs propagated in headers</li>
+        <li>SLAs defined and SLOs/SLIs monitored in Grafana; on-call runbooks written for all failure modes</li>
+        <li>Chaos engineering test (at least one failure scenario) run before production launch</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 17 — LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="lab" class="section-title">Hands-On Lab: Design a URL Shortener</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — System Design Practice: URL Shortener</span>
+
+        <p>A URL shortener (like bit.ly or TinyURL) is the classic system design warm-up problem. It is simple enough to complete in 45 minutes but has enough depth to touch every scalability concept: read-heavy workloads, caching, database design, and ID generation. Work through each step before reading the solution hints below.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Problem Statement</h3>
+        <p>Design a URL shortening service. Users submit a long URL and receive a short code (e.g., <code>short.io/abc123</code>). Anyone with the short link is redirected to the original URL. The service must handle high read volume (redirects) and write volume (new links created).</p>
+
+        <h3 class="subsection-title">Step 1: Requirements Clarification</h3>
+        <p>Before looking at the hints, write down your answers to these questions:</p>
+        <ul>
+          <li>What is the expected DAU? Read/write ratio?</li>
+          <li>Should custom short codes be allowed (e.g., <code>short.io/my-brand</code>)?</li>
+          <li>Should links expire? After how long?</li>
+          <li>Do you need analytics (click counts, referrer tracking)?</li>
+          <li>Consistency model: is it acceptable to briefly redirect to a stale (just-deleted) URL?</li>
+        </ul>
+
+        <details>
+          <summary>Step 1 Hints</summary>
+          <div class="answer-content">
+            <div class="code-wrapper">
+              <pre><code class="language-text">Suggested requirements (typical interview answers):
+  - 100M DAU; Read:Write = 100:1 (100M redirects/day, 1M new links/day)
+  - Custom codes: yes (users can request a custom alias)
+  - Link expiry: optional, default 5 years
+  - Analytics: yes, but async (click count, country, device type)
+  - Consistency: eventual (brief redirect to stale URL acceptable; link
+    creation must be consistent — no duplicate codes)
+
+Capacity estimation:
+  Writes: 1M links/day = ~12 writes/second
+  Reads:  100M redirects/day = ~1,200 reads/second (avg), ~3,600 (peak)
+  Storage per link: 500 bytes (URL + metadata)
+  1M links/day × 500B = 500MB/day → 180GB/year
+  → Single well-sized PostgreSQL handles writes fine
+  → Read replicas + Redis cache handles read load</code></pre>
+            </div>
+          </div>
+        </details>
+
+        <h3 class="subsection-title">Step 2: Short Code Generation</h3>
+        <p>How do you generate a unique 6-character code for each URL? Think through at least 2 approaches and their trade-offs.</p>
+
+        <details>
+          <summary>Step 2 Hints</summary>
+          <div class="answer-content">
+            <div class="code-wrapper">
+              <pre><code class="language-text">Approach A — Hash the URL (MD5/SHA256, take first 6 chars)
+  Pros: deterministic (same URL always gets same code)
+  Cons: hash collisions when different URLs produce the same 6 chars;
+        need collision-retry logic; 62^6 = 56 billion possibilities
+        (enough for 1M/day for 153 years, but collisions start at ~7M entries)
+
+Approach B — Counter-based with Base62 encoding
+  Global auto-increment counter (in database or Redis)
+  Encode as Base62 (a-z, A-Z, 0-9): counter 1000000 → "4c92"
+  Pros: guaranteed unique, no collisions; simple
+  Cons: sequential codes are predictable (competitors can scrape all links)
+        single counter = bottleneck at extreme scale
+
+Approach C — Pre-generated code pool (production choice)
+  Background job generates millions of random 6-char Base62 codes in bulk
+  Stores unused codes in a "code pool" table
+  Link creation: pop a code from the pool (SELECT FOR UPDATE SKIP LOCKED)
+  Pros: no collisions, no hotspot, not predictable
+  Cons: pre-generation complexity; pool can run out (replenish with background job)
+
+Recommended answer for interview: Option B for simplicity, mention C for scale</code></pre>
+            </div>
+          </div>
+        </details>
+
+        <h3 class="subsection-title">Step 3: Redirect Architecture</h3>
+        <p>A redirect is the hottest read path (100:1 ratio). Sketch the request flow from <code>GET short.io/abc123</code> to the 302 redirect response. Where do you add caching?</p>
+
+        <details>
+          <summary>Step 3 Hints</summary>
+          <div class="answer-content">
+            <div class="code-wrapper">
+              <pre><code class="language-text">Redirect flow:
+  Browser → CDN (edge cache lookup for code "abc123")
+    Cache HIT (TTL: 24h for non-expiring links) → return 301 Moved Permanently
+    Cache MISS → forward to ALB
+
+  ALB → redirect-service (Go, ultra-low latency)
+    → Check Redis: GET url:abc123
+    → Redis HIT (~0.1ms): return 302 redirect; async publish click event to Kafka
+    → Redis MISS: query PostgreSQL replica; populate Redis (TTL: 1h); return 302
+
+  Kafka click event → analytics-service: increment counter, store click metadata
+
+Key decisions:
+  301 vs 302:
+    301 (Permanent): browser caches the redirect permanently — you lose click analytics
+    302 (Temporary): browser always calls your server — you get analytics, but more load
+    Production: 302 for analytics; use CDN caching to absorb the load
+
+  Cache TTL:
+    Redis: 1 hour (balance between freshness and hit rate)
+    CDN: 24 hours for permanent links; 0 for expiring links
+    After link deletion: publish invalidation event → delete Redis key + CDN purge</code></pre>
+            </div>
+          </div>
+        </details>
+
+        <h3 class="subsection-title">Step 4: Database Schema</h3>
+        <p>Design the core database schema. What tables do you need? What indexes?</p>
+
+        <details>
+          <summary>Step 4 Hints</summary>
+          <div class="answer-content">
+            <div class="code-wrapper">
+              <pre><code class="language-sql">-- Core URL table
+CREATE TABLE urls (
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(8) NOT NULL UNIQUE,   -- the short code (indexed)
+    original    TEXT NOT NULL,                -- the long URL
+    user_id     BIGINT,                       -- NULL for anonymous
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ,                  -- NULL = never expires
+    is_active   BOOLEAN DEFAULT TRUE
+);
+
+CREATE UNIQUE INDEX idx_urls_code ON urls(code);  -- the hot path lookup
+CREATE INDEX idx_urls_user_id ON urls(user_id);   -- user's link history
+
+-- Analytics (write-heavy, kept separate)
+CREATE TABLE clicks (
+    id          BIGSERIAL PRIMARY KEY,
+    code        VARCHAR(8) NOT NULL,
+    clicked_at  TIMESTAMPTZ DEFAULT NOW(),
+    country     CHAR(2),
+    device_type VARCHAR(20),
+    referrer    TEXT
+);
+
+-- Partitioned by month for manageability
+-- In PostgreSQL:
+CREATE TABLE clicks_2026_01 PARTITION OF clicks
+    FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+
+-- Note: clicks table does NOT have a foreign key to urls
+-- Reason: analytics writes must never block if url record is slow to load
+-- Eventual consistency is fine for click counts</code></pre>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 18 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most common system design interview questions at senior and staff engineer levels. Each answer demonstrates the framework: clarify, estimate, design, discuss trade-offs.</p>
+
+      <div class="interview-section">
+
+        <details class="interview-q">
+          <summary>Q1: Walk me through the system design interview framework. What are the 5 steps and why does each matter?</summary>
+          <div class="answer-content">
+            <p>The five steps are: <strong>Clarify</strong>, <strong>Estimate</strong>, <strong>High-level Design</strong>, <strong>Deep Dive</strong>, and <strong>Trade-offs</strong>.</p>
+            <p><strong>Clarify (5 min)</strong> — Without understanding functional requirements (what the system does), non-functional requirements (how well it does it), and scale (how many users, how much data), you cannot make correct architectural decisions. Starting without clarifying is the single biggest interview mistake.</p>
+            <p><strong>Estimate (5–10 min)</strong> — Back-of-envelope math drives architecture. 100 QPS is a single server. 100,000 QPS requires distributed caching and multiple database replicas. 1M QPS requires sharding. You must know the magnitude to choose the right tools.</p>
+            <p><strong>High-level Design (10–15 min)</strong> — Draw the major components (clients, CDN, load balancer, services, databases, caches, queues) and the primary user journey. This gives both you and the interviewer a shared mental model to build on.</p>
+            <p><strong>Deep Dive (15–20 min)</strong> — Pick the two or three hardest problems in your design and solve them in detail. For a ticket booking system: seat reservation locking. For a social media feed: fan-out strategy. This is where senior engineers demonstrate domain depth.</p>
+            <p><strong>Trade-offs (5 min)</strong> — Proactively identify what your design sacrifices. Where will it fail first at 10x scale? This demonstrates that you understand the system holistically and have not just memorised patterns.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q2: How would you design the TicketFlow seat reservation system to prevent double-selling during a high-concurrency on-sale event?</summary>
+          <div class="answer-content">
+            <p>The core challenge is a classic concurrent write problem: thousands of users attempting to reserve the same seat in a narrow time window.</p>
+            <p><strong>Naive approach (wrong):</strong> Read-then-write with no isolation. Thread A reads seat as available, Thread B reads seat as available, Thread A updates to reserved, Thread B also updates to reserved — double sold. This is a classic lost-update race condition.</p>
+            <p><strong>Correct approach — optimistic locking:</strong> Add a <code>version</code> column to the seat record. The UPDATE includes a <code>WHERE version = $read_version</code> predicate. The first writer succeeds and increments the version; all concurrent writers get 0 rows affected and must retry or fail. This works without explicit locking and scales well for low contention cases.</p>
+            <p><strong>For flash sales (extreme concurrency):</strong> Add a virtual queue. All users enter a Redis sorted set ordered by request timestamp. A processor dequeues users one by one at the rate the reservation system can handle (e.g., 1,000/second). Users see a queue position ("you are #4,521 in line"). This converts a thundering herd from 2 million simultaneous DB writes into a controlled 1,000 writes/second stream.</p>
+            <p><strong>Hold-then-confirm pattern:</strong> The seat is not sold immediately — it is held for 10 minutes via a Redis key with TTL. This decouples the high-concurrency seat acquisition from the slower payment flow. If checkout is abandoned, the hold expires and the seat is released automatically.</p>
+            <p>In TicketFlow, the order-service (Go) uses PostgreSQL optimistic locking for normal on-sales and Redis-based virtual queuing for events flagged as high-demand by the organisers.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q3: How would you design a distributed rate limiter that works across multiple API gateway instances?</summary>
+          <div class="answer-content">
+            <p>A rate limiter on a single instance is trivial (an in-memory counter). The challenge in production is that you have multiple gateway instances behind a load balancer — each instance sees only a fraction of the total traffic, so local counters would allow each instance to serve the full limit independently (total allowed = limit × N instances).</p>
+            <p><strong>Solution: Redis as shared state store.</strong> Every request from every gateway instance increments a central Redis counter. Redis is chosen because: (1) it is fast enough not to add meaningful latency to the request path (~0.1ms per INCRBY or ZADD), and (2) it provides atomic operations that prevent race conditions.</p>
+            <p><strong>Algorithm recommendation: sliding window counter.</strong> Two Redis keys per rate limit window: the current window count and the previous window count. The effective count is <code>previous_count × (1 - elapsed_fraction) + current_count</code>. This approximates a true sliding window with constant memory usage (2 counters per key, not N timestamps).</p>
+            <p><strong>Implementation sketch:</strong></p>
+            <ul>
+              <li>Key: <code>ratelimit:{user_id}:{window_timestamp}</code></li>
+              <li>INCR atomically and check the result; set EXPIRE on first increment</li>
+              <li>If count exceeds limit: return HTTP 429 with <code>Retry-After</code> header</li>
+              <li>Use Redis pipeline to combine INCR + EXPIRE in a single round trip</li>
+            </ul>
+            <p><strong>Fault tolerance:</strong> If Redis is unavailable, fail open (allow all requests) rather than fail closed (block all requests). A brief rate-limiting outage is preferable to a total service outage. Use a circuit breaker around the Redis call.</p>
+            <p><strong>Multi-region:</strong> Each region has its own Redis cluster. Accept that a user distributed across regions can exceed the limit by a factor of N regions. For strict global limits, use a global Redis (higher latency) or accept the approximation.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q4: When would you choose Kafka over RabbitMQ, and vice versa?</summary>
+          <div class="answer-content">
+            <p>The decision comes down to three key questions: Do you need to replay events? What is your throughput requirement? Do you need complex message routing?</p>
+            <p><strong>Choose Kafka when:</strong></p>
+            <ul>
+              <li><strong>Event replay is required</strong> — Kafka retains messages for days or weeks. New consumers can process historical events. This is essential for event sourcing, audit logs, and reprocessing after a bug fix. In TicketFlow, replaying all <code>order.completed</code> events to rebuild the analytics database after a schema migration would be impossible with RabbitMQ.</li>
+              <li><strong>High throughput</strong> — Kafka is designed for millions of messages/second via sequential disk I/O and partition-based parallelism. RabbitMQ tops out in the low millions.</li>
+              <li><strong>Multiple independent consumers</strong> — Kafka's consumer group model allows multiple services to each process every message independently. In TicketFlow, both notification-service and analytics-service consume <code>order.completed</code> independently without any coordination.</li>
+              <li><strong>Stream processing</strong> — Kafka Streams, ksqlDB, or Flink can process the event stream in real time for aggregations and alerting.</li>
+            </ul>
+            <p><strong>Choose RabbitMQ when:</strong></p>
+            <ul>
+              <li><strong>Complex routing</strong> — RabbitMQ exchanges can route messages by type, pattern, or header with no custom consumer logic. A <code>topic</code> exchange can route <code>payment.failed.visa</code> to one queue and <code>payment.failed.amex</code> to another.</li>
+              <li><strong>Task queues with work distribution</strong> — classic producer/consumer where exactly one consumer should process each message. Email sending, image resizing, report generation.</li>
+              <li><strong>Simpler operational model</strong> — RabbitMQ is easier to set up and reason about for simple use cases. No partitioning, no consumer offset management.</li>
+              <li><strong>Dead letter queues with rich routing</strong> — RabbitMQ's built-in DLX (dead letter exchange) routing is more flexible than Kafka's basic dead letter topic.</li>
+            </ul>
+            <p>In TicketFlow: Kafka for the event stream (<code>order.completed</code>, audit log, analytics); RabbitMQ hypothetically for email delivery task queue if message replay was not needed. In practice, TicketFlow uses Kafka for everything — the operational benefit of a single system outweighs RabbitMQ's routing advantages.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q5: How would you handle the database bottleneck when write throughput exceeds what a single PostgreSQL primary can handle?</summary>
+          <div class="answer-content">
+            <p>A single PostgreSQL primary in production can handle roughly 5,000–20,000 write transactions per second depending on hardware. Beyond that, you need to scale writes horizontally. There are several strategies, in order of increasing complexity:</p>
+            <p><strong>1. Connection pooling (first step):</strong> Before assuming the database is the bottleneck, add PgBouncer in transaction pooling mode. Applications often hold idle connections that waste PostgreSQL processes. PgBouncer multiplexes thousands of application connections onto dozens of database connections, immediately improving throughput by 2–5x with zero schema changes.</p>
+            <p><strong>2. Write offloading via queues:</strong> Non-critical writes (analytics events, audit logs, activity feeds) can be buffered in Kafka and batch-written to the database. Batch inserts are 10–100x more efficient than individual row inserts. TicketFlow's click analytics flow through Kafka and are batch-inserted every second.</p>
+            <p><strong>3. CQRS (Command Query Responsibility Segregation):</strong> Route all writes to the primary and all reads to replicas via a read/write split proxy (ProxySQL, PgBouncer, or application-level routing). Removes read load from the primary, giving it full bandwidth for writes. Effective up to ~5x write scaling.</p>
+            <p><strong>4. Vertical scaling:</strong> Upgrade to a larger RDS instance class. Quick, no architectural changes, but has a ceiling and superlinear cost growth.</p>
+            <p><strong>5. Table partitioning:</strong> Partition large, time-series tables (orders, clicks) by month. Each partition is a smaller physical table. PostgreSQL can prune partitions from queries automatically, and you can archive old partitions to cheaper storage.</p>
+            <p><strong>6. Database sharding:</strong> Horizontally partition data across multiple PostgreSQL primaries by a shard key (e.g., <code>hash(order_id) % N</code>). Each shard handles 1/N of the write load. Cost: significant application complexity; cross-shard queries are difficult; resharding requires data migration. Use only when other approaches are exhausted. In TicketFlow, the <code>orders</code> table would be sharded at ~1M orders/day.</p>
+            <p><strong>7. Purpose-fit databases:</strong> For time-series data (metrics, IoT), switch to TimescaleDB or InfluxDB, which handle write-heavy time-series data far more efficiently than general PostgreSQL. For session and cache data, Redis. Do not use one database for all workloads.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q6: Explain the CAP theorem and how it applies to the databases and caches used in TicketFlow.</summary>
+          <div class="answer-content">
+            <p>The CAP theorem states that in a distributed system, you can only guarantee two of three properties simultaneously:</p>
+            <ul>
+              <li><strong>Consistency (C)</strong> — every read receives the most recent write or an error. All nodes see the same data at the same time.</li>
+              <li><strong>Availability (A)</strong> — every request receives a response (not necessarily the most recent data). The system is always available.</li>
+              <li><strong>Partition Tolerance (P)</strong> — the system continues to operate even if network partitions cause some nodes to be unable to communicate with others.</li>
+            </ul>
+            <p>In practice, network partitions always happen eventually — so P is not optional. Every distributed system must choose between C and A during a partition event. Hence the real trade-off is <strong>CP vs AP</strong>.</p>
+            <p><strong>TicketFlow components classified:</strong></p>
+            <ul>
+              <li><strong>PostgreSQL (Multi-AZ RDS) — CP:</strong> During a network partition, PostgreSQL (with synchronous replication to the standby) will block writes rather than serve stale data. The primary and standby achieve consensus before acknowledging a write. This is correct for the <code>orders</code> and <code>seats</code> tables — data consistency is more important than availability during a network event. The trade-off: brief unavailability during failover (~30 seconds for RDS Multi-AZ).</li>
+              <li><strong>Redis Cluster — AP:</strong> Redis Cluster favours availability. During a network partition, partitioned nodes continue serving reads and writes, potentially with slightly stale data. When the partition heals, the most recent write wins (last-write-wins). This is acceptable for sessions, rate limit counters, and cache data — the cost of serving slightly stale cache data is much lower than being unavailable.</li>
+              <li><strong>Kafka — CP:</strong> A Kafka partition's leader is the single writer; followers replicate. During a partition, a broker without quorum will refuse to accept writes. Kafka prioritises durability and ordering over availability during failure events.</li>
+              <li><strong>Elasticsearch — AP:</strong> Elasticsearch by default uses eventual consistency. A newly indexed document may not be searchable for up to 1 second (configurable refresh interval). This is acceptable for TicketFlow's event search — searching for a brand-new event with 1-second lag is fine.</li>
+            </ul>
+            <p>The key insight: different data stores in the same system can and should have different CAP trade-offs based on the consistency requirements of the data they hold.</p>
+          </div>
+        </details>
+
+        <details class="interview-q">
+          <summary>Q7: How would you design a notification system that reliably delivers emails and SMS without impacting the checkout critical path?</summary>
+          <div class="answer-content">
+            <p>The core requirement is <strong>decoupling</strong>: a slow email provider, a failed SMS gateway, or a notification-service outage must never fail a payment or slow down checkout. Notifications are a side effect of a purchase, not part of the purchase itself.</p>
+            <p><strong>Architecture:</strong></p>
+            <ol>
+              <li><strong>Publish, don't call:</strong> payment-service publishes an <code>order.completed</code> event to Kafka synchronously as part of completing the order. This takes ~1ms. It does NOT call notification-service directly. The payment flow is complete. The user gets their 200 OK.</li>
+              <li><strong>notification-service consumes asynchronously:</strong> notification-service subscribes to the <code>order.completed</code> Kafka topic. It processes events at its own pace, independently of the checkout critical path. If it is slow or down, Kafka retains the events — they will be processed when the service recovers (no notification is lost).</li>
+              <li><strong>Idempotent processing:</strong> Network retries can cause the same Kafka event to be processed twice (at-least-once delivery). Use the <code>order_id</code> as an idempotency key: <code>INSERT INTO notification_log (order_id, type) ON CONFLICT DO NOTHING</code>. If the email was already sent for this order_id, skip it.</li>
+              <li><strong>Retry with exponential backoff:</strong> If the SendGrid API call fails, retry with backoff: 1s, 2s, 4s, 8s, up to a maximum. After N retries, publish to a dead letter topic for human review / manual retry.</li>
+              <li><strong>Delivery tracking:</strong> Store notification status in a table: <code>notifications(order_id, channel, status, sent_at, error_message)</code>. This enables a support agent to check if an email was sent and why it might have failed.</li>
+              <li><strong>Multi-channel fan-out:</strong> A single <code>order.completed</code> event triggers multiple notifications: email via SendGrid, SMS via Twilio, in-app notification via WebSocket push. These can be processed by the same notification-service using different handlers, or by separate consumer services in the same consumer group with separate notification concerns.</li>
+            </ol>
+            <p><strong>In TicketFlow:</strong> notification-service (Node.js) runs 3 replicas on EKS, all in the same Kafka consumer group <code>notification-service-group</code>. Kafka distributes topic partitions across the 3 replicas for parallel processing. Kafka consumer group lag is monitored in Grafana — alert if lag exceeds 10,000 events (backlog indicator).</p>
+          </div>
+        </details>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

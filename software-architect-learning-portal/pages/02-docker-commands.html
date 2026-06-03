@@ -15,10 +15,10 @@
 <body data-page-id="02" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
 
 <aside id="sidebar">
-  <div class="logo">
+  <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
     <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
     <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
-  </div>
+  </a>
   <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
   <nav id="sidebar-nav"></nav>
 </aside>
@@ -49,6 +49,8 @@
       <p class="page-subtitle">The complete Docker CLI reference — from pulling your first image to debugging running containers in production.</p>
     </div>
 
+    <div class="toc-placeholder"></div>
+
     <!-- ============================================================
          SECTION 1 — STORY CARD
     ============================================================ -->
@@ -60,7 +62,7 @@
     <!-- ============================================================
          SECTION 2 — COMMAND QUICK REFERENCE TABLE
     ============================================================ -->
-    <h2 class="section-title">Command Quick Reference</h2>
+    <h2 id="command-quick-reference" class="section-title">Command Quick Reference</h2>
     <p>Twenty commands cover 95% of what you'll do with Docker day-to-day. The table below gives you the what, when, and how for each one at a glance.</p>
 
     <div style="overflow-x:auto;">
@@ -201,7 +203,7 @@
     <!-- ============================================================
          SECTION 3 — OS TABS: CORE COMMANDS
     ============================================================ -->
-    <h2 class="section-title">Core Commands by OS</h2>
+    <h2 id="core-commands-by-os" class="section-title">Core Commands by OS</h2>
     <p>Docker's CLI is cross-platform, but path syntax and shell conventions differ between Linux/macOS and Windows. The examples below use the same Docker commands — only the shell syntax around them changes.</p>
 
     <h3 class="subsection-title">Running a container with port mapping and a volume</h3>
@@ -378,7 +380,7 @@ docker system prune -a --volumes -f</code></pre></div>
     <!-- ============================================================
          SECTION 4 — DOCKER RUN FLAGS REFERENCE
     ============================================================ -->
-    <h2 class="section-title">docker run Flags Reference</h2>
+    <h2 id="docker-run-flags" class="section-title">docker run Flags Reference</h2>
     <p>The <code>docker run</code> command is the most flag-rich command in Docker. Below is a complete annotated example followed by a reference table for each flag.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash">docker run \
@@ -495,7 +497,7 @@ docker system prune -a --volumes -f</code></pre></div>
     <!-- ============================================================
          SECTION 5 — DOCKER LOGS DEEP DIVE
     ============================================================ -->
-    <h2 class="section-title">docker logs Deep Dive</h2>
+    <h2 id="docker-logs" class="section-title">docker logs Deep Dive</h2>
     <p><code>docker logs</code> shows everything the container process wrote to stdout and stderr. It's almost always the first command you run when something goes wrong.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash"># Follow logs in real time (-f = follow, like tail -f)
@@ -533,7 +535,7 @@ docker logs my-app > app.log 2>&1</code></pre></div>
     <!-- ============================================================
          SECTION 6 — DOCKER EXEC DEEP DIVE
     ============================================================ -->
-    <h2 class="section-title">docker exec Deep Dive</h2>
+    <h2 id="docker-exec" class="section-title">docker exec Deep Dive</h2>
     <p><code>docker exec</code> is your entry point into a running container. It creates a new process inside the container's existing namespaces without stopping or modifying the container.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash"># Get an interactive bash shell (Debian/Ubuntu-based images)
@@ -571,7 +573,7 @@ docker exec my-app tail -f /app/logs/app.log</code></pre></div>
     <!-- ============================================================
          SECTION 7 — DOCKER INSPECT
     ============================================================ -->
-    <h2 class="section-title">docker inspect</h2>
+    <h2 id="docker-inspect" class="section-title">docker inspect</h2>
     <p><code>docker inspect</code> returns the complete configuration and state of a container or image as a JSON object. It's the source of truth for everything Docker knows about a running container.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash"># Full JSON inspection of a container — outputs everything
@@ -598,7 +600,7 @@ docker inspect -f 'Created: {{.Created}}, Size: {{.Size}}' nginx:1.25</code></pr
     <!-- ============================================================
          SECTION 8 — DOCKER STATS
     ============================================================ -->
-    <h2 class="section-title">docker stats</h2>
+    <h2 id="docker-stats" class="section-title">docker stats</h2>
     <p><code>docker stats</code> streams live resource usage — CPU, memory, network, and disk I/O — for running containers. It's Docker's built-in top command.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash"># Live stats for all running containers (streams until Ctrl+C)
@@ -676,7 +678,7 @@ docker stats --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"</code>
     <!-- ============================================================
          SECTION 9 — IMAGE MANAGEMENT COMMANDS
     ============================================================ -->
-    <h2 class="section-title">Image Management</h2>
+    <h2 id="image-management" class="section-title">Image Management</h2>
     <p>Images are the blueprints for containers. Managing them well keeps your registry clean, your builds reproducible, and your disk usage under control.</p>
 
     <div class="code-wrapper"><pre><code class="language-bash"># List all local images with details
@@ -714,7 +716,7 @@ docker history nginx:1.25 --no-trunc</code></pre></div>
     <!-- ============================================================
          SECTION 10 — CLEANUP COMMANDS
     ============================================================ -->
-    <h2 class="section-title">Cleanup Commands</h2>
+    <h2 id="cleanup-commands" class="section-title">Cleanup Commands</h2>
     <p>Docker accumulates disk usage fast — stopped containers, old image layers, build cache, and unused volumes. On CI servers this can fill a disk within days without a cleanup strategy.</p>
 
     <div class="production-tip">
@@ -759,7 +761,7 @@ docker system prune -a --volumes</code></pre></div>
     <!-- ============================================================
          SECTION 11 — BEHIND THE SCENES
     ============================================================ -->
-    <h2 class="section-title">Behind the Scenes</h2>
+    <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
     <p>Understanding what happens under the hood helps you debug unexpected behaviour and reason about Docker's limitations.</p>
 
     <details>
@@ -792,7 +794,7 @@ docker system prune -a --volumes</code></pre></div>
     <!-- ============================================================
          SECTION 12 — COMMON MISTAKES
     ============================================================ -->
-    <h2 class="section-title">Common Mistakes</h2>
+    <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
 
     <div class="common-mistake">
       <span class="common-mistake-label">Mistake 1 — Forgetting the <code>-d</code> flag</span>
@@ -822,7 +824,7 @@ docker system prune -a --volumes</code></pre></div>
     <!-- ============================================================
          SECTION 13 — HANDS-ON LAB
     ============================================================ -->
-    <h2 class="section-title">Hands-On Lab</h2>
+    <h2 id="hands-on-lab" class="section-title">Hands-On Lab</h2>
 
     <div class="lab-box">
       <span class="lab-box-label">Lab — Container Debugging Workflow</span>
@@ -872,7 +874,7 @@ docker ps -a | grep debug-nginx</code></pre></div>
     <!-- ============================================================
          SECTION 14 — INTERVIEW QUESTIONS
     ============================================================ -->
-    <h2 class="section-title">Interview Questions</h2>
+    <h2 id="interview-questions" class="section-title">Interview Questions</h2>
     <p>These are the Docker CLI questions that come up repeatedly in DevOps and platform engineering interviews. Click each question to reveal the full answer.</p>
 
     <div class="interview-section">

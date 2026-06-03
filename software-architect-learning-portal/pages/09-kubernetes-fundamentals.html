@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Fundamentals — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="09" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Kubernetes Core → Kubernetes Fundamentals</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-intermediate">Intermediate</span>
+          <span class="tag">⏱ 35 min read</span>
+          <span class="tag">Epic 3</span>
+        </div>
+        <h1 class="page-title">Kubernetes Fundamentals</h1>
+        <p class="page-subtitle">Master cluster architecture, the control plane, worker nodes, Pods, Namespaces, and essential kubectl commands — everything you need to start operating Kubernetes in production.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story: From Shipping Containers to a Global Logistics Network</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🚢 The Orchestration Problem</span>
+        <p>You have hundreds of shipping containers — great. Docker solved the packaging problem. But now imagine those containers sitting in a harbour with no system to decide which ship they go on, which port they sail to, what happens if a ship sinks, or how to route traffic to whichever ship currently holds your cargo. Chaos.</p>
+        <p>In 2014, Google open-sourced Kubernetes — code-named "k8s" (k + 8 letters + s). It was based on an internal system called Borg that had been scheduling containers across Google's global fleet for over a decade. Where Docker gave you the container, Kubernetes gave you the global logistics network to run thousands of them reliably.</p>
+        <p>Before Kubernetes, engineers hand-managed where containers ran, wrote custom scripts for restarts after crashes, manually balanced load across servers, and dreaded deployments because rolling back meant manually SSHing into every machine. With Kubernetes, you declare the desired state of your system — "I want 5 copies of user-service running at all times" — and Kubernetes continuously works to make reality match that declaration, forever, without your intervention.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — BEGINNER EXPLANATION
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-k8s-solves" class="section-title">What Kubernetes Solves</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🎮 Beginner Analogy</span>
+        <p>Think of Kubernetes as an airport control tower. The planes are your containers. Without a control tower, every pilot decides where to land, planes collide on the runway, and delays cascade everywhere. With a control tower, one system knows where every plane is, which runway is free, redirects traffic when a runway is closed, and ensures flights keep moving safely.</p>
+        <p>You (the engineer) tell the control tower "I need 5 flights of user-service running at all times." Kubernetes watches, reroutes, reschedules, and restarts — so you sleep soundly.</p>
+      </div>
+
+      <p>Running one or two containers on a single machine is easy. Running hundreds of containers across dozens of servers is a different problem entirely. Without an orchestration system you face:</p>
+
+      <ul>
+        <li><strong>Manual scheduling</strong> — you must decide which server each container runs on, track available CPU and memory per server, and manually rebalance when a server gets overloaded.</li>
+        <li><strong>No self-healing</strong> — when a container crashes at 3am, someone must detect it and restart it. When a server dies, every container on it is gone.</li>
+        <li><strong>Manual scaling</strong> — your payment-service needs 10 instances during a concert sale and 2 instances overnight; you must script this yourself.</li>
+        <li><strong>Risky deployments</strong> — rolling out a new version of ticket-service means taking it down, replacing it, and hoping it works. If it fails you manually roll back.</li>
+        <li><strong>Service discovery chaos</strong> — every container gets a dynamic IP. Your order-service needs to know how to reach user-service's current IP across 10 instances. You need a registry, a load balancer, health checks — all custom-built.</li>
+      </ul>
+
+      <p>Kubernetes solves all of these. It is a <strong>container orchestration platform</strong> that automates deployment, scaling, self-healing, service discovery, load balancing, rolling updates, and configuration management for containerised applications.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — TECHNICAL: CLUSTER ARCHITECTURE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="cluster-architecture" class="section-title">Cluster Architecture</h2>
+
+      <p>A Kubernetes cluster consists of two types of machines: the <strong>control plane</strong> (the brain that makes decisions) and <strong>worker nodes</strong> (the muscles that run workloads). In production on AWS EKS, the control plane is fully managed by AWS — you only manage worker nodes.</p>
+
+      <h3 class="subsection-title">Control Plane Components</h3>
+
+      <p>The control plane is a set of processes that together manage the entire cluster. Every decision Kubernetes makes — where to schedule a Pod, whether to restart a failed container, how to route traffic — originates here.</p>
+
+      <ul>
+        <li>
+          <strong>kube-apiserver</strong> — The front door to everything. All communication with the cluster goes through the API server: your <code>kubectl</code> commands, Argo CD syncs, Prometheus scrapes, other controllers. It is the only component that reads from and writes to etcd. Horizontally scalable for high availability. The API server validates all objects (your Pod YAML must conform to the schema) and persists them to etcd.
+        </li>
+        <li>
+          <strong>etcd</strong> — The cluster's brain and single source of truth. A distributed, strongly consistent key-value store that holds the entire cluster state: every Pod, Service, Deployment, ConfigMap, Secret, and node registration. If etcd is lost and you have no backup, your cluster configuration is gone — you must rebuild everything. In production, etcd runs as a 3 or 5-node raft cluster for fault tolerance. On EKS, AWS manages etcd entirely.
+        </li>
+        <li>
+          <strong>kube-scheduler</strong> — Watches for newly created Pods with no assigned node and decides which node to run them on. Considers: available CPU and memory on each node, node affinity/anti-affinity rules (e.g., "run this Pod only on nodes in us-east-1a"), taints and tolerations (e.g., "don't run general workloads on GPU nodes"), Pod topology spread constraints (e.g., "spread Pods evenly across availability zones"). Scheduling is pluggable — you can write custom schedulers for specialised hardware.
+        </li>
+        <li>
+          <strong>kube-controller-manager</strong> — Runs a collection of controllers in a single process. Each controller watches the API server for changes and reconciles actual state toward desired state. Key controllers include: the <strong>ReplicaSet controller</strong> (ensures the desired number of Pod replicas are running), the <strong>Deployment controller</strong> (manages rolling updates), the <strong>Node controller</strong> (detects when nodes go offline), the <strong>Service Account controller</strong> (creates default service accounts in new namespaces). Controllers are the automation engine of Kubernetes.
+        </li>
+        <li>
+          <strong>cloud-controller-manager</strong> — On cloud providers (AWS EKS, GKE, AKS), this runs cloud-specific controllers: provisioning an AWS load balancer when you create a Service of type LoadBalancer, attaching EBS volumes for PersistentVolumeClaims, registering nodes with the cloud provider's instance metadata.
+        </li>
+      </ul>
+
+      <h3 class="subsection-title">Worker Node Components</h3>
+
+      <p>Worker nodes are the machines that actually run your application Pods. Each node runs three Kubernetes components alongside the container runtime.</p>
+
+      <ul>
+        <li>
+          <strong>kubelet</strong> — The primary node agent. Registers the node with the API server. Watches the API server for Pods assigned to its node and ensures they are running and healthy. Talks to the container runtime (containerd) to pull images and start containers. Reports node and Pod status back to the API server. Runs liveness and readiness probes and restarts containers that fail them.
+        </li>
+        <li>
+          <strong>kube-proxy</strong> — Maintains network rules on each node that implement Kubernetes Services. When you create a Service of type ClusterIP, kube-proxy writes iptables (or IPVS) rules on every node so that traffic to the Service's virtual IP gets load-balanced across the healthy Pod endpoints. On newer clusters with eBPF-based CNI plugins (like Cilium), kube-proxy can be replaced entirely.
+        </li>
+        <li>
+          <strong>Container runtime</strong> — The software that actually runs containers. Kubernetes uses any OCI-compliant runtime. On EKS, the default is <strong>containerd</strong> (Docker Engine's core runtime, without the Docker daemon layer). The runtime pulls images from the registry, creates containers via runc, and manages the container lifecycle as instructed by the kubelet.
+        </li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architecture-diagram" class="section-title">Cluster Architecture Diagram</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TB
+    subgraph CP["Control Plane (AWS EKS Managed)"]
+        direction TB
+        APISERV["kube-apiserver\n(REST API gateway)"]
+        ETCD["etcd\n(cluster state store)"]
+        SCHED["kube-scheduler\n(Pod placement)"]
+        CM["kube-controller-manager\n(reconciliation loops)"]
+        CCM["cloud-controller-manager\n(AWS integration)"]
+        APISERV <--> ETCD
+        APISERV --> SCHED
+        APISERV --> CM
+        APISERV --> CCM
+    end
+
+    subgraph N1["Worker Node 1 (EC2)"]
+        direction TB
+        KL1["kubelet"]
+        KP1["kube-proxy"]
+        CR1["containerd"]
+        POD1["Pod: user-service"]
+        POD2["Pod: api-gateway"]
+        KL1 --> CR1
+        CR1 --> POD1
+        CR1 --> POD2
+    end
+
+    subgraph N2["Worker Node 2 (EC2)"]
+        direction TB
+        KL2["kubelet"]
+        KP2["kube-proxy"]
+        CR2["containerd"]
+        POD3["Pod: ticket-service"]
+        POD4["Pod: payment-service"]
+        KL2 --> CR2
+        CR2 --> POD3
+        CR2 --> POD4
+    end
+
+    subgraph N3["Worker Node 3 (EC2)"]
+        direction TB
+        KL3["kubelet"]
+        KP3["kube-proxy"]
+        CR3["containerd"]
+        POD5["Pod: order-service"]
+        POD6["Pod: notification-service"]
+        KL3 --> CR3
+        CR3 --> POD5
+        CR3 --> POD6
+    end
+
+    KUBECTL["kubectl\n(engineer CLI)"] -->|"HTTPS REST"| APISERV
+    APISERV -->|"watches + schedules"| KL1
+    APISERV -->|"watches + schedules"| KL2
+    APISERV -->|"watches + schedules"| KL3
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — PODS AND NAMESPACES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pods-namespaces" class="section-title">Pods and Namespaces</h2>
+
+      <h3 class="subsection-title">The Pod: Kubernetes' Smallest Deployable Unit</h3>
+
+      <p>In Docker you deploy individual containers. In Kubernetes the atomic unit is the <strong>Pod</strong> — a wrapper around one or more containers that share the same network namespace and storage volumes.</p>
+
+      <p>Every Pod gets a single IP address. All containers inside a Pod communicate with each other via <code>localhost</code> — they share ports. This makes Pods ideal for tightly coupled processes: an application container and a sidecar container (like an Envoy proxy, a log shipper, or a secret injector) that must live and die together.</p>
+
+      <p>Key Pod properties to understand:</p>
+      <ul>
+        <li><strong>Ephemeral by design</strong> — Pods are not restarted in place. When a Pod fails, the controller creates a <em>new</em> Pod with a new IP and a new name. Never rely on a Pod's IP or hostname being stable. Use a Service for stable access.</li>
+        <li><strong>Single-node</strong> — all containers in a Pod always run on the same worker node. They share the same Linux network namespace and can share volumes mounted into the Pod spec.</li>
+        <li><strong>Managed by controllers</strong> — you almost never create bare Pods directly. You create a Deployment (which creates a ReplicaSet, which creates Pods). The controller ensures the desired number of healthy Pods always exists.</li>
+        <li><strong>Status phases</strong> — Pending (scheduled, waiting for image pull), Running (at least one container is running), Succeeded (all containers exited with code 0), Failed (at least one container exited with non-zero code), Unknown (node communication lost).</li>
+      </ul>
+
+      <h3 class="subsection-title">Namespaces: Logical Cluster Partitioning</h3>
+
+      <p>A <strong>Namespace</strong> is a virtual cluster within a physical cluster. Namespaces scope API objects: a Service named <code>user-service</code> in namespace <code>production</code> is a completely different object from a Service named <code>user-service</code> in namespace <code>staging</code>.</p>
+
+      <p>Default namespaces in every cluster:</p>
+      <ul>
+        <li><strong>default</strong> — where objects land if you do not specify a namespace. Avoid using this in production teams with multiple services.</li>
+        <li><strong>kube-system</strong> — system components: CoreDNS, kube-proxy, the metrics server, the AWS node agent. Never deploy application workloads here.</li>
+        <li><strong>kube-public</strong> — readable by all users, used for cluster-level public information like the cluster info ConfigMap.</li>
+        <li><strong>kube-node-lease</strong> — holds heartbeat Lease objects for each node, used by the Node controller to determine node health.</li>
+      </ul>
+
+      <p>Namespaces enable:</p>
+      <ul>
+        <li><strong>RBAC scoping</strong> — grant a team read-only access to <code>production</code> namespace only.</li>
+        <li><strong>Resource quotas</strong> — limit the CPU and memory the <code>staging</code> namespace can consume in total, protecting production workloads sharing the same cluster.</li>
+        <li><strong>Network policies</strong> — restrict which namespaces can communicate with each other (e.g., <code>payment-service</code> namespace allows ingress only from <code>api-gateway</code> namespace).</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — ENTERPRISE SCENARIO
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow on EKS</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow Production Setup</span>
+        <p>TicketFlow migrated all six microservices from a hand-managed Docker Compose setup on EC2 instances to <strong>AWS EKS</strong> (Elastic Kubernetes Service). Here is how the cluster is structured:</p>
+        <ul>
+          <li><strong>EKS Control Plane</strong> — fully managed by AWS across three availability zones. SLA 99.95%. Engineers never SSH into control plane nodes.</li>
+          <li><strong>Worker Node Groups</strong> — two managed node groups: <code>general</code> (m5.xlarge instances for user-service, ticket-service, api-gateway, notification-service) and <code>memory-optimised</code> (r5.large for payment-service which loads large fraud models into memory).</li>
+          <li><strong>Namespaces</strong>: <code>production</code>, <code>staging</code>, <code>monitoring</code> (Prometheus, Grafana, Loki), <code>argocd</code> (Argo CD controllers), <code>ingress</code> (NGINX ingress controller).</li>
+          <li><strong>Image registry</strong> — all images pulled from <code>nexus.ticketflow.io:5000</code>. The EKS nodes have an IAM role with pull permissions. No images ever pulled directly from Docker Hub in production.</li>
+        </ul>
+        <p>Before EKS, when a ticket-service container crashed at 2am during a concert sale, the on-call engineer received a PagerDuty alert, SSHed into the server, found the crashed container, ran <code>docker start</code>, and hoped it stayed up. Repeat 3–5 times a night during peak events.</p>
+        <p>After EKS, when a ticket-service Pod crashes, the ReplicaSet controller detects it within seconds, schedules a replacement Pod on a healthy node, and the new Pod is serving traffic before the on-call engineer even reads the alert. Mean time to recovery: from 8 minutes (manual) to under 30 seconds (automated).</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — CODE EXAMPLES: KUBECTL BASICS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubectl-basics" class="section-title">kubectl Basics</h2>
+
+      <p><code>kubectl</code> is the CLI for Kubernetes. It sends HTTP requests to the kube-apiserver using the credentials and cluster endpoint configured in <code>~/.kube/config</code>. Every command follows the pattern: <code>kubectl &lt;verb&gt; &lt;resource&gt; [name] [flags]</code>.</p>
+
+      <h3 class="subsection-title">Cluster Access and Context</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># View your kubeconfig — lists all clusters, users, and contexts
+kubectl config view
+
+# See which cluster and namespace you are currently targeting
+kubectl config current-context
+
+# Switch to the TicketFlow EKS production cluster context
+kubectl config use-context arn:aws:eks:us-east-1:123456789012:cluster/ticketflow-prod
+
+# Switch to the staging context
+kubectl config use-context arn:aws:eks:us-east-1:123456789012:cluster/ticketflow-staging
+
+# View all available contexts
+kubectl config get-contexts</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Listing Resources — kubectl get</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># List all Pods in the production namespace
+kubectl get pods -n production
+
+# List Pods with more detail: node assignment, IP, restarts, age
+kubectl get pods -n production -o wide
+
+# List all Pods across all namespaces
+kubectl get pods --all-namespaces
+
+# List Pods and watch for changes in real time (like tail -f)
+kubectl get pods -n production -w
+
+# List Deployments
+kubectl get deployments -n production
+
+# List Services — shows ClusterIP, external IP, ports
+kubectl get services -n production
+
+# List everything in a namespace at once
+kubectl get all -n production
+
+# Output in YAML format — useful to inspect full object state
+kubectl get pod user-service-7d6b4f9c-xk2jp -n production -o yaml
+
+# Output in JSON format
+kubectl get pod user-service-7d6b4f9c-xk2jp -n production -o json
+
+# Use jsonpath to extract just the Pod's IP
+kubectl get pod user-service-7d6b4f9c-xk2jp -n production \
+  -o jsonpath='{.status.podIP}'</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Inspecting Resources — kubectl describe</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Detailed view of a Pod: events, conditions, container statuses, resource requests
+kubectl describe pod user-service-7d6b4f9c-xk2jp -n production
+
+# Describe a node — capacity, allocatable resources, running Pods, conditions
+kubectl describe node ip-10-0-1-45.ec2.internal
+
+# Describe a Deployment — desired vs current vs ready replicas, rollout status
+kubectl describe deployment user-service -n production
+
+# Describe a Service — endpoints, selector, port mappings
+kubectl describe service user-service -n production
+
+# The Events section at the bottom of describe output is often the first place
+# to look when something is wrong. It shows scheduling failures, image pull errors,
+# probe failures, and OOMKills with timestamps.</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Reading Container Logs — kubectl logs</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Stream logs from a running Pod (press Ctrl+C to stop)
+kubectl logs -f user-service-7d6b4f9c-xk2jp -n production
+
+# Show only the last 100 lines
+kubectl logs --tail=100 user-service-7d6b4f9c-xk2jp -n production
+
+# Show logs from the previous container instance (useful after a crash)
+kubectl logs --previous user-service-7d6b4f9c-xk2jp -n production
+
+# Show logs from a specific container in a multi-container Pod
+# (e.g., app container + envoy sidecar)
+kubectl logs user-service-7d6b4f9c-xk2jp -c user-service -n production
+
+# Stream logs from all Pods matching a label selector
+# (all user-service Pods at once — great for multi-replica debugging)
+kubectl logs -f -l app=user-service -n production
+
+# Show logs since a relative time
+kubectl logs --since=1h user-service-7d6b4f9c-xk2jp -n production</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Executing Commands — kubectl exec</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Open an interactive shell inside a running container
+kubectl exec -it user-service-7d6b4f9c-xk2jp -n production -- /bin/sh
+
+# Run a one-off command without interactive shell
+kubectl exec user-service-7d6b4f9c-xk2jp -n production -- env
+
+# Check if payment-service can reach ticket-service from inside the cluster
+kubectl exec -it payment-service-6c9f8d-zr4np -n production -- \
+  curl http://ticket-service.production.svc.cluster.local:8080/health
+
+# Test DNS resolution from inside a Pod
+kubectl exec -it user-service-7d6b4f9c-xk2jp -n production -- \
+  nslookup ticket-service.production.svc.cluster.local
+
+# Check the filesystem of a crashed container's previous instance
+# (only works while the Pod is still in CrashLoopBackOff, not yet replaced)
+kubectl exec -it user-service-7d6b4f9c-xk2jp -n production -- ls /app/logs</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Applying Manifests — kubectl apply</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Apply a single manifest file (create or update declaratively)
+kubectl apply -f user-service-pod.yaml
+
+# Apply all YAML files in a directory
+kubectl apply -f ./k8s/production/
+
+# Apply recursively through nested directories
+kubectl apply -f ./k8s/ -R
+
+# Preview what would change without applying (dry run against the server)
+kubectl apply -f user-service-deployment.yaml --dry-run=server
+
+# Show the diff between current cluster state and a new manifest
+kubectl diff -f user-service-deployment.yaml</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Deleting Resources — kubectl delete</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Delete a Pod by name (if owned by a ReplicaSet, a new Pod will be created immediately)
+kubectl delete pod user-service-7d6b4f9c-xk2jp -n production
+
+# Delete all resources defined in a manifest file
+kubectl delete -f user-service-pod.yaml
+
+# Delete a Deployment (removes the Deployment, its ReplicaSet, and all its Pods)
+kubectl delete deployment user-service -n production
+
+# Force-delete a stuck Pod (skips graceful termination — use with caution)
+kubectl delete pod user-service-7d6b4f9c-xk2jp -n production \
+  --force --grace-period=0</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — OS TABS (SETUP DIFFERS BY OS)
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="kubectl-install" class="section-title">Installing kubectl and Configuring EKS Access</h2>
+
+      <p>The kubectl binary is the same across platforms, but installation and EKS kubeconfig setup differ by operating system.</p>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="linux">Linux</button>
+          <button class="os-tab-btn" data-tab="mac">macOS</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install kubectl on Linux (amd64)
+curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/kubectl
+
+# Verify
+kubectl version --client
+
+# Install AWS CLI v2 (needed to update kubeconfig for EKS)
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip && sudo ./aws/install
+
+# Configure EKS kubeconfig — adds a context to ~/.kube/config
+aws eks update-kubeconfig \
+  --region us-east-1 \
+  --name ticketflow-prod
+
+# Verify cluster access
+kubectl get nodes</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="mac">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install kubectl via Homebrew (recommended on macOS)
+brew install kubectl
+
+# Or install via curl (same as Linux but darwin binary)
+curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/darwin/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+
+# Verify
+kubectl version --client
+
+# Install AWS CLI
+brew install awscli
+
+# Optionally install kubectx for fast context switching
+brew install kubectx
+
+# Configure EKS kubeconfig
+aws eks update-kubeconfig \
+  --region us-east-1 \
+  --name ticketflow-prod
+
+# Use kubectx to switch contexts (if installed)
+kubectx ticketflow-prod
+
+# Verify cluster access
+kubectl get nodes</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-powershell"># Install kubectl via Chocolatey (run PowerShell as Administrator)
+choco install kubernetes-cli
+
+# Or via winget
+winget install Kubernetes.kubectl
+
+# Verify
+kubectl version --client
+
+# Install AWS CLI for Windows
+winget install Amazon.AWSCLI
+
+# Configure AWS credentials
+aws configure
+# Enter: AWS Access Key ID, Secret, region us-east-1, output json
+
+# Configure EKS kubeconfig (writes to %USERPROFILE%\.kube\config)
+aws eks update-kubeconfig `
+  --region us-east-1 `
+  --name ticketflow-prod
+
+# Verify cluster access
+kubectl get nodes</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — WRITING POD MANIFESTS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="pod-manifest" class="section-title">Writing Pod Manifests</h2>
+
+      <p>Every Kubernetes object is defined as a YAML manifest. The manifest declares the <strong>desired state</strong>; Kubernetes is responsible for making the actual state match. Every manifest shares the same four top-level fields:</p>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># A bare Pod for user-service — for illustration only.
+# In production you would use a Deployment, not a bare Pod.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: user-service
+  namespace: production
+  labels:
+    app: user-service
+    version: "2.4.1"
+    team: platform
+spec:
+  containers:
+    - name: user-service
+      image: nexus.ticketflow.io:5000/user-service:2.4.1
+      ports:
+        - containerPort: 3000
+      env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+      resources:
+        requests:
+          cpu: "100m"       # 100 millicores = 0.1 CPU
+          memory: "128Mi"
+        limits:
+          cpu: "500m"       # 500 millicores = 0.5 CPU
+          memory: "256Mi"
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 3000
+        initialDelaySeconds: 10
+        periodSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 3000
+        initialDelaySeconds: 5
+        periodSeconds: 10</code></pre>
+      </div>
+
+      <p>Field explanations:</p>
+      <ul>
+        <li><strong>apiVersion</strong> — the Kubernetes API group and version that defines this resource kind. Pods use <code>v1</code>. Deployments use <code>apps/v1</code>.</li>
+        <li><strong>kind</strong> — the resource type. Must match the apiVersion schema.</li>
+        <li><strong>metadata.labels</strong> — key-value pairs attached to the object. Used by Services (via selectors) to find Pods, by Prometheus to scrape metrics, and by Argo CD to track objects.</li>
+        <li><strong>resources.requests</strong> — the minimum resources the scheduler guarantees. Used for placement decisions.</li>
+        <li><strong>resources.limits</strong> — the maximum the container may consume. Exceeding memory limit causes an OOMKill. Exceeding CPU limit causes CPU throttling (not a kill).</li>
+        <li><strong>livenessProbe</strong> — if this probe fails repeatedly, the container is restarted. Use for detecting deadlocks that don't crash the process.</li>
+        <li><strong>readinessProbe</strong> — if this probe fails, the Pod is removed from Service endpoints. Traffic stops routing to it until it recovers. Use for detecting temporary unreadiness (e.g., during cache warm-up).</li>
+      </ul>
+
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Namespace manifest for TicketFlow production
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    environment: production
+    team: platform</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when you run <code>kubectl apply -f user-service-pod.yaml</code>?</summary>
+        <div class="answer-content">
+          <ol>
+            <li><strong>kubectl reads the manifest</strong> and serializes it to JSON. It determines the API endpoint from <code>apiVersion</code> and <code>kind</code> — for a Pod it is <code>POST /api/v1/namespaces/production/pods</code>.</li>
+            <li><strong>kubectl sends an HTTP request</strong> to the kube-apiserver endpoint in your kubeconfig. The request is authenticated (via the AWS IAM token for EKS) and authorized (via RBAC — your user must have <code>create pods</code> permission in the <code>production</code> namespace).</li>
+            <li><strong>The API server validates the manifest</strong> against the Pod schema. It checks required fields, validates resource quantities, and ensures the container image format is correct.</li>
+            <li><strong>The API server persists the Pod object to etcd</strong> with status phase <code>Pending</code>. At this point the Pod exists in the cluster's desired state but no node has been assigned.</li>
+            <li><strong>The kube-scheduler watches etcd</strong> (via the API server's watch mechanism) for Pods with no <code>nodeName</code> set. It scores all eligible nodes against the Pod's resource requests, affinity rules, and taints. It selects the best node and writes the <code>nodeName</code> field back to the Pod object in etcd.</li>
+            <li><strong>The kubelet on the selected node watches etcd</strong> for Pods assigned to its node. It sees the new Pod and calls containerd to pull the image <code>nexus.ticketflow.io:5000/user-service:2.4.1</code>. The image pull authenticates against Nexus using a Secret referenced in the Pod spec (an <code>imagePullSecret</code>).</li>
+            <li><strong>containerd pulls the image layers</strong>, assembles the OverlayFS filesystem, and calls runc to create the container with the specified namespaces, cgroup limits, and environment variables.</li>
+            <li><strong>The kubelet starts running probes</strong>. After <code>initialDelaySeconds</code>, it begins calling the readiness endpoint. Until the readiness probe passes, the Pod status is <code>Running</code> but <code>Ready: 0/1</code>, and no Service routes traffic to it.</li>
+            <li><strong>Once the readiness probe passes</strong>, the Pod status becomes <code>Ready: 1/1</code>. If a Service with a matching selector exists, kube-proxy (on all nodes) updates its iptables rules to include this Pod's IP as a valid endpoint.</li>
+          </ol>
+          <p>This entire process — from <code>kubectl apply</code> to serving traffic — typically takes 5–30 seconds for a small image already pulled on the node, or 30–120 seconds for a first-time image pull.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does the Kubernetes reconciliation loop work?</summary>
+        <div class="answer-content">
+          <p>Kubernetes operates on a <strong>level-triggered</strong> (not edge-triggered) reconciliation model. Every controller — the ReplicaSet controller, the Deployment controller, the Node controller — continuously compares the <em>desired state</em> (what you declared in your manifests) against the <em>actual state</em> (what is currently running in the cluster) and takes corrective actions to close the gap.</p>
+          <p>This is called the <strong>control loop</strong> or <strong>reconciliation loop</strong>:</p>
+          <ol>
+            <li><strong>Observe</strong> — watch the API server (via efficient list-watch, not polling) for changes to relevant objects.</li>
+            <li><strong>Diff</strong> — compare desired state vs actual state. For a ReplicaSet with <code>replicas: 5</code>, count how many healthy Pods currently exist.</li>
+            <li><strong>Act</strong> — if actual diverges from desired, take corrective action: create missing Pods, delete excess Pods, update a node's status.</li>
+          </ol>
+          <p>The critical consequence: <strong>Kubernetes is self-healing because the reconciliation loop runs forever</strong>. If a Pod dies, the loop detects the discrepancy (desired: 5, actual: 4) and creates a replacement without any human intervention. If a node dies, all Pods on it are rescheduled to healthy nodes. If you manually delete a Pod owned by a Deployment, a new one is created within seconds.</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Deploying Bare Pods Instead of Deployments</span>
+        <p>A bare Pod (created with <code>kind: Pod</code>) has no controller managing it. If the node it runs on fails, the Pod is gone permanently — Kubernetes will not reschedule it. If you delete it accidentally, it does not come back. There is no rolling update mechanism.</p>
+        <p><strong>Fix:</strong> Always use a <code>Deployment</code> (or StatefulSet for stateful services). Deployments create a ReplicaSet which manages Pods and ensures the desired replica count is maintained across node failures, updates, and manual deletions.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Omitting Resource Requests and Limits</span>
+        <p>Without resource requests, the scheduler has no information about what a Pod needs — it may schedule 50 Pods on a node with only enough memory for 10, causing widespread OOMKills. Without limits, a single misbehaving Pod (e.g., a memory leak in payment-service) can consume all available memory on a node, evicting every other Pod running there.</p>
+        <p><strong>Fix:</strong> Always set <code>resources.requests</code> and <code>resources.limits</code> for every container. Use a LimitRange in each namespace to enforce default limits for teams that forget. Start with conservative limits and tune upward based on actual Prometheus metrics.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Not Setting Liveness and Readiness Probes</span>
+        <p>Without a readiness probe, a Pod is added to Service endpoints the instant its container starts — even if the application hasn't finished initialising (loading database connections, warming cache). Traffic hits an unready service and fails. Without a liveness probe, a deadlocked process that is still running (not crashed) sits in the endpoint pool accepting connections that hang forever.</p>
+        <p><strong>Fix:</strong> Always define both probes. The readiness probe controls traffic routing; the liveness probe controls restart behaviour. Tune <code>initialDelaySeconds</code> carefully — too short causes false restarts during startup; too long means real failures go undetected.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Putting Sensitive Data in Environment Variables Directly in the Manifest</span>
+        <p>Writing database passwords, API keys, or JWT secrets directly in a Pod or Deployment YAML means those secrets end up in your Git repository and in etcd in plain text. Anyone with read access to the repository or to etcd has all your production secrets.</p>
+        <p><strong>Fix:</strong> Use Kubernetes Secrets (base64-encoded in etcd, which is better than nothing) referenced from Pods via <code>envFrom</code> or volume mounts. In production, use AWS Secrets Manager or HashiCorp Vault with the External Secrets Operator to sync secrets into Kubernetes Secrets securely, with automatic rotation.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: Using the Default Namespace for Everything</span>
+        <p>When every service, config, and secret lands in the <code>default</code> namespace, resource management becomes a mess: you cannot apply resource quotas to a team's workloads, RBAC is hard to scope, and a mistake in one service's manifest can affect another team's service. It also makes it difficult to apply different network policies to different environments.</p>
+        <p><strong>Fix:</strong> Create dedicated namespaces per environment (<code>production</code>, <code>staging</code>) and optionally per team. Apply ResourceQuotas and LimitRanges per namespace. Configure RBAC role bindings at the namespace level. Never use <code>default</code> for production workloads.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>Kubernetes is not just an operational tool — it is an <strong>architectural contract</strong> between your application and the infrastructure. Understanding this reframes how you think about several design decisions:</p>
+        <ul>
+          <li><strong>Twelve-Factor apps are not optional on Kubernetes.</strong> Kubernetes assumes your application is stateless, that its configuration comes from environment variables, and that it handles SIGTERM gracefully. If your app stores session state in local memory, Kubernetes will redistribute Pods across nodes and break those sessions. The platform enforces good application architecture.</li>
+          <li><strong>The control plane is not a deployment tool — it is a state machine.</strong> You do not tell Kubernetes "deploy version 2". You tell it "desired state is version 2 with 5 replicas". It figures out how to get there. This distinction matters: operations teams that think of Kubernetes as a scripted deployment tool fight it constantly. Teams that think of it as a state machine work with it naturally.</li>
+          <li><strong>Every team ends up building a platform on top of Kubernetes.</strong> Kubernetes alone gives you Pods and Services. Production-grade Kubernetes requires: an ingress controller, a CNI plugin, a CSI driver for storage, cert-manager for TLS, External Secrets Operator for secrets, Argo CD for GitOps, Prometheus Operator for monitoring, Karpenter for node autoscaling. Plan for this platform investment. AWS EKS Add-ons accelerates it on AWS.</li>
+          <li><strong>Multi-tenancy has no single right answer.</strong> Namespace-per-team on a shared cluster is economical but requires disciplined RBAC and network policies. Cluster-per-team is safer but expensive and operationally complex at scale. The right answer depends on your team's maturity, security requirements, and cost constraints. TicketFlow uses namespace-per-environment on a shared cluster, with strict network policies between namespaces.</li>
+        </ul>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <p>Before running any workload in a production Kubernetes cluster:</p>
+
+      <ul class="checklist">
+        <li>All workloads use Deployments (or StatefulSets) — no bare Pods in production</li>
+        <li>Every container has <code>resources.requests</code> and <code>resources.limits</code> defined</li>
+        <li>Every container has both <code>livenessProbe</code> and <code>readinessProbe</code> configured</li>
+        <li>Namespaces created per environment — <code>production</code>, <code>staging</code>; <code>default</code> namespace unused</li>
+        <li>ResourceQuota applied to each namespace to cap total CPU and memory consumption</li>
+        <li>RBAC roles defined per team — least-privilege access; no ClusterAdmin to developers</li>
+        <li>Secrets not stored in Git or hard-coded in manifests — External Secrets Operator or AWS Secrets Manager integration</li>
+        <li>Images pulled from private registry (<code>nexus.ticketflow.io:5000</code>) with imagePullSecrets configured</li>
+        <li>Image tags are pinned to specific versions — not <code>:latest</code></li>
+        <li>PodDisruptionBudget defined for critical services to prevent all replicas being disrupted simultaneously during node maintenance</li>
+        <li>Anti-affinity rules set for stateful services to spread Pods across availability zones</li>
+        <li>EKS node groups span at least two availability zones</li>
+        <li>etcd backup policy confirmed with AWS (EKS manages this — verify retention and restore procedure)</li>
+        <li>kubectl access to production requires MFA-protected IAM role assumption</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 14 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Deploy user-service Pod and Inspect It</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires kubectl configured against a cluster (minikube, kind, or EKS)</span>
+
+        <p>This lab deploys a user-service Pod into a local Kubernetes cluster, inspects it at every level, and practices the most important debugging commands. You will use the TicketFlow namespace and image conventions throughout.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Start a local cluster (skip if you have EKS access)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Option A: minikube (simplest for local dev)
+minikube start --cpus=2 --memory=4096
+
+# Option B: kind (Kubernetes IN Docker — great for CI)
+kind create cluster --name ticketflow-local
+
+# Verify the cluster is running
+kubectl cluster-info
+kubectl get nodes</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Create the production namespace</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create the namespace
+kubectl create namespace production
+
+# Verify it was created
+kubectl get namespaces
+
+# Set production as your default namespace for this session
+kubectl config set-context --current --namespace=production</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Write and apply the user-service Pod manifest</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Save this manifest as user-service-pod.yaml
+cat &gt; user-service-pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: user-service
+  namespace: production
+  labels:
+    app: user-service
+    version: "2.4.1"
+spec:
+  containers:
+    - name: user-service
+      # Using nginx as a stand-in for user-service in this local lab
+      image: nginx:1.25-alpine
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "200m"
+          memory: "128Mi"
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 3
+        periodSeconds: 5
+EOF
+
+# Apply the manifest to the cluster
+kubectl apply -f user-service-pod.yaml</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Watch the Pod start up</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Watch Pod status change from Pending → ContainerCreating → Running
+kubectl get pods -n production -w
+
+# Press Ctrl+C when status shows Running 1/1
+
+# Get detailed Pod information including node assignment and IP
+kubectl get pods -n production -o wide</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Inspect the Pod with describe</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Full describe output — read the Events section at the bottom carefully
+kubectl describe pod user-service -n production
+
+# What to look for in the Events section:
+# - "Scheduled" event: which node was selected
+# - "Pulling image" event: when the image pull started
+# - "Started" event: when the container actually started
+# - Any "Failed" or "Warning" events indicate problems</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 6: Read container logs</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Fetch current nginx access logs
+kubectl logs user-service -n production
+
+# Stream logs live (Ctrl+C to stop)
+kubectl logs -f user-service -n production</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 7: Execute commands inside the running container</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Open an interactive shell inside the container
+kubectl exec -it user-service -n production -- /bin/sh
+
+# Inside the container, explore:
+hostname           # Pod name is the hostname
+env                # Environment variables
+cat /etc/nginx/conf.d/default.conf   # nginx config
+ls /usr/share/nginx/html/            # served files
+exit               # Leave the container shell
+
+# Run a one-shot command without interactive shell
+kubectl exec user-service -n production -- nginx -v</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 8: Inspect resource usage</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># View the full Pod manifest as Kubernetes stores it (includes status fields)
+kubectl get pod user-service -n production -o yaml
+
+# Extract just the Pod IP using jsonpath
+kubectl get pod user-service -n production \
+  -o jsonpath='{.status.podIP}'
+
+# If metrics-server is installed (it is on EKS and can be added to minikube):
+kubectl top pod user-service -n production</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 9: Simulate a Pod failure and observe self-healing (requires Deployment)</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># First, create a Deployment so there is a controller managing the Pod
+kubectl create deployment user-service-deploy \
+  --image=nginx:1.25-alpine \
+  --replicas=2 \
+  --namespace=production
+
+# Wait for both Pods to be Running
+kubectl get pods -n production -w
+
+# Delete one Pod — the ReplicaSet controller will immediately create a replacement
+kubectl delete pod -l app=user-service-deploy -n production --wait=false
+
+# Watch the replacement Pod appear
+kubectl get pods -n production -w
+# You will see: one Pod Terminating, a new Pod Pending → Running within seconds
+
+# Clean up
+kubectl delete deployment user-service-deploy -n production
+kubectl delete pod user-service -n production</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key observations from this lab:</strong></p>
+        <ol>
+          <li>The transition from Pending to Running shows the complete scheduling and image pull pipeline happening in real time.</li>
+          <li>The <code>describe</code> Events section is your primary debugging tool — it tells you exactly what Kubernetes tried to do and whether it succeeded.</li>
+          <li>Pod IP addresses are dynamic — every new Pod gets a different IP. This is why Services (covered in page 11) exist.</li>
+          <li>When you delete a Pod owned by a Deployment's ReplicaSet, Kubernetes creates a replacement immediately. Bare Pods do not have this behaviour — they stay deleted.</li>
+          <li>The <code>kubectl exec</code> shell environment is exactly the container's namespace — different hostname, different filesystem, different process list from the host.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 15 — INTERVIEW QUESTIONS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most frequently asked Kubernetes fundamentals questions in senior engineer and DevOps interviews. Click each to reveal a complete answer.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is Kubernetes and what problem does it solve?</summary>
+            <div class="answer-content">
+              <p>Kubernetes is an open-source container orchestration platform originally developed by Google (based on internal system Borg) and donated to the CNCF in 2014. It automates the operational tasks required to run containerised applications at scale.</p>
+              <p>The core problems it solves:</p>
+              <ul>
+                <li><strong>Scheduling</strong> — automatically determines which server has sufficient resources to run each container, considering CPU, memory, affinity rules, and hardware constraints.</li>
+                <li><strong>Self-healing</strong> — continuously monitors running containers. If a container crashes, the node fails, or a health check fails, Kubernetes automatically restarts containers, replaces failed Pods, and reschedules them on healthy nodes.</li>
+                <li><strong>Horizontal scaling</strong> — scales the number of running instances up or down automatically based on CPU/memory utilisation (HPA) or custom metrics.</li>
+                <li><strong>Rolling deployments</strong> — deploys new versions incrementally with automatic rollback if health checks fail, with zero downtime.</li>
+                <li><strong>Service discovery and load balancing</strong> — assigns stable DNS names and virtual IPs to groups of Pods, load-balancing traffic across all healthy instances automatically.</li>
+                <li><strong>Configuration and secrets management</strong> — injects configuration and sensitive values into containers at runtime without baking them into images.</li>
+              </ul>
+              <p>The key mental model: you declare desired state (manifests), and Kubernetes runs a continuous reconciliation loop to ensure actual state matches desired state — forever, without human intervention.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: Explain the Kubernetes control plane components and their roles.</summary>
+            <div class="answer-content">
+              <p>The control plane is the cluster's brain — it makes all decisions and maintains the desired state. It consists of:</p>
+              <ul>
+                <li><strong>kube-apiserver</strong> — the single entry point for all cluster communication. All kubectl commands, controllers, and external systems (Argo CD, Prometheus) talk to the API server. It validates objects, authenticates requests (via RBAC), and is the only component that reads/writes etcd. Horizontally scalable.</li>
+                <li><strong>etcd</strong> — the distributed key-value store that holds all cluster state. Every Pod definition, Service, Deployment, ConfigMap, node registration — everything lives in etcd. If etcd is lost without a backup, the entire cluster configuration is gone. In production, runs as a 3-node or 5-node Raft cluster. On EKS, AWS manages etcd.</li>
+                <li><strong>kube-scheduler</strong> — watches for unscheduled Pods (Pods with no <code>nodeName</code> set) and assigns them to the best available node. Considers resource availability, node affinity/anti-affinity rules, taints/tolerations, and topology spread constraints. Does not start Pods — it only assigns the node. The kubelet starts the Pod.</li>
+                <li><strong>kube-controller-manager</strong> — runs the reconciliation controllers: ReplicaSet controller (maintains Pod replica counts), Deployment controller (manages rolling updates), Node controller (detects failed nodes), Service Account controller (creates default accounts in namespaces). Each controller continuously compares desired vs actual state and takes corrective actions.</li>
+                <li><strong>cloud-controller-manager</strong> (on cloud providers) — handles cloud-specific integration: provisioning load balancers for Services, attaching EBS volumes, registering EC2 nodes. On EKS this runs as part of the AWS-managed control plane.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: What is a Pod? Why is it Kubernetes' smallest deployable unit instead of a container?</summary>
+            <div class="answer-content">
+              <p>A <strong>Pod</strong> is a wrapper around one or more containers that always run together on the same node, share the same network namespace (same IP address, same port space), and can share storage volumes.</p>
+              <p>The reason Kubernetes chose the Pod as the atomic unit rather than the individual container comes down to real-world patterns:</p>
+              <ul>
+                <li><strong>Sidecar pattern</strong> — in service meshes (Istio, Linkerd), every application container is paired with an Envoy proxy sidecar that handles mTLS, traffic routing, and telemetry. These two containers must run on the same host, start together, and die together. The Pod is the natural unit for this.</li>
+                <li><strong>Log shipping</strong> — a Fluentd container can read log files from a shared volume written by the application container. Both must be co-located.</li>
+                <li><strong>Init containers</strong> — containers that run to completion before the main container starts (e.g., run database migrations, populate a shared volume with config files). They are part of the same Pod lifecycle.</li>
+              </ul>
+              <p>Key properties: Pods are ephemeral (not restarted in place when they fail — a new Pod is created); all containers in a Pod share localhost networking; Pods always run entirely on one node (containers in a Pod cannot be split across nodes).</p>
+              <p>In practice: the vast majority of Pods contain a single container. The multi-container pattern is used for cross-cutting concerns (observability, security) that should not live in application code.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: What is the difference between a liveness probe and a readiness probe?</summary>
+            <div class="answer-content">
+              <p>Both probes monitor the health of a running container, but they have different consequences when they fail:</p>
+              <p><strong>Liveness probe</strong> — answers "is this container alive?" If the probe fails repeatedly (beyond <code>failureThreshold</code>), Kubernetes kills and restarts the container. Use for detecting: deadlocks (process is running but not making progress), corrupted internal state that the app cannot self-recover from, infinite loops that don't crash the process.</p>
+              <p><strong>Readiness probe</strong> — answers "is this container ready to serve traffic?" If the probe fails, the Pod is removed from Service endpoints — traffic stops routing to it — but the container is not restarted. The Pod stays Running. When the probe passes again, the Pod is re-added to endpoints and traffic resumes. Use for: detecting that the app is still initialising (cache warming, database connection pooling), temporary unavailability (circuit breaker open, upstream dependency down).</p>
+              <p>The distinction matters during deployments: Kubernetes uses readiness probes to determine when a new Pod is ready before it starts terminating the old one. Without readiness probes, rolling updates can drop traffic.</p>
+              <p><strong>Startup probe</strong> (third type, often overlooked) — disables liveness and readiness probes until a slow-starting container (e.g., a JVM with 60-second startup) has had time to initialise. Without it, the liveness probe would kill a healthy-but-slow-starting container repeatedly.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: What is etcd and why is it critical to back it up?</summary>
+            <div class="answer-content">
+              <p>etcd is a distributed, strongly consistent key-value store built on the Raft consensus algorithm. In Kubernetes, it is the <strong>single source of truth for the entire cluster state</strong>: every object you have ever created (Pods, Deployments, Services, ConfigMaps, Secrets, RBAC roles, CRDs, PersistentVolumeClaims) is stored as a serialised JSON object in etcd.</p>
+              <p>Why it is critical to back up:</p>
+              <ul>
+                <li>If etcd is lost without a backup, you lose the cluster's memory. Every Deployment definition, every Service configuration, every Secret reference, every RBAC rule — gone. Running Pods on worker nodes might continue briefly, but no new scheduling decisions can be made, and you cannot recover the configuration.</li>
+                <li>Even with a managed service like EKS (where AWS manages etcd), understanding the backup/restore procedure is essential. AWS takes periodic snapshots, but you need to know the recovery time objective and how to trigger a restore.</li>
+                <li>A corrupted write to etcd (malformed CRD, a buggy operator writing invalid state) can require point-in-time restore from backup.</li>
+              </ul>
+              <p>etcd runs as a Raft cluster. Standard production deployment is 3 or 5 nodes (always odd for majority quorum). A 3-node cluster tolerates 1 node failure; a 5-node cluster tolerates 2 node failures.</p>
+              <p>On self-managed clusters: back up etcd hourly using <code>etcdctl snapshot save</code> and store snapshots in a separate, durable location (S3 with versioning). Test restore quarterly. On EKS: AWS manages etcd; verify the backup retention policy in the EKS console and document the restore procedure.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: How does the Kubernetes scheduler decide which node to run a Pod on?</summary>
+            <div class="answer-content">
+              <p>The kube-scheduler selects a node for a Pod through a two-phase process: <strong>filtering</strong> (eliminate ineligible nodes) then <strong>scoring</strong> (rank remaining nodes).</p>
+              <p><strong>Filtering phase</strong> — eliminates nodes that cannot run the Pod. Filters include:</p>
+              <ul>
+                <li><strong>NodeResourcesFit</strong> — does the node have enough CPU and memory to satisfy the Pod's resource requests?</li>
+                <li><strong>NodeAffinity / NodeSelector</strong> — does the node have the required labels? (e.g., <code>nodegroup: memory-optimised</code> for payment-service)</li>
+                <li><strong>TaintToleration</strong> — does the Pod tolerate the node's taints? GPU nodes are typically tainted to prevent general workloads being scheduled on them.</li>
+                <li><strong>PodTopologySpread</strong> — would placing this Pod on this node violate a topology spread constraint? (e.g., "no more than 2 Pods from this Deployment in a single AZ")</li>
+              </ul>
+              <p><strong>Scoring phase</strong> — assigns a score to each eligible node. Score plugins include:</p>
+              <ul>
+                <li><strong>LeastAllocated</strong> — prefer nodes with the most remaining capacity (spreads load across nodes).</li>
+                <li><strong>ImageLocality</strong> — prefer nodes that already have the container image cached (avoids an image pull delay).</li>
+                <li><strong>InterPodAffinity</strong> — prefer nodes where related Pods already run (reduces network latency between co-located services).</li>
+              </ul>
+              <p>The node with the highest combined score wins. If multiple nodes tie, one is selected at random. The scheduler then writes the chosen <code>nodeName</code> into the Pod spec in etcd. The kubelet on that node detects the assignment and starts the Pod.</p>
+              <p>Important: the scheduler makes a placement decision at Pod creation time. It does not evict and reschedule Pods that are already running when cluster conditions change (that is the Descheduler add-on's job).</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

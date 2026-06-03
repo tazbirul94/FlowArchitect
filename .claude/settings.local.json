@@ -5,7 +5,15 @@
       "Bash(rtk wc *)",
       "Bash(rtk read *)",
       "Bash(rtk grep *)",
-      "Bash(node *)"
+      "Bash(rtk git *)",
+      "Bash(rtk glob *)",
+      "Bash(node *)",
+      "Bash(Get-Content \"C:/Users/mhaque/Downloads/Myself/Coding/FlowArchitect/software-architect-learning-portal/pages/07-container-registries-nexus.html\")",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(python3 *)",
+      "Bash(awk END{print NR} *)",
+      "Bash(powershell *)"
     ]
   }
 }

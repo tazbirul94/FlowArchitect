@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Questions — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="24" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+  <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">DevArchitect</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">Operations → Interview Questions</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <div class="page-content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-expert">Expert</span>
+        <span class="tag">⏱ 60 min read</span>
+        <span class="tag">Epic 8</span>
+      </div>
+      <h1 class="page-title">Interview Questions</h1>
+      <p class="page-subtitle">50 curated Q&amp;A covering Docker, Kubernetes, CI/CD, GitOps, architecture, observability, and security — with difficulty ratings and model answers.</p>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- SECTION 1 — STORY -->
+    <h2 id="story" class="section-title">The Story: What Interviewers Are Really Testing</h2>
+
+    <div class="story-card">
+      <span class="story-card-label">Why These 50 Questions</span>
+      <p>A senior engineer at TicketFlow sat across from a candidate who could recite every kubectl flag but froze when asked: <em>"Your payment-service pod is OOMKilled at 3 AM — walk me through your runbook."</em> Technical trivia is table stakes. What separates junior from senior is <strong>structured thinking under pressure</strong>: knowing not just what a tool does, but why it exists, what breaks it, and how to recover.</p>
+      <p>These 50 questions are drawn from real DevOps, platform engineering, and software architect interviews at mid-to-large companies. Each answer goes beyond the Wikipedia definition to explain trade-offs, failure modes, and the reasoning behind architectural decisions — because that is what interviewers at the senior level are actually evaluating.</p>
+    </div>
+
+    <!-- SECTION 2 — BEGINNER NOTE -->
+    <h2 id="how-to-use" class="section-title">How to Use This Guide</h2>
+
+    <div class="beginner-note">
+      <span class="beginner-note-label">New to Interviews?</span>
+      <p>Start with all questions tagged <strong>junior</strong>. These are the fundamentals every developer is expected to know — definitions, basic commands, core concepts. Once you can answer every junior question without hesitation, move to <strong>mid</strong>-level questions which ask you to reason about trade-offs. Then tackle <strong>senior</strong> questions which require you to design, justify, and recover from production failures.</p>
+      <p>Do not just read the answers — speak them aloud. Interview performance is about verbal fluency, not silent recognition. If you cannot explain it to a rubber duck, you are not ready to explain it to a panel.</p>
+    </div>
+
+    <!-- SECTION 3 — DIFFICULTY DISTRIBUTION -->
+    <h2 id="distribution" class="section-title">Question Distribution</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr><th>Topic</th><th>Junior</th><th>Mid</th><th>Senior</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Docker</td><td>4</td><td>4</td><td>2</td><td>10</td></tr>
+        <tr><td>Kubernetes</td><td>5</td><td>6</td><td>4</td><td>15</td></tr>
+        <tr><td>CI/CD + GitOps</td><td>2</td><td>4</td><td>2</td><td>8</td></tr>
+        <tr><td>Architecture + System Design</td><td>3</td><td>4</td><td>3</td><td>10</td></tr>
+        <tr><td>Observability + Security</td><td>1</td><td>2</td><td>4</td><td>7</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>15</strong></td><td><strong>20</strong></td><td><strong>15</strong></td><td><strong>50</strong></td></tr>
+      </tbody>
+    </table>
+
+    <!-- SECTION 4 — MERMAID DIAGRAM -->
+    <h2 id="topic-map" class="section-title">Topic Coverage Map</h2>
+
+    <div class="mermaid-wrapper">
+      <div class="mermaid">
+mindmap
+  root((Interview\nReadiness))
+    Docker
+      Images & Layers
+      Containers & Lifecycle
+      Networking & Volumes
+      Security Best Practices
+    Kubernetes
+      Core Concepts
+      Workloads & Scheduling
+      Services & Ingress
+      Storage & Config
+      Autoscaling & HPA
+    CI/CD + GitOps
+      GitHub Actions Pipelines
+      Image Building & Promotion
+      Argo CD & Sync Strategies
+      Rollbacks & Drift Detection
+    Architecture
+      Microservices Patterns
+      System Design Approach
+      CAP Theorem & Trade-offs
+      Reliability & SLOs
+    Observability
+      Metrics & Alerting
+      Distributed Tracing
+      Log Aggregation
+      Security Scanning
+      RBAC & Secrets
+      </div>
+    </div>
+
+    <!-- SECTION 5 — STAR METHOD TIPS -->
+    <h2 id="star-method" class="section-title">Answering Architecture Questions: The STAR Method</h2>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Interview Technique</span>
+      <p>Architecture and system design questions rarely have one correct answer. Interviewers are evaluating your <em>reasoning process</em>, not just your conclusion. Use the STAR structure to give answers that demonstrate senior-level thinking:</p>
+      <ul>
+        <li><strong>Situation</strong> — Set the context. What was the scale, the constraints, the team size? <em>"TicketFlow's payment-service was processing 50K transactions/day, required PCI compliance, and had a team of 3 engineers."</em></li>
+        <li><strong>Task</strong> — Define the specific engineering challenge. <em>"We needed zero-downtime deployments with instant rollback capability if a payment bug appeared in production."</em></li>
+        <li><strong>Action</strong> — Describe the technical decisions and trade-offs considered. <em>"We evaluated blue-green vs canary. Blue-green was simpler but doubled infrastructure cost. We chose canary with 5% traffic splitting using Argo Rollouts, shifting to 100% only after 15 minutes of clean error rates."</em></li>
+        <li><strong>Result</strong> — Quantify the outcome. <em>"Deployment lead time dropped from 2 hours to 12 minutes. We had three rollbacks in six months — each completed in under 90 seconds with zero customer-visible errors."</em></li>
+      </ul>
+      <p><strong>Common mistake:</strong> Jumping directly to the Action without establishing Situation and Task. This makes your answer sound like a textbook definition rather than earned experience. Always anchor your answer in a concrete scenario — real or credibly hypothetical.</p>
+      <p><strong>For trade-off questions:</strong> Never say "it depends" and stop there. That answer is worth zero points. Say "it depends on X, Y, and Z — and here is how I would evaluate each." Then evaluate them. That is a senior-level answer.</p>
+    </div>
+
+    <!-- SECTION 6 — DOCKER QUESTIONS -->
+    <h2 id="docker-questions" class="section-title">Docker — 10 Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q1: What is the difference between a Docker image and a Docker container?</summary>
+          <div class="answer-content">
+            <p>An <strong>image</strong> is a read-only, immutable blueprint built from a Dockerfile. It contains your application binary, its runtime, libraries, and configuration defaults stacked as layers. Images live in registries (Docker Hub, Nexus, ECR) and are pulled to machines that need them.</p>
+            <p>A <strong>container</strong> is a running instance of an image. Docker adds a thin writable layer on top when the container starts. This writable layer is discarded when the container is removed — the image underneath is unchanged.</p>
+            <p><strong>Analogy:</strong> An image is a class definition. A container is an object instantiated from that class. One image can spawn thousands of containers simultaneously; each is isolated from the others even though they share the same image layers on disk.</p>
+            <p><strong>TicketFlow context:</strong> The <code>nexus.ticketflow.io:5000/payment-service:2.3.1</code> image is built once in CI and pushed to Nexus. Kubernetes pulls it and runs 3 replicas — 3 containers from one image, each isolated, each handling a slice of payment traffic.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q2: What are Docker layers and why do they matter for build performance?</summary>
+          <div class="answer-content">
+            <p>Each instruction in a Dockerfile (<code>FROM</code>, <code>RUN</code>, <code>COPY</code>, etc.) creates an immutable filesystem layer stacked on top of the previous one. Layers are content-addressed — identified by a SHA256 hash of their contents.</p>
+            <p><strong>Why they matter:</strong> Docker caches each layer. On rebuild, Docker only re-executes instructions where the layer's inputs have changed — all subsequent layers are also invalidated. This means instruction order is a performance decision:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-dockerfile"># SLOW — COPY source code before installing deps
+# Any code change invalidates the npm install layer
+FROM node:18-alpine
+COPY . .
+RUN npm ci
+CMD ["node", "src/index.js"]
+
+# FAST — install deps first, copy source second
+# npm install is cached until package.json changes
+FROM node:18-alpine
+COPY package*.json ./
+RUN npm ci --only=production
+COPY src/ ./src/
+CMD ["node", "src/index.js"]</code></pre>
+            </div>
+            <p>In the fast pattern, a code change in <code>src/</code> only invalidates the last COPY layer — <code>npm ci</code> is served from cache. On a monorepo with dozens of services like TicketFlow, this reduces CI build times from 8 minutes to under 60 seconds per service.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q3: How does Docker achieve container isolation on Linux?</summary>
+          <div class="answer-content">
+            <p>Docker uses two Linux kernel primitives — <strong>namespaces</strong> and <strong>cgroups</strong> — to create the illusion of isolation. Containers do not contain their own kernel; they share the host kernel.</p>
+            <p><strong>Namespaces</strong> control what a container can <em>see</em>:</p>
+            <ul>
+              <li><strong>pid</strong> — isolated process tree; PID 1 inside the container is the app process, not systemd</li>
+              <li><strong>net</strong> — own network stack, own IP address, own port space</li>
+              <li><strong>mnt</strong> — own filesystem view via OverlayFS</li>
+              <li><strong>uts</strong> — own hostname</li>
+              <li><strong>ipc / user</strong> — isolated IPC and UID/GID mapping</li>
+            </ul>
+            <p><strong>Control groups (cgroups)</strong> control what a container can <em>use</em>: maximum CPU time, memory, and disk I/O. If a container exceeds its memory limit, the kernel OOM-kills its process — preventing a single container from taking down the host.</p>
+            <p><strong>Important caveat:</strong> This is process-level isolation, not hardware-level isolation. A sufficiently privileged container can interact with the host kernel. For untrusted workloads, use Kata Containers or gVisor which add a kernel boundary.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q4: What is a multi-stage Docker build and when would you use it?</summary>
+          <div class="answer-content">
+            <p>A multi-stage build uses multiple <code>FROM</code> instructions in a single Dockerfile. Each stage is a separate environment. You copy only the artifacts you need from one stage into the next, leaving build tools behind.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-dockerfile"># Stage 1: Build (has JDK, Maven, test dependencies)
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src/ ./src/
+RUN mvn package -DskipTests
+
+# Stage 2: Runtime (has only JRE — ~200MB vs ~600MB)
+FROM eclipse-temurin:17-jre-alpine AS runtime
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/target/ticket-service.jar ./app.jar
+USER appuser
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]</code></pre>
+            </div>
+            <p><strong>Benefits:</strong></p>
+            <ul>
+              <li><strong>Smaller images:</strong> TicketFlow's ticket-service went from 620 MB (with Maven) to 185 MB (JRE only) — 70% reduction.</li>
+              <li><strong>Smaller attack surface:</strong> No compiler, no build tools, no test dependencies in production.</li>
+              <li><strong>Single source of truth:</strong> Build and runtime defined in one file, no separate CI build scripts.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q5: What is the difference between CMD and ENTRYPOINT in a Dockerfile?</summary>
+          <div class="answer-content">
+            <p>Both define what runs when a container starts — the difference is in how they interact with arguments passed via <code>docker run</code>.</p>
+            <p><strong>CMD</strong> provides default arguments that are completely replaced if the user passes a command to <code>docker run</code>:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-dockerfile">CMD ["node", "src/index.js"]
+# docker run user-service            → runs node src/index.js
+# docker run user-service bash       → runs bash (CMD replaced)</code></pre>
+            </div>
+            <p><strong>ENTRYPOINT</strong> is the fixed executable. Arguments from CMD or from <code>docker run</code> are appended to it:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-dockerfile">ENTRYPOINT ["node"]
+CMD ["src/index.js"]
+# docker run user-service            → node src/index.js
+# docker run user-service src/debug  → node src/debug (CMD replaced, ENTRYPOINT fixed)</code></pre>
+            </div>
+            <p><strong>Best practice:</strong> Use <code>ENTRYPOINT</code> for the main executable and <code>CMD</code> for default arguments. This lets operators override arguments without having to repeat the binary name. For application containers, always use the exec form (JSON array) rather than shell form — shell form runs the process as a child of <code>/bin/sh</code>, which means SIGTERM from <code>docker stop</code> is not forwarded to your app, causing slow shutdowns and potential data loss.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q6: How do Docker volumes differ from bind mounts? When would you use each?</summary>
+          <div class="answer-content">
+            <p><strong>Named volumes</strong> are managed entirely by Docker. They are stored in <code>/var/lib/docker/volumes/</code>, have no dependency on host filesystem structure, are portable across machines, and survive container deletion. They are the correct choice for production stateful data.</p>
+            <p><strong>Bind mounts</strong> map a specific host path into the container. They depend on the host directory existing at exactly the right path, making them non-portable. They are the correct choice for development workflows where you want live code reloading.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># docker-compose.yml — TicketFlow development
+services:
+  user-service:
+    image: node:18-alpine
+    volumes:
+      # Bind mount: live reload during development
+      - ./user-service/src:/app/src
+    command: node --watch src/index.js
+
+  postgres:
+    image: postgres:15-alpine
+    volumes:
+      # Named volume: data persists across container rebuilds
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ticketflow
+
+volumes:
+  postgres_data:</code></pre>
+            </div>
+            <p><strong>Rule:</strong> If the data must survive and you care about portability, use a named volume. If you are mounting source code for hot-reload during development, use a bind mount — but never use a bind mount for database data in production; it creates implicit coupling between the container and a specific host path.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q7: How would you reduce a Docker image from 900 MB to under 100 MB?</summary>
+          <div class="answer-content">
+            <p>Systematic image size reduction follows a checklist:</p>
+            <ol>
+              <li><strong>Use Alpine or distroless base images.</strong> <code>node:18</code> (Debian) is 950 MB. <code>node:18-alpine</code> is 175 MB. <code>gcr.io/distroless/nodejs18</code> is ~100 MB. Same Node runtime, radically different base OS.</li>
+              <li><strong>Multi-stage builds.</strong> Build in a full image, copy only compiled artifacts to a minimal runtime image. The build toolchain never reaches production.</li>
+              <li><strong>Combine RUN commands.</strong> Each RUN creates a layer. Chaining with <code>&amp;&amp;</code> and cleaning up in the same layer keeps the size down: <code>RUN apt-get update &amp;&amp; apt-get install -y curl &amp;&amp; rm -rf /var/lib/apt/lists/*</code></li>
+              <li><strong>Use .dockerignore.</strong> Prevents <code>node_modules</code>, <code>.git</code>, test fixtures, and dev configs from entering the build context and the image.</li>
+              <li><strong>Only copy production dependencies.</strong> For Node.js: <code>RUN npm ci --only=production</code> excludes devDependencies. For Python: use <code>requirements-prod.txt</code> without test libraries.</li>
+              <li><strong>Remove package manager caches</strong> in the same RUN layer as the install.</li>
+            </ol>
+            <p><strong>TicketFlow result:</strong> user-service reduced from 920 MB to 87 MB using Node 18 Alpine + multi-stage + production-only deps. This cut ECR storage costs by 65% and reduced pod startup time from 45s to 8s on cold nodes.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q8: What Docker security practices are mandatory before deploying to production?</summary>
+          <div class="answer-content">
+            <p>Non-negotiable security baseline for any production container:</p>
+            <ul>
+              <li><strong>Run as non-root.</strong> Add <code>USER 1001</code> (or a named non-root user) in the Dockerfile before CMD/ENTRYPOINT. Root inside a container is root on the host if the container escapes.</li>
+              <li><strong>Read-only root filesystem.</strong> Add <code>--read-only</code> or set <code>readOnlyRootFilesystem: true</code> in the Kubernetes security context. Prevents malware from writing to the container filesystem.</li>
+              <li><strong>No secrets in images.</strong> Never ENV or COPY credentials into an image. Secrets must be injected at runtime via Kubernetes Secrets, AWS Secrets Manager, or Vault.</li>
+              <li><strong>Image scanning.</strong> Integrate Trivy into CI before the image is pushed. Fail the build on CRITICAL or HIGH CVEs. TicketFlow's pipeline: <code>trivy image --exit-code 1 --severity CRITICAL nexus.ticketflow.io:5000/payment-service:$TAG</code></li>
+              <li><strong>Pin base image digests.</strong> <code>FROM node:18-alpine@sha256:abc123</code> — not just a tag, which is mutable.</li>
+              <li><strong>Drop all Linux capabilities.</strong> Containers inherit a default set of capabilities. In Kubernetes, set <code>capabilities.drop: [ALL]</code> and add back only what is explicitly needed.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q9: A container restarts every 90 seconds. Walk through your debugging process.</summary>
+          <div class="answer-content">
+            <p>This is a CrashLoopBackOff scenario — the most common production container failure pattern. Systematic approach:</p>
+            <p><strong>Step 1: Establish the failure mode.</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash">kubectl describe pod payment-service-abc123
+# Look at: Last State exit code, Reason (OOMKilled vs Error)
+# Exit code 137 = OOMKilled (SIGKILL from kernel)
+# Exit code 1   = Application crash
+# Exit code 143 = SIGTERM (graceful shutdown — but why is it restarting?)</code></pre>
+            </div>
+            <p><strong>Step 2: Read the previous container's logs</strong> (current container may have no logs if it crashes on startup):</p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash">kubectl logs payment-service-abc123 --previous
+# Shows the last run's stdout/stderr before crash</code></pre>
+            </div>
+            <p><strong>Step 3: Check resource limits.</strong> OOMKilled means the container hit its memory limit. Solution: either fix the memory leak or raise the limit — but understand which it is first.</p>
+            <p><strong>Step 4: Check liveness probe configuration.</strong> An overly aggressive liveness probe (short timeout, high sensitivity) will kill a healthy container that was momentarily slow. A startup-heavy app (JVM, large model load) needs <code>startupProbe</code> or a long <code>initialDelaySeconds</code>.</p>
+            <p><strong>Step 5: Check readiness — is the container reaching a healthy state at all?</strong> If readiness never becomes true, traffic is never routed to it but liveness will eventually kill it.</p>
+            <p><strong>Common root causes at TicketFlow:</strong> payment-service had a 256Mi memory limit that was fine for normal load but insufficient during reconciliation jobs at midnight. Raised to 512Mi, added a memory usage alert at 80%, added heap dump on OOM for post-mortem analysis.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q10: Explain Docker's OverlayFS and how image layers are composed at runtime.</summary>
+          <div class="answer-content">
+            <p>OverlayFS is a union filesystem — it overlays multiple directories so they appear as one. Docker uses it to implement the layered image model efficiently.</p>
+            <p>When Docker runs a container from an image with N layers, OverlayFS creates a mount with:</p>
+            <ul>
+              <li><strong>lower dirs</strong> — the N read-only image layers stacked from bottom (base image) to top (most recent Dockerfile instruction)</li>
+              <li><strong>upper dir</strong> — a single writable layer for the running container</li>
+              <li><strong>work dir</strong> — internal OverlayFS bookkeeping directory</li>
+              <li><strong>merged dir</strong> — the unified view presented to the container</li>
+            </ul>
+            <p><strong>Copy-on-write (CoW):</strong> When a container modifies a file from a read-only layer, OverlayFS copies the file up to the writable upper layer first, then modifies it there. The original read-only layer is untouched. This is why multiple containers can share the same image layers on disk without interfering with each other — each only incurs storage cost for the files it actually modifies.</p>
+            <p><strong>Performance implication:</strong> The first write to a large file from a lower layer triggers a full CoW copy to the upper layer — even if you only modified one byte. For write-heavy workloads (databases, log files, compiled outputs), always use volumes rather than the container filesystem. The CoW overhead on a 1 GB file being written to constantly is significant.</p>
+            <p><strong>Why this matters for engineers:</strong> Understanding OverlayFS explains why <code>docker build</code> is fast (unchanged layers are reused), why images on disk are smaller than their apparent total size (shared base layers counted once), and why you should never write high-throughput data to the container filesystem.</p>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /.interview-section Docker -->
+
+    <!-- SECTION 7 — KUBERNETES QUESTIONS -->
+    <h2 id="kubernetes-questions" class="section-title">Kubernetes — 15 Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q11: What problem does Kubernetes solve that Docker alone does not?</summary>
+          <div class="answer-content">
+            <p>Docker solves the "runs the same everywhere" problem at the level of a single container on a single machine. Kubernetes solves the cluster orchestration problem: how do you run hundreds of containers across dozens of machines reliably?</p>
+            <p><strong>What Kubernetes adds on top of Docker:</strong></p>
+            <ul>
+              <li><strong>Scheduling:</strong> decides which node has capacity to run a new pod, considering CPU/memory requests, node affinity, taints/tolerations.</li>
+              <li><strong>Self-healing:</strong> restarts crashed containers, replaces pods on failed nodes, kills containers that fail health checks.</li>
+              <li><strong>Scaling:</strong> HPA scales replica count based on CPU/memory/custom metrics. Cluster Autoscaler adds/removes nodes.</li>
+              <li><strong>Service discovery &amp; load balancing:</strong> every Service gets a stable DNS name and virtual IP. No manual registration needed.</li>
+              <li><strong>Rolling deployments &amp; rollbacks:</strong> update all replicas gradually without downtime; roll back with a single command if metrics degrade.</li>
+              <li><strong>Config and secret management:</strong> ConfigMaps and Secrets decouple configuration from image, injected at runtime.</li>
+            </ul>
+            <p><strong>TicketFlow before Kubernetes:</strong> 6 services, each running on dedicated VMs provisioned manually. Failover was manual. Scaling required a request to the infra team. A node failure meant contacting on-call at 2 AM. After EKS migration: all of the above is automated.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q12: What is the difference between a Pod, a Deployment, and a ReplicaSet?</summary>
+          <div class="answer-content">
+            <p><strong>Pod:</strong> the smallest deployable unit in Kubernetes. One or more tightly coupled containers sharing a network namespace and storage. Pods are ephemeral — they are not rescheduled if they die; a new Pod with a new IP is created.</p>
+            <p><strong>ReplicaSet:</strong> ensures a specified number of identical Pod replicas are running at all times. If a Pod dies, the ReplicaSet controller creates a replacement. You rarely create ReplicaSets directly.</p>
+            <p><strong>Deployment:</strong> manages ReplicaSets and adds rolling update and rollback capabilities. When you update a Deployment's image, it creates a new ReplicaSet with the new version and scales it up while scaling down the old one. Previous ReplicaSets are retained for rollback.</p>
+            <p><strong>Hierarchy:</strong> <code>Deployment → ReplicaSet → Pods</code></p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 3                          # ReplicaSet will maintain 3 Pods
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:                            # Pod template
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: nexus.ticketflow.io:5000/user-service:3.1.2</code></pre>
+            </div>
+            <p><strong>Rule:</strong> always use Deployments, not bare Pods or ReplicaSets directly. Deployments are the standard mechanism for stateless application workloads.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q13: What is the difference between a ClusterIP, NodePort, and LoadBalancer Service?</summary>
+          <div class="answer-content">
+            <p>Kubernetes Services expose a set of Pods under a stable DNS name and virtual IP. Three exposure levels:</p>
+            <p><strong>ClusterIP (default):</strong> virtual IP reachable only inside the cluster. Pods call each other by Service DNS name: <code>http://ticket-service:8080</code>. The correct type for internal microservice communication — not exposed externally.</p>
+            <p><strong>NodePort:</strong> opens a port (30000–32767 range) on every node in the cluster. External traffic reaching any node IP on that port is forwarded to the Service. Used for development/testing. Rarely used in production — requires knowledge of node IPs, bypasses proper load balancing.</p>
+            <p><strong>LoadBalancer:</strong> provisions a cloud load balancer (AWS ALB/NLB, GCP LB) that forwards traffic to the Service. The correct production mechanism for externally accessible services. In TicketFlow's EKS cluster, the api-gateway Service is type LoadBalancer — AWS provisions an NLB with a public DNS name. All other services are ClusterIP.</p>
+            <p><strong>Ingress (not a Service type, but related):</strong> a single LoadBalancer in front of an Ingress controller (NGINX, AWS ALB) that routes traffic to multiple ClusterIP services based on host/path rules. More cost-efficient than one LoadBalancer per service.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q14: What are Kubernetes resource requests and limits, and why are both required?</summary>
+          <div class="answer-content">
+            <p><strong>Requests:</strong> the minimum resources the container is guaranteed. The scheduler uses requests to decide which node can fit the pod. If a node has 2 CPU free and a pod requests 3 CPU, it will not be scheduled on that node.</p>
+            <p><strong>Limits:</strong> the maximum resources the container can consume. If a container exceeds its memory limit, the kernel OOM-kills it. If it exceeds its CPU limit, it is throttled (not killed).</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">resources:
+  requests:
+    cpu: "250m"      # 0.25 cores guaranteed for scheduling
+    memory: "256Mi"  # 256 MB guaranteed
+  limits:
+    cpu: "500m"      # throttled if exceeds 0.5 cores
+    memory: "512Mi"  # OOMKilled if exceeds 512 MB</code></pre>
+            </div>
+            <p><strong>Why both are required:</strong></p>
+            <ul>
+              <li>Without requests: the scheduler cannot make informed placement decisions. All pods look the same and nodes get overcommitted.</li>
+              <li>Without limits: one misbehaving pod can consume all node resources, starving neighboring pods (the "noisy neighbour" problem). payment-service at TicketFlow had a memory leak that consumed all 16 GB of RAM on a node, taking down 8 other services before limits were set.</li>
+              <li>Without both: Kubernetes assigns QoS class "BestEffort" — your pod is the first evicted when the node is under memory pressure.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q15: What is a ConfigMap and when would you use it versus a Secret?</summary>
+          <div class="answer-content">
+            <p><strong>ConfigMap:</strong> stores non-sensitive configuration as key-value pairs or file content. Environment-specific settings like feature flags, log levels, service URLs, connection pool sizes. Not encrypted at rest by default.</p>
+            <p><strong>Secret:</strong> stores sensitive data (passwords, tokens, TLS certificates). Base64-encoded in etcd — not encrypted by default either, but can be encrypted at rest with KMS envelope encryption. Access controlled by RBAC. Never logged by kubectl get pods.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># ConfigMap — safe to store in git (non-sensitive)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticket-service-config
+data:
+  LOG_LEVEL: "info"
+  MAX_POOL_SIZE: "20"
+  NEXUS_REGISTRY: "nexus.ticketflow.io:5000"
+
+---
+# Secret — never store plaintext in git
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ticket-service-secrets
+type: Opaque
+stringData:
+  DB_PASSWORD: "from-sealed-secrets-or-external-secrets"
+  JWT_SECRET: "from-vault"</code></pre>
+            </div>
+            <p><strong>Best practice:</strong> Use Sealed Secrets or External Secrets Operator to manage Kubernetes Secrets. Raw Secret manifests should never be committed to git — even base64-encoded values are trivially decoded. TicketFlow uses AWS Secrets Manager with External Secrets Operator: secrets live in AWS, ESO syncs them into Kubernetes Secrets, Argo CD never sees the plaintext values.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q16: Explain the difference between liveness, readiness, and startup probes.</summary>
+          <div class="answer-content">
+            <p>All three probe types use the same mechanism (HTTP GET, TCP socket, or exec command) but trigger different Kubernetes actions on failure:</p>
+            <p><strong>Liveness probe:</strong> "Is this container alive or should it be restarted?" Failure restarts the container. Use for detecting deadlocks, infinite loops, or zombie states the app cannot recover from on its own. <em>Never</em> make a liveness probe check downstream dependencies — if your database is down, you do not want all your app pods restarting simultaneously.</p>
+            <p><strong>Readiness probe:</strong> "Is this container ready to receive traffic?" Failure removes the pod from the Service's endpoint list — traffic is not sent to it. The pod stays running. Use for checking if the app has finished startup, if a circuit breaker has opened, or if the app is temporarily overloaded. This is the mechanism for zero-downtime deployments.</p>
+            <p><strong>Startup probe:</strong> "Has this container started up successfully?" Disables liveness and readiness probes until it succeeds. Critical for slow-starting apps (JVMs loading 500 MB of classes, ML models loading, database migration runs). Without a startup probe, a JVM app taking 90 seconds to start will be killed by liveness probes before it ever becomes healthy.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># ticket-service (Spring Boot — slow JVM startup)
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  failureThreshold: 30    # 30 * 10s = 5 minutes max startup time
+  periodSeconds: 10
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  periodSeconds: 10</code></pre>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q17: What is a StatefulSet and when is it required over a Deployment?</summary>
+          <div class="answer-content">
+            <p>StatefulSets are for workloads where each replica needs a stable, unique identity across restarts — typically databases and distributed systems that use peer discovery by hostname.</p>
+            <p><strong>What StatefulSets provide that Deployments do not:</strong></p>
+            <ul>
+              <li><strong>Stable network identity:</strong> pods are named <code>pod-0</code>, <code>pod-1</code>, <code>pod-2</code> — predictable, not random hashes. DNS: <code>redis-0.redis-headless.default.svc.cluster.local</code></li>
+              <li><strong>Ordered startup and shutdown:</strong> pod-0 starts first and must be ready before pod-1 starts. Shutdown is reverse order. Critical for primary-replica databases.</li>
+              <li><strong>Persistent Volume per replica:</strong> each pod gets its own PVC. pod-0's data does not move to pod-1 on restart. The PVC is bound to pod-0 permanently.</li>
+            </ul>
+            <p><strong>Use StatefulSets for:</strong> PostgreSQL, MySQL, Cassandra, Elasticsearch, Redis Sentinel/Cluster, Kafka, ZooKeeper.</p>
+            <p><strong>Do not use StatefulSets for:</strong> stateless web servers, APIs, or batch workers — even if they occasionally write to disk. Use Deployments with volumes for those.</p>
+            <p><strong>TicketFlow:</strong> PostgreSQL for ticket-service runs as a 3-replica StatefulSet (1 primary + 2 read replicas). The primary is always <code>postgres-0</code>. Application connection strings point to <code>postgres-0</code> for writes and the headless service for reads.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q18: How does Horizontal Pod Autoscaling work and what are its limitations?</summary>
+          <div class="answer-content">
+            <p>HPA watches a metric (CPU utilization, memory, or a custom metric) and adjusts the replica count of a Deployment or StatefulSet to maintain a target value.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Wait 5 min before scaling down</code></pre>
+            </div>
+            <p><strong>How it works:</strong> The HPA controller polls metrics every 15 seconds. It calculates desired replicas as: <code>ceil(current_replicas * current_metric / target_metric)</code>. Scale-up is immediate; scale-down has a stabilization window to prevent flapping.</p>
+            <p><strong>Limitations:</strong></p>
+            <ul>
+              <li><strong>Latency:</strong> 60–90 seconds from metric spike to new pods being ready (HPA poll → schedule → pull image → start → pass readiness probe). For bursty traffic (flash sales, events), this is too slow. Mitigation: pre-scale before known events, use KEDA for event-driven scaling.</li>
+              <li><strong>Node capacity:</strong> HPA adds pods but if no node has capacity, pods stay Pending. Requires Cluster Autoscaler to add nodes — another 2–5 minutes. Design for this lag.</li>
+              <li><strong>CPU is a lagging indicator:</strong> CPU spikes after the problem starts. Custom metrics (request queue depth, active connections) are leading indicators. TicketFlow uses a custom metric from Prometheus: request queue depth on order-service triggers scale-out before CPU saturates.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q19: What is a Kubernetes Namespace and how does it provide multi-tenancy?</summary>
+          <div class="answer-content">
+            <p>A Namespace is a virtual cluster within a physical Kubernetes cluster. Resources (Pods, Services, Deployments, ConfigMaps) in one Namespace are isolated from resources in another Namespace by name. Cross-namespace communication is possible but requires full DNS names.</p>
+            <p><strong>What Namespaces provide:</strong></p>
+            <ul>
+              <li><strong>Name scoping:</strong> two teams can each have a Service named <code>api</code> in different Namespaces without collision.</li>
+              <li><strong>RBAC scope:</strong> a team can have full admin rights to their Namespace without touching other Namespaces.</li>
+              <li><strong>ResourceQuota:</strong> limit total CPU, memory, and object count per Namespace.</li>
+              <li><strong>NetworkPolicy scope:</strong> default-deny all ingress except from pods in the same Namespace.</li>
+            </ul>
+            <p><strong>What Namespaces do NOT provide:</strong> node isolation, kernel isolation, or security boundaries sufficient for untrusted tenants. Two pods in different Namespaces on the same node share the same kernel. For true multi-tenancy with untrusted tenants, use separate clusters or virtual clusters (vCluster).</p>
+            <p><strong>TicketFlow Namespace strategy:</strong> <code>production</code>, <code>staging</code>, <code>development</code>, <code>monitoring</code>, <code>argocd</code>. Each team deploys to their environment Namespace. The monitoring Namespace runs Prometheus/Grafana/Loki with scrape permissions cluster-wide. ResourceQuotas prevent staging workloads from consuming production-level resources.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q20: How does Kubernetes DNS work for service discovery?</summary>
+          <div class="answer-content">
+            <p>CoreDNS runs as a Deployment in the <code>kube-system</code> namespace and serves as the cluster-wide DNS resolver. Every Pod's <code>/etc/resolv.conf</code> is configured to use the CoreDNS service IP.</p>
+            <p><strong>DNS name format for Services:</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># Full DNS name
+&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local
+
+# Examples — from any pod in the cluster:
+http://ticket-service.production.svc.cluster.local:8080
+http://payment-service.production.svc.cluster.local:8080
+
+# Within the same namespace — short name works
+http://ticket-service:8080      # resolves to ticket-service.production.svc.cluster.local
+
+# Cross-namespace — must use full name or at least namespace
+http://ticket-service.staging:8080</code></pre>
+            </div>
+            <p><strong>Headless Services</strong> (ClusterIP: None) are used for StatefulSets. Instead of a single virtual IP, DNS returns the A records for every individual pod IP. This allows direct pod addressing: <code>postgres-0.postgres-headless.production.svc.cluster.local</code>.</p>
+            <p><strong>Debug DNS failures:</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash">kubectl run debug --image=busybox --rm -it -- nslookup ticket-service.production
+kubectl run debug --image=busybox --rm -it -- wget -qO- http://ticket-service.production:8080/health</code></pre>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q21: What is a PersistentVolume and PersistentVolumeClaim? How does dynamic provisioning work?</summary>
+          <div class="answer-content">
+            <p><strong>PersistentVolume (PV):</strong> a piece of storage in the cluster provisioned by an admin or dynamically by a StorageClass. It has a lifecycle independent of any Pod — it exists until explicitly deleted.</p>
+            <p><strong>PersistentVolumeClaim (PVC):</strong> a request for storage by a Pod. Specifies size, access mode (ReadWriteOnce, ReadWriteMany), and optionally a StorageClass. Kubernetes binds a PVC to a matching PV.</p>
+            <p><strong>Dynamic provisioning:</strong> eliminates pre-provisioning PVs manually. A StorageClass defines a provisioner (AWS EBS, GCP PD, Azure Disk). When a PVC is created with that StorageClass, the provisioner automatically creates the underlying storage and a PV, then binds them.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># StorageClass — defined once by the platform team
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-encrypted
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+reclaimPolicy: Retain       # Keep the EBS volume if PVC is deleted
+
+---
+# PVC — created per StatefulSet replica automatically
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-postgres-0
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 100Gi</code></pre>
+            </div>
+            <p><strong>ReclaimPolicy matters:</strong> <code>Delete</code> removes the backing storage when the PVC is deleted (dangerous for databases). <code>Retain</code> keeps the backing storage — requires manual cleanup but protects against accidental data loss. TicketFlow uses <code>Retain</code> for all database PVCs.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q22: A Deployment rollout is stuck. Walk through the complete diagnosis.</summary>
+          <div class="answer-content">
+            <p>A stuck rollout means the new ReplicaSet is not reaching desired replica count. Systematic diagnosis:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># Step 1: Check rollout status
+kubectl rollout status deployment/order-service -n production
+# "Waiting for deployment rollout to finish: 1 out of 3 new replicas have been updated"
+
+# Step 2: Describe the deployment — look at Events section
+kubectl describe deployment order-service -n production
+
+# Step 3: Check pod status — which pods are not Ready?
+kubectl get pods -n production -l app=order-service
+# NAME                           READY   STATUS    RESTARTS
+# order-service-new-abc    0/1   Pending    0          2m
+# order-service-old-xyz    1/1   Running    0          1d
+
+# Step 4: Describe the stuck pod
+kubectl describe pod order-service-new-abc -n production
+# Look at: Events section at the bottom</code></pre>
+            </div>
+            <p><strong>Common causes and fixes:</strong></p>
+            <ul>
+              <li><strong>Pending — insufficient resources:</strong> "0/3 nodes are available: 3 Insufficient memory." Fix: reduce resource requests, or trigger Cluster Autoscaler by checking node capacity.</li>
+              <li><strong>ImagePullBackOff:</strong> wrong image tag, wrong registry URL, or missing imagePullSecret. Fix: verify the image exists in Nexus at the exact tag; check that the namespace has the pull secret: <code>kubectl get secret nexus-pull-secret -n production</code></li>
+              <li><strong>CrashLoopBackOff:</strong> new version crashes on startup. Check <code>kubectl logs pod-name --previous</code>. Often a missing environment variable or misconfigured ConfigMap for the new version.</li>
+              <li><strong>Readiness probe failing permanently:</strong> app starts but never passes readiness. New health endpoint path changed and Deployment probe config was not updated.</li>
+            </ul>
+            <p><strong>To roll back immediately while debugging:</strong> <code>kubectl rollout undo deployment/order-service -n production</code></p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q23: Explain PodDisruptionBudget and why it is critical for production clusters.</summary>
+          <div class="answer-content">
+            <p>A PodDisruptionBudget (PDB) sets constraints on how many pods of an application can be voluntarily disrupted simultaneously. It protects applications during node drains (cluster upgrades, spot instance terminations, manual maintenance).</p>
+            <p><strong>Why it matters:</strong> without a PDB, a Kubernetes node drain can evict all replicas of a Deployment simultaneously — causing a complete service outage. This happens during every EKS cluster version upgrade and every spot instance interruption.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-service-pdb
+spec:
+  minAvailable: 2       # At least 2 replicas must be available at all times
+  # OR: maxUnavailable: 1  # At most 1 replica can be disrupted
+  selector:
+    matchLabels:
+      app: payment-service</code></pre>
+            </div>
+            <p><strong>Rules for setting PDB values:</strong></p>
+            <ul>
+              <li>For a 3-replica Deployment: <code>minAvailable: 2</code> (allows 1 disruption at a time — prevents total outage)</li>
+              <li>For a 2-replica Deployment: <code>minAvailable: 1</code> (allows draining one node while keeping one replica running)</li>
+              <li>Never set <code>minAvailable</code> equal to replicas — the drain will block forever, preventing cluster upgrades</li>
+            </ul>
+            <p><strong>TicketFlow incident:</strong> AWS EKS upgrade to 1.28 drained all nodes in the payment-service node group in parallel. No PDB was configured. All 3 payment-service replicas were evicted simultaneously — 4 minutes of payment downtime. After the incident: PDB with <code>minAvailable: 2</code> added to all production Deployments as a mandatory Helm chart requirement enforced by OPA policy.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q24: What is the Kubernetes control plane and what happens when it goes down?</summary>
+          <div class="answer-content">
+            <p>The control plane is the brain of the cluster — it manages desired state, scheduling, and the API surface. Components:</p>
+            <ul>
+              <li><strong>kube-apiserver:</strong> the single entry point for all API operations. kubectl, controllers, and nodes all communicate with it. Stateless — can run multiple replicas.</li>
+              <li><strong>etcd:</strong> distributed key-value store holding all cluster state (pod specs, node info, secrets, configmaps). The source of truth. Requires quorum (2N+1 nodes).</li>
+              <li><strong>kube-scheduler:</strong> watches for unscheduled pods and assigns them to nodes based on resource availability, affinity rules, and taints.</li>
+              <li><strong>kube-controller-manager:</strong> runs the control loops — ReplicaSet controller, Deployment controller, endpoint controller, etc.</li>
+              <li><strong>cloud-controller-manager:</strong> integrates with cloud APIs (AWS, GCP, Azure) for load balancer provisioning, node lifecycle, storage provisioning.</li>
+            </ul>
+            <p><strong>What happens when the control plane is down:</strong></p>
+            <ul>
+              <li><strong>Running workloads continue running.</strong> Pods already scheduled on nodes keep running. The kubelet on each node manages its local containers independently of the API server.</li>
+              <li><strong>No new scheduling.</strong> New pods cannot be placed. Failed pods are not replaced because the controllers are down.</li>
+              <li><strong>No configuration changes.</strong> kubectl commands fail. Argo CD cannot sync. No deployments, no ConfigMap updates, no Secret rotations.</li>
+              <li><strong>Load balancers and Services still work</strong> — kube-proxy's iptables rules remain intact on nodes.</li>
+            </ul>
+            <p><strong>Why EKS/GKE/AKS:</strong> managed Kubernetes services run the control plane for you with multi-AZ HA. etcd is replicated across 3 AZs. The API server has multiple replicas behind a load balancer. Control plane HA is solved by the cloud provider. At TicketFlow on EKS, zero control plane incidents in 18 months.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q25: How would you design pod scheduling for a multi-tenant cluster with strict workload isolation?</summary>
+          <div class="answer-content">
+            <p>Multi-tenant isolation in Kubernetes requires layering multiple mechanisms — no single feature provides full isolation.</p>
+            <p><strong>1. Namespace-based separation</strong> — one Namespace per tenant. RBAC prevents cross-namespace access. ResourceQuotas enforce per-tenant resource budgets.</p>
+            <p><strong>2. Node groups with taints and tolerations</strong> — dedicate node groups to specific tenants or workload classes. Taint the nodes; only pods with matching tolerations are scheduled there:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Node taint (set on the node group)
+kubectl taint nodes node-group-payment dedicated=payment:NoSchedule
+
+# Pod toleration (in the payment-service Deployment)
+tolerations:
+- key: "dedicated"
+  operator: "Equal"
+  value: "payment"
+  effect: "NoSchedule"
+nodeSelector:
+  node-group: payment</code></pre>
+            </div>
+            <p><strong>3. Pod anti-affinity</strong> — spread replicas across nodes/AZs so a single node failure does not take down the service:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          app: payment-service
+      topologyKey: kubernetes.io/hostname</code></pre>
+            </div>
+            <p><strong>4. NetworkPolicies</strong> — default-deny all ingress; explicitly allow only required service-to-service communication.</p>
+            <p><strong>5. OPA/Gatekeeper policies</strong> — enforce that all pods have resource limits, non-root user, no privileged containers, and required labels.</p>
+            <p><strong>TicketFlow implementation:</strong> payment-service runs on a dedicated node group with <code>instance-type: c5.2xlarge</code> taint for PCI compliance isolation. All other services share a general node group. NetworkPolicy blocks payment-service from being called by anything except api-gateway and order-service.</p>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /.interview-section Kubernetes -->
+
+    <!-- SECTION 8 — CI/CD + GITOPS QUESTIONS -->
+    <h2 id="cicd-questions" class="section-title">CI/CD + GitOps — 8 Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q26: What is the difference between Continuous Integration, Continuous Delivery, and Continuous Deployment?</summary>
+          <div class="answer-content">
+            <p><strong>Continuous Integration (CI):</strong> every code commit triggers an automated pipeline that builds the code, runs unit tests, runs integration tests, and produces a deployable artifact. The goal: detect integration bugs within minutes of a merge, not weeks later. CI lives in the developer loop — fast feedback is everything. TicketFlow CI: GitHub Actions runs on every PR, builds the Docker image, runs tests, scans with Trivy, pushes to Nexus.</p>
+            <p><strong>Continuous Delivery (CD):</strong> the deployable artifact is automatically promoted through environments (dev → staging) and is always in a state ready to deploy to production. The production deployment itself requires a human approval gate. The pipeline handles the mechanics; a human makes the business decision. Used when production deployments have regulatory, business, or communication requirements.</p>
+            <p><strong>Continuous Deployment:</strong> production deployment is also automated — every green commit reaches production without human approval. Requires very high automated test coverage and confidence in rollback mechanisms. Suitable for companies with mature engineering cultures and feature-flag-driven releases. Netflix, Facebook, and Amazon deploy hundreds of times per day this way.</p>
+            <p><strong>TicketFlow model:</strong> CI + Continuous Delivery. Every merge to main auto-deploys to staging via Argo CD. Production deployment requires team lead approval in GitHub Actions — the actual deploy is then fully automated via Argo CD sync.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q27: What is GitOps and how does it differ from traditional CI/CD?</summary>
+          <div class="answer-content">
+            <p>GitOps is an operational model where the Git repository is the single source of truth for both application code <em>and</em> infrastructure/deployment configuration. A GitOps operator (Argo CD, Flux) continuously reconciles the cluster state with the desired state declared in Git.</p>
+            <p><strong>Traditional CI/CD:</strong> the pipeline has push-access to the cluster. A Jenkins job or GitHub Actions workflow runs <code>kubectl apply</code> or <code>helm upgrade</code> directly against the cluster. The pipeline is the agent of change.</p>
+            <p><strong>GitOps:</strong> the pipeline only pushes to Git (updating the image tag in a Helm values file). The cluster's GitOps operator detects the Git change and pulls the new state into the cluster. The cluster is the agent of change, pulling from Git — not being pushed to.</p>
+            <p><strong>Key benefits of GitOps:</strong></p>
+            <ul>
+              <li><strong>Auditability:</strong> every production change is a git commit with author, timestamp, and PR review. No undocumented <code>kubectl</code> commands.</li>
+              <li><strong>Drift detection:</strong> if someone manually patches a Deployment via kubectl, Argo CD detects the divergence from Git state and can auto-revert or alert.</li>
+              <li><strong>Rollback:</strong> <code>git revert</code> is a production rollback. No special runbook needed.</li>
+              <li><strong>Credential security:</strong> the cluster does not need push credentials to the pipeline. Argo CD only needs read access to the Git repo.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q28: Design a CI/CD pipeline for a containerized microservice that includes security scanning.</summary>
+          <div class="answer-content">
+            <p><strong>TicketFlow GitHub Actions pipeline for payment-service:</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">name: payment-service CI/CD
+on:
+  push:
+    branches: [main]
+    paths: ['payment-service/**']
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Run unit tests BEFORE building the image
+      - name: Run tests
+        run: |
+          cd payment-service
+          pip install -r requirements-dev.txt
+          pytest tests/ --cov=src --cov-fail-under=80
+
+      # 2. Build image
+      - name: Build Docker image
+        run: |
+          docker build -t nexus.ticketflow.io:5000/payment-service:${{ github.sha }} \
+            payment-service/
+
+      # 3. Security scan — fail on CRITICAL CVEs
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: nexus.ticketflow.io:5000/payment-service:${{ github.sha }}
+          exit-code: '1'
+          severity: 'CRITICAL'
+
+      # 4. Push to Nexus only if scan passes
+      - name: Push to Nexus
+        run: |
+          docker push nexus.ticketflow.io:5000/payment-service:${{ github.sha }}
+
+      # 5. Update Helm values — triggers Argo CD sync
+      - name: Update image tag in GitOps repo
+        run: |
+          git clone https://github.com/ticketflow/gitops-configs
+          cd gitops-configs
+          yq e '.payment-service.image.tag = "${{ github.sha }}"' \
+            -i apps/production/payment-service/values.yaml
+          git commit -am "chore: bump payment-service to ${{ github.sha }}"
+          git push</code></pre>
+            </div>
+            <p>Argo CD monitors the gitops-configs repo and auto-syncs the production Namespace when the values.yaml changes. The pipeline never touches the cluster directly.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q29: What is Argo CD's sync strategy and what is the difference between automated and manual sync?</summary>
+          <div class="answer-content">
+            <p>Argo CD continuously compares the live cluster state with the desired state in Git. When they diverge, the application is "OutOfSync." A sync operation reconciles the cluster to match Git.</p>
+            <p><strong>Manual sync (default):</strong> Argo CD detects drift and shows the application as OutOfSync, but waits for a human to click "Sync" in the UI or run <code>argocd app sync</code>. Appropriate for production environments where human review is required before applying changes.</p>
+            <p><strong>Automated sync:</strong> Argo CD automatically applies Git changes to the cluster without human intervention. Combined with auto-prune (deletes resources removed from Git) and self-heal (reverts manual kubectl changes). Appropriate for staging/development environments or very mature production pipelines with excellent test coverage.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-production
+spec:
+  syncPolicy:
+    automated:
+      prune: true       # Delete resources removed from Git
+      selfHeal: true    # Revert manual kubectl changes
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        maxDuration: 3m</code></pre>
+            </div>
+            <p><strong>TicketFlow strategy:</strong> staging uses automated sync with selfHeal. Production uses manual sync for the final approval step, but the sync itself is triggered by the CI pipeline via the Argo CD API after a team-lead approval in GitHub Actions — fully automated mechanics, human-controlled trigger.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q30: How do you handle secrets in a GitOps workflow where everything is in Git?</summary>
+          <div class="answer-content">
+            <p>Raw Kubernetes Secrets cannot be committed to Git — even base64-encoded values are trivially decoded. Two production-grade patterns:</p>
+            <p><strong>Option 1: Sealed Secrets (Bitnami)</strong></p>
+            <p>A controller running in the cluster holds a private key. You encrypt secrets client-side using the corresponding public key with <code>kubeseal</code>. The resulting SealedSecret CRD is safe to commit to Git — only the in-cluster controller can decrypt it:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash">kubectl create secret generic db-password \
+  --from-literal=password=mysecret \
+  --dry-run=client -o yaml | \
+  kubeseal --controller-name=sealed-secrets --format yaml \
+  > payment-service-db-sealed.yaml
+# This file is safe to commit to git</code></pre>
+            </div>
+            <p><strong>Option 2: External Secrets Operator (ESO)</strong> — preferred for cloud environments:</p>
+            <p>Secrets live in AWS Secrets Manager / HashiCorp Vault. ESO syncs them into Kubernetes Secrets on a schedule. Git only contains an ExternalSecret CRD specifying which secret to fetch and where to put it — no secret values ever touch Git:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: payment-db-secret
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: payment-db-secret   # creates this Kubernetes Secret
+  data:
+  - secretKey: DB_PASSWORD
+    remoteRef:
+      key: ticketflow/production/payment-service
+      property: db_password</code></pre>
+            </div>
+            <p><strong>TicketFlow uses ESO with AWS Secrets Manager.</strong> Secret rotation in AWS Secrets Manager automatically propagates to Kubernetes within 1 hour. Zero secrets in Git. Argo CD manages the ExternalSecret manifests (safe to commit) but never sees the secret values.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q31: What is image promotion and why is rebuilding for each environment wrong?</summary>
+          <div class="answer-content">
+            <p><strong>Image promotion</strong> is the practice of using the exact same Docker image (identified by immutable SHA digest) across all environments — dev, staging, production. The image is built once in CI and promoted through environments by updating the deployment configuration.</p>
+            <p><strong>Why rebuilding is wrong:</strong> rebuilding the same source code for staging and again for production produces two different artifacts. Even with identical source code, a rebuild can produce a different image due to:</p>
+            <ul>
+              <li>Updated base image (new security patches changed behavior)</li>
+              <li>Updated transitive dependencies (npm/pip resolved newer versions)</li>
+              <li>Different compiler optimization flags or build environment</li>
+              <li>Time-sensitive operations during build (fetching a config from a remote)</li>
+            </ul>
+            <p>When staging passes tests and production fails, you cannot determine if the failure is due to environment differences or artifact differences. With promotion, if it passed in staging, you have high confidence it will pass in production — it is the identical binary.</p>
+            <p><strong>TicketFlow promotion flow:</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># CI builds once — SHA becomes the immutable identifier
+IMAGE=nexus.ticketflow.io:5000/order-service:abc1234def5
+
+# Promotion: just update the values file for each environment
+# staging/values.yaml  → image.tag: abc1234def5
+# production/values.yaml → image.tag: abc1234def5 (after staging validation)
+
+# Verify same digest before production promotion
+docker inspect --format='{{index .RepoDigests 0}}' $IMAGE</code></pre>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q32: How would you implement a progressive delivery strategy (canary deployment) for a payment service?</summary>
+          <div class="answer-content">
+            <p>Progressive delivery for payment-service requires traffic splitting, automated analysis, and fast rollback — because payment bugs are immediately revenue-impacting.</p>
+            <p><strong>Tool: Argo Rollouts with the canary strategy</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml">apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: payment-service
+spec:
+  strategy:
+    canary:
+      steps:
+      - setWeight: 5          # 5% of traffic to new version
+      - pause: {duration: 5m} # Wait 5 minutes, monitor error rate
+      - setWeight: 25
+      - pause: {duration: 5m}
+      - setWeight: 50
+      - pause: {duration: 10m}
+      - setWeight: 100        # Promote to stable if all checks pass
+      canaryService: payment-service-canary
+      stableService: payment-service-stable
+      trafficRouting:
+        nginx:
+          stableIngress: payment-ingress
+      analysis:
+        templates:
+        - templateName: payment-error-rate
+        startingStep: 1
+---
+# Analysis Template — auto-abort if error rate exceeds 1%
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: payment-error-rate
+spec:
+  metrics:
+  - name: error-rate
+    interval: 60s
+    failureLimit: 2
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring:9090
+        query: |
+          sum(rate(http_requests_total{job="payment-service",status=~"5.."}[1m]))
+          /
+          sum(rate(http_requests_total{job="payment-service"}[1m])) * 100
+    successCondition: result[0] &lt; 1.0</code></pre>
+            </div>
+            <p><strong>Rollback is automatic:</strong> if the error rate exceeds 1% at any step, Argo Rollouts aborts the deployment and returns all traffic to the stable version — no human intervention needed, completed in under 60 seconds.</p>
+            <p><strong>TicketFlow result:</strong> three canary aborts in six months. Two were genuine regressions caught at the 5% step before any customer-visible impact. One was a noisy metric during a database maintenance window — added a maintenance-mode condition to the AnalysisTemplate to suppress false positives.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q33: Your Argo CD shows an application as "Degraded" after a sync. Walk through recovery.</summary>
+          <div class="answer-content">
+            <p>Degraded means resources were synced but are not healthy. Structured diagnosis:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># Step 1: Check which resources are unhealthy
+argocd app get ticket-service --show-operation
+# Or in UI: look at the resource tree for yellow/red indicators
+
+# Step 2: Get detailed status
+argocd app resources ticket-service
+kubectl get pods -n production -l app=ticket-service
+
+# Step 3: Describe the unhealthy resources
+kubectl describe deployment ticket-service -n production
+kubectl describe pod ticket-service-abc123 -n production
+# Focus on: Events section — shows scheduler errors, image pull failures, OOM events</code></pre>
+            </div>
+            <p><strong>Common Degraded causes:</strong></p>
+            <ul>
+              <li><strong>Deployment never reaches minAvailable:</strong> image pull failing (wrong tag, Nexus unreachable, missing pull secret), pod scheduling impossible (insufficient cluster resources), or all pods crash on startup (bad config in the new values).</li>
+              <li><strong>CronJob created but failing every run:</strong> check job logs — often a missing Secret or ConfigMap that was not created before the Job ran.</li>
+              <li><strong>HPA unable to fetch metrics:</strong> metrics-server not installed or pod metrics unavailable.</li>
+            </ul>
+            <p><strong>Recovery pattern:</strong></p>
+            <ol>
+              <li>Identify the root cause from pod events and logs.</li>
+              <li>If the new version is broken: <code>git revert</code> the values change and push — Argo CD auto-syncs back. This is the GitOps rollback.</li>
+              <li>If it is an infrastructure issue (node capacity): resolve the capacity issue and the deployment self-heals.</li>
+              <li>If a config/secret is missing: add it to the GitOps repo, sync the secrets application first, then re-sync the service application.</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /.interview-section CI/CD -->
+
+    <!-- SECTION 9 — ARCHITECTURE + SYSTEM DESIGN QUESTIONS -->
+    <h2 id="architecture-questions" class="section-title">Architecture + System Design — 10 Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q34: What is the difference between monolithic and microservices architecture?</summary>
+          <div class="answer-content">
+            <p><strong>Monolith:</strong> all application functionality is deployed as a single unit. One codebase, one deployable artifact, one process. The user-service, ticket-service, and payment-service are all one application. Simple to develop initially; every change requires deploying the whole application.</p>
+            <p><strong>Microservices:</strong> functionality is split into independent services, each deployed separately, each owning its own data store, communicating over APIs (HTTP/REST or message queues). Each service can be deployed, scaled, and developed independently.</p>
+            <p><strong>Monolith advantages:</strong> simpler local development, no network latency between components, simpler transactions (in-process), easier to debug (one log stream, one trace). Correct choice for early-stage products and small teams.</p>
+            <p><strong>Microservices advantages:</strong> independent deployability (deploy payment-service without affecting user-service), independent scaling (scale order-service during flash sales without scaling notification-service), polyglot technology choices, fault isolation (payment-service outage does not crash ticket-service).</p>
+            <p><strong>Microservices costs:</strong> distributed systems complexity (network failures, eventual consistency, distributed transactions), operational overhead (6 services × 3 replicas = 18 pods to manage), observability complexity (tracing a request across 6 services requires distributed tracing).</p>
+            <p><strong>Rule:</strong> start with a well-structured monolith. Extract services when you have identified stable boundaries with different scaling or deployment needs — not because microservices are fashionable.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q35: What is an API gateway and what problems does it solve in a microservices architecture?</summary>
+          <div class="answer-content">
+            <p>An API gateway is a single entry point for all client requests to a microservices backend. Clients talk to one address; the gateway routes to the correct service and handles cross-cutting concerns.</p>
+            <p><strong>Problems it solves:</strong></p>
+            <ul>
+              <li><strong>Client complexity:</strong> without a gateway, a mobile app must know the addresses of all 6 services. With a gateway, it knows one URL. Services can be renamed, moved, or split without changing clients.</li>
+              <li><strong>Cross-cutting concerns in one place:</strong> authentication (JWT validation), rate limiting, SSL termination, request logging, CORS headers — implemented once in the gateway, not duplicated in every service.</li>
+              <li><strong>Protocol translation:</strong> gateway accepts REST from mobile clients and translates to gRPC internally for service-to-service calls.</li>
+              <li><strong>Request aggregation:</strong> a mobile "home screen" request might need data from user-service, ticket-service, and notification-service. The gateway can fan out and aggregate in one network hop from the client's perspective.</li>
+            </ul>
+            <p><strong>TicketFlow:</strong> NGINX api-gateway handles: JWT validation (rejects unauthenticated requests before they reach services), rate limiting (100 req/s per user for ticket purchases), SSL termination, and routing — <code>/api/tickets/*</code> → ticket-service, <code>/api/payments/*</code> → payment-service, <code>/api/users/*</code> → user-service.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q36: Explain CAP theorem in plain terms and give an example of a real trade-off.</summary>
+          <div class="answer-content">
+            <p>CAP theorem states that a distributed system can guarantee at most two of these three properties simultaneously:</p>
+            <ul>
+              <li><strong>Consistency (C):</strong> every read returns the most recent write or an error. All nodes see the same data at the same time.</li>
+              <li><strong>Availability (A):</strong> every request receives a response (not necessarily the latest data). The system never returns an error due to unavailability.</li>
+              <li><strong>Partition tolerance (P):</strong> the system continues operating even if network messages between nodes are lost or delayed.</li>
+            </ul>
+            <p>In practice, network partitions happen — you cannot design around them. So the real choice is C vs A during a partition.</p>
+            <p><strong>CP systems</strong> (choose consistency over availability): during a partition, refuse requests rather than return stale data. Examples: ZooKeeper, etcd, Consul, MongoDB (with write concern majority). Use when stale reads are unacceptable — financial balances, inventory counts, distributed locks.</p>
+            <p><strong>AP systems</strong> (choose availability over consistency): during a partition, continue serving requests but may return stale data. Examples: Cassandra, DynamoDB (eventually consistent reads), CouchDB. Use when stale reads are acceptable — user profile data, shopping cart (eventual consistency is fine, the cart reconciles), DNS.</p>
+            <p><strong>TicketFlow trade-off:</strong> ticket inventory uses a CP datastore (PostgreSQL with strong consistency). We would rather return an error during a partition than oversell tickets. User profile data (last login, preferences) uses an AP cache (DynamoDB) — showing a 30-second-old profile is acceptable; an error is not.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q37: What are the patterns for handling distributed transactions in microservices?</summary>
+          <div class="answer-content">
+            <p>Microservices own their own databases — there is no shared database, so traditional ACID transactions across services are impossible. Two main patterns:</p>
+            <p><strong>Saga Pattern:</strong> a long-lived transaction decomposed into a sequence of local transactions, each publishing an event or message. Two implementations:</p>
+            <ul>
+              <li><strong>Choreography saga:</strong> each service listens for events and reacts. No central coordinator. Simple for small flows; hard to debug and trace for complex ones.</li>
+              <li><strong>Orchestration saga:</strong> a central saga orchestrator tells each service what to do and handles failures. Explicit compensation transactions undo completed steps when a later step fails.</li>
+            </ul>
+            <div class="code-wrapper">
+              <pre><code class="language-text">TicketFlow — Create Order Orchestration Saga:
+
+1. order-service creates order (status: PENDING)
+2. Orchestrator → payment-service: charge card
+   - Success → continue
+   - Failure → compensate: cancel order in order-service
+3. Orchestrator → ticket-service: reserve ticket
+   - Success → continue
+   - Failure → compensate: refund payment, cancel order
+4. Orchestrator → notification-service: send confirmation
+5. order-service updates order (status: CONFIRMED)</code></pre>
+            </div>
+            <p><strong>Transactional Outbox Pattern:</strong> solves the dual-write problem (write to DB + publish to message queue atomically). Write the event to an outbox table in the same DB transaction as the business data. A separate process tails the outbox table and publishes events to Kafka. Ensures exactly-once event publication even if the service crashes between the write and the publish.</p>
+            <p><strong>Rule:</strong> avoid distributed transactions where possible by designing service boundaries around aggregate roots. If two things must always change atomically, they may belong in the same service.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q38: What is the difference between horizontal and vertical scaling? When would you use each?</summary>
+          <div class="answer-content">
+            <p><strong>Vertical scaling (scale up):</strong> add more resources to the existing instance — more CPU cores, more RAM, faster storage. Simple — no application changes required. Limited by the largest available hardware. Creates a single point of failure.</p>
+            <p><strong>Horizontal scaling (scale out):</strong> add more instances of the application. Distribute load across multiple machines. Requires the application to be stateless (no local state between requests) or to externalize state (sessions in Redis, uploads in S3). No hardware upper bound — add as many instances as needed.</p>
+            <p><strong>When to use vertical:</strong> stateful systems that are hard to shard (legacy databases, single-threaded apps), early-stage products where horizontal complexity is premature, or as a short-term fix while engineering horizontal scalability.</p>
+            <p><strong>When to use horizontal:</strong> stateless web services, microservices, API servers, queue consumers — anything where you can run multiple identical copies. This is the default for Kubernetes workloads.</p>
+            <p><strong>TicketFlow approach:</strong></p>
+            <ul>
+              <li>user-service, ticket-service, payment-service, order-service: horizontal — HPA scales 2 to 20 replicas based on CPU.</li>
+              <li>PostgreSQL: vertical for the primary (largest RDS instance class), horizontal for read replicas.</li>
+              <li>Redis: vertical — single-threaded architecture means horizontal sharding only helps for keyspace partitioning, not throughput per key.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q39: How would you design a system to handle 100x traffic spikes (e.g., ticket sales for a major event)?</summary>
+          <div class="answer-content">
+            <p>This is a well-known TicketFlow challenge — a concert announcement drops at 10 AM and 500K users simultaneously try to buy tickets. The system must handle this without overselling, without going down, and ideally without 10x normal infrastructure cost during quiet periods.</p>
+            <p><strong>Design layers:</strong></p>
+            <ol>
+              <li><strong>CDN + Edge caching:</strong> static assets (event pages, images) served from CloudFront. Eliminates 70% of traffic before it hits the origin.</li>
+              <li><strong>Virtual waiting room:</strong> at sale start, new requests enter a queue. Users see their position. Queue issues tokens to drain the backend at a controlled rate. Prevents the backend from ever seeing 500K concurrent requests — it sees a steady 10K/min for 50 minutes.</li>
+              <li><strong>Pre-scale before the event:</strong> 30 minutes before sale start, scale order-service and ticket-service to maximum replicas. Cluster Autoscaler has 5-minute lag — pre-warm eliminates that risk.</li>
+              <li><strong>Inventory as a distributed counter:</strong> ticket inventory held in Redis with atomic DECR. One DB write per confirmed purchase — Redis absorbs the concurrency.</li>
+              <li><strong>Async payment:</strong> accept order synchronously, process payment asynchronously via a Kafka queue. User gets instant "order reserved" confirmation; payment processes within seconds. Decouples the slow payment path from the critical path.</li>
+              <li><strong>Circuit breaker on payment-service:</strong> if payment processor is slow, open the circuit and queue requests rather than letting latency pile up and cascade.</li>
+            </ol>
+            <p><strong>Result at TicketFlow:</strong> 50K tickets for a stadium event sold in 3 minutes. Peak load: 80K req/s to the waiting room, 3K req/s to order-service. Zero oversells. Zero downtime. Infrastructure cost: 4× normal for 20 minutes.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q40: What is idempotency and why is it critical in distributed systems?</summary>
+          <div class="answer-content">
+            <p>An operation is idempotent if performing it multiple times produces the same result as performing it once. <code>GET /tickets/123</code> is naturally idempotent — calling it 100 times returns the same ticket. <code>POST /orders</code> is not — calling it 100 times creates 100 orders.</p>
+            <p><strong>Why distributed systems require idempotency:</strong> in any distributed system, requests may be retried due to network failures, timeouts, or consumer restarts. Without idempotency, a retried payment creates a duplicate charge. A retried order creates a duplicate booking.</p>
+            <p><strong>Implementation: idempotency keys</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-bash"># Client generates a unique key per logical operation
+# Sends it with every attempt of that operation
+POST /payments
+Idempotency-Key: order-abc123-payment-attempt-1
+Content-Type: application/json
+{"amount": 150.00, "card": "tok_visa"}
+
+# payment-service stores the result keyed by idempotency key
+# On retry: returns the stored result immediately without re-processing
+# Prevents duplicate charges even if the client retries 5 times</code></pre>
+            </div>
+            <p><strong>TicketFlow implementation:</strong> payment-service uses a Redis cache keyed by <code>idempotency_key</code> with 24-hour TTL. On first call: process payment, store result in Redis. On subsequent calls with same key: return cached result, skip payment processor. This pattern prevented 3 duplicate charges in the first month after a Kafka consumer restart bug caused message redelivery.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q41: Design the data architecture for a microservices system — how do you handle the database-per-service pattern in practice?</summary>
+          <div class="answer-content">
+            <p>Database-per-service means each service owns its data and no other service can query it directly. This enables independent deployment and technology choices but creates challenges for queries that span service boundaries.</p>
+            <p><strong>TicketFlow data ownership:</strong></p>
+            <ul>
+              <li>user-service → PostgreSQL (users, profiles, authentication)</li>
+              <li>ticket-service → PostgreSQL + Redis (ticket inventory, reservations, Redis for hot inventory counts)</li>
+              <li>payment-service → PostgreSQL (transactions, audit log — isolated for PCI compliance)</li>
+              <li>order-service → PostgreSQL (orders, order items, status history)</li>
+              <li>notification-service → DynamoDB (notification templates, delivery logs — high write volume, no relational queries)</li>
+            </ul>
+            <p><strong>Cross-service data challenges and patterns:</strong></p>
+            <p><strong>Challenge 1: Reporting queries that join across services.</strong> Solution: CQRS + an event-sourced read model. Each service publishes domain events to Kafka. A reporting service consumes all events and maintains a denormalized read model (e.g., in Elasticsearch) optimized for the report queries. The reporting service has eventual consistency — fine for analytics, not for transactional queries.</p>
+            <p><strong>Challenge 2: Referential integrity across services.</strong> order-service stores <code>user_id</code> and <code>ticket_id</code> as foreign-key-style references, but there is no database-level foreign key constraint across services. Solution: validate references at write time via synchronous API call, and handle eventual deletion gracefully (tombstone records, soft deletes, explicit "account deleted" event handling).</p>
+            <p><strong>Challenge 3: Shared lookup data</strong> (countries, currencies, event categories). Solution: either replicate via events (each service maintains its own copy), or extract a dedicated read-only reference data service with aggressive caching.</p>
+            <p><strong>Rule:</strong> resist the temptation to share a database between services for "convenience." The short-term convenience creates long-term coupling — you cannot upgrade service A's schema without coordinating with service B, defeating the purpose of microservices.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q42: How do you define and meet SLOs? Walk through setting one for a ticketing API.</summary>
+          <div class="answer-content">
+            <p>SLO (Service Level Objective) is a target value for a service reliability metric. It is the internal commitment that drives engineering decisions. SLA (Service Level Agreement) is the external, contractual commitment with customers — typically more lenient than the SLO.</p>
+            <p><strong>SLO definition process for TicketFlow's ticket purchase API:</strong></p>
+            <p><strong>Step 1: Define the SLI (Service Level Indicator)</strong> — the measurable signal:</p>
+            <ul>
+              <li>Availability: <code>successful_requests / total_requests</code> (5xx = failure)</li>
+              <li>Latency: <code>P99 response time</code> for <code>POST /orders</code></li>
+            </ul>
+            <p><strong>Step 2: Set the SLO target based on user impact analysis:</strong></p>
+            <ul>
+              <li>Availability SLO: 99.9% over 30 days (allows 43.8 min downtime/month)</li>
+              <li>Latency SLO: P99 &lt; 500ms over 30 days</li>
+            </ul>
+            <p><strong>Step 3: Calculate error budget:</strong> 0.1% of requests can fail. At 100K req/day, that is 100 failing requests/day. When the budget is consumed, reliability work takes priority over feature development.</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Prometheus alert — SLO burn rate alert (Alertmanager)
+alert: HighErrorRateBurndown
+expr: |
+  (
+    sum(rate(http_requests_total{job="order-service",status=~"5.."}[1h]))
+    /
+    sum(rate(http_requests_total{job="order-service"}[1h]))
+  ) > 0.001 * 14.4  # 14.4x burn rate = budget exhausted in 2 days
+for: 5m
+labels:
+  severity: critical
+annotations:
+  summary: "order-service burning error budget at 14x rate"</code></pre>
+            </div>
+            <p><strong>Step 4: Make engineering decisions from the SLO:</strong> if P99 is at 490ms and trending toward the 500ms SLO, that drives a performance improvement sprint — not because someone is complaining, but because the data shows future SLO breach. SLOs transform reliability from subjective ("feels slow") to objective ("burning budget at 3x rate").</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q43: How would you approach migrating a monolith to microservices without downtime?</summary>
+          <div class="answer-content">
+            <p>The strangler fig pattern is the standard approach — incrementally replace the monolith by routing traffic for specific capabilities to new services, until the monolith handles nothing and can be decommissioned.</p>
+            <p><strong>Migration phases for TicketFlow:</strong></p>
+            <p><strong>Phase 1: Identify seams.</strong> Find capabilities with clean data and API boundaries. Start with the simplest, most isolated one. notification-service was first — it had no reads from the monolith's DB, only received events.</p>
+            <p><strong>Phase 2: Build the new service in parallel.</strong> New notification-service running in Kubernetes, consuming events from the monolith via Kafka. Zero traffic initially.</p>
+            <p><strong>Phase 3: Shadow mode.</strong> Both the monolith and new service receive all events. Compare outputs. Fix divergences in the new service until they match.</p>
+            <p><strong>Phase 4: Traffic migration via API gateway.</strong> Route 5% of notification traffic to new service. Monitor. Increase to 50%, then 100%. The monolith's notification code still runs but its traffic goes to zero. Rollback = change a single NGINX config line.</p>
+            <p><strong>Phase 5: Decommission.</strong> Delete the notification code from the monolith. Migrate the data. Remove the NGINX routing fallback.</p>
+            <p><strong>Rules for safe migration:</strong></p>
+            <ul>
+              <li>Never cut over a DB until after the code migration is stable</li>
+              <li>Dual-write patterns for data migration (write to both old and new DB simultaneously, validate, then switch reads)</li>
+              <li>Feature flags to roll back in seconds without a deployment</li>
+              <li>Never try to split multiple services simultaneously — one at a time</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /.interview-section Architecture -->
+
+    <!-- SECTION 10 — OBSERVABILITY + SECURITY QUESTIONS -->
+    <h2 id="observability-questions" class="section-title">Observability + Security — 7 Questions</h2>
+
+    <div class="interview-section">
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#d1fae5;color:#065f46;margin-right:8px;">Junior</span>Q44: What are the three pillars of observability? How do they differ?</summary>
+          <div class="answer-content">
+            <p>The three pillars of observability are <strong>metrics</strong>, <strong>logs</strong>, and <strong>traces</strong>. They answer different questions about your system:</p>
+            <p><strong>Metrics:</strong> numerical measurements aggregated over time. Answer: "What is happening?" CPU at 85%, error rate at 0.3%, P99 latency 340ms, queue depth 1200. Stored efficiently as time series (Prometheus). Low cardinality, queryable. Drive dashboards and alerts. Can tell you <em>something is wrong</em> but not <em>why</em>.</p>
+            <p><strong>Logs:</strong> discrete events with context. Answer: "What happened?" "2024-01-15 10:23:41 ERROR payment-service — Stripe timeout after 3s for order abc123 user 456." High cardinality, full detail. Expensive to store at scale. Drive investigation after an alert fires. TicketFlow: Loki with Grafana, structured JSON logs from all services.</p>
+            <p><strong>Traces:</strong> the path of a single request across multiple services. Answer: "Where did the time go?" A 2-second order creation: api-gateway 5ms → order-service 1800ms (DB query 1750ms!) → notification-service 200ms. Distributed tracing with correlation IDs. TicketFlow uses OpenTelemetry + Jaeger/Tempo. Essential for diagnosing latency in microservices — without traces, a slow endpoint could be any of 6 services.</p>
+            <p><strong>Effective observability uses all three together:</strong> a metric alert fires → you query logs for the time window → a log shows a specific request ID → you look up the trace for that request ID to pinpoint the slow span.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q45: How would you debug a latency spike in production using the observability stack?</summary>
+          <div class="answer-content">
+            <p><strong>Scenario:</strong> P99 latency for <code>POST /orders</code> at TicketFlow spiked from 200ms to 3200ms at 14:30. An alert fired. Structured debugging:</p>
+            <p><strong>Step 1: Metrics — establish scope.</strong> Open Grafana. Check which service's latency spiked. Was it order-service, or did the latency originate in a downstream dependency? Check CPU, memory, and active connections for order-service during the window.</p>
+            <p><strong>Step 2: Correlate with infrastructure events.</strong> Did a deployment happen at 14:30? Did HPA scale down replicas? Did a cronjob run at that time? Check the Kubernetes events panel in Grafana.</p>
+            <p><strong>Step 3: Logs — find failing requests.</strong> In Loki:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-logql">{app="order-service"} |= "duration_ms" | json | duration_ms > 1000
+# Find slow requests — each log line should have a trace_id</code></pre>
+            </div>
+            <p><strong>Step 4: Traces — find the slow span.</strong> Take the trace_id from a slow log entry, open Jaeger/Tempo. The flame graph shows: order-service spent 2900ms in a single database query. The query was a <code>SELECT * FROM orders WHERE user_id = ?</code> — missing an index.</p>
+            <p><strong>Step 5: Fix and verify.</strong> <code>CREATE INDEX CONCURRENTLY idx_orders_user_id ON orders(user_id);</code> — CONCURRENTLY means no table lock, zero downtime. P99 returns to 180ms within 2 minutes of index creation. Post-mortem: add slow query logging threshold of 100ms; add the query to the regression test suite.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fef3c7;color:#92400e;margin-right:8px;">Mid</span>Q46: What is Kubernetes RBAC and how would you design it for a team of 20 engineers?</summary>
+          <div class="answer-content">
+            <p>RBAC (Role-Based Access Control) controls who can perform which API operations on which Kubernetes resources. Components: <strong>Role</strong> or <strong>ClusterRole</strong> (defines permissions), <strong>ServiceAccount/User/Group</strong> (the subject), and <strong>RoleBinding</strong> or <strong>ClusterRoleBinding</strong> (binds role to subject).</p>
+            <p><strong>RBAC design for TicketFlow — 20 engineers across 3 teams:</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Namespace-scoped developer role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+  namespace: production
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]         # Read: allowed
+- apiGroups: ["apps"]
+  resources: ["deployments/scale"]
+  verbs: ["update"]                        # Manual scale: allowed
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "pods/exec"]
+  verbs: ["get", "list", "watch", "create"] # Debug: allowed
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: []                                # Secrets: forbidden</code></pre>
+            </div>
+            <p><strong>Role hierarchy:</strong></p>
+            <ul>
+              <li><strong>developer:</strong> read + logs + exec in team namespace. Cannot modify deployments or read secrets.</li>
+              <li><strong>senior-developer:</strong> adds ability to patch deployments, restart pods.</li>
+              <li><strong>platform-engineer:</strong> full access to development/staging namespaces; read-only to production.</li>
+              <li><strong>sre-oncall:</strong> full access to production during incident (time-limited via JIT access with Teleport or AWS SSO).</li>
+              <li><strong>ci-service-account:</strong> minimal — only allowed to update image tags on specific Deployments. No delete, no secret access.</li>
+            </ul>
+            <p><strong>Key principle:</strong> no human has permanent write access to production. Access is granted just-in-time during incidents and revoked automatically. All access is logged via Kubernetes audit logs shipped to CloudWatch.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q47: How would you implement zero-trust networking in a Kubernetes cluster?</summary>
+          <div class="answer-content">
+            <p>Zero trust means: no implicit trust based on network location. Every service-to-service communication is authenticated, authorized, and encrypted — even within the cluster.</p>
+            <p><strong>Layer 1: NetworkPolicies — default deny all, explicit allow.</strong></p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Default deny all ingress in production namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}    # applies to all pods
+  policyTypes: [Ingress, Egress]
+
+---
+# Explicitly allow: only api-gateway can reach ticket-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ticket-service-ingress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: ticket-service
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    ports:
+    - port: 8080</code></pre>
+            </div>
+            <p><strong>Layer 2: mTLS via Service Mesh (Istio / Linkerd).</strong> Even with NetworkPolicies, traffic between pods is unencrypted by default. A service mesh injects a sidecar proxy (Envoy) into every pod. Sidecars handle mTLS automatically — every connection is mutually authenticated and encrypted. A compromised pod cannot impersonate another service because it lacks the correct TLS certificate.</p>
+            <p><strong>Layer 3: Authorization policies in Istio.</strong> Beyond encryption, Istio AuthorizationPolicy enforces that order-service may only call <code>POST /payments</code> on payment-service — not admin endpoints. Layer 7 policy enforcement.</p>
+            <p><strong>Layer 4: Workload Identity.</strong> Pods use Kubernetes ServiceAccounts mapped to IAM roles (IRSA on EKS). payment-service's ServiceAccount has exactly the AWS permissions it needs — read from Secrets Manager, write to S3 for receipts. Nothing more. If the pod is compromised, the blast radius is contained to those specific AWS actions.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q48: How do you detect and respond to a compromised container in production?</summary>
+          <div class="answer-content">
+            <p>Container compromise detection requires runtime security tooling — static image scanning is insufficient because the compromise happens at runtime.</p>
+            <p><strong>Detection layer 1: Falco (runtime threat detection).</strong> Falco monitors system calls in real time using eBPF. Pre-built rules detect anomalous behavior:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Falco rules — examples of what triggers alerts
+- rule: Shell Spawned in Container
+  desc: A shell was spawned in a container (potential compromise)
+  condition: spawned_process and container and shell_procs
+  output: "Shell in container (user=%user.name command=%proc.cmdline)"
+  priority: WARNING
+
+- rule: Unexpected Outbound Connection
+  desc: Container connecting to unexpected external IP
+  condition: outbound and not expected_outbound_destinations
+  output: "Unexpected outbound from %container.name to %fd.rip"
+  priority: CRITICAL</code></pre>
+            </div>
+            <p><strong>Detection layer 2: anomaly detection on metrics.</strong> Sudden CPU spike on a payment-service pod that normally uses 200m CPU is suspicious. An alert on "pod CPU 10× higher than 7-day average" can detect crypto-mining malware.</p>
+            <p><strong>Detection layer 3: audit logs.</strong> Kubernetes audit logs record every API call. A compromised container that attempts to read secrets or escalate privileges via the Kubernetes API generates audit log entries.</p>
+            <p><strong>Response runbook for TicketFlow:</strong></p>
+            <ol>
+              <li><strong>Isolate immediately:</strong> apply a NetworkPolicy that blocks all egress from the compromised pod. Remove it from the Service endpoints (remove readiness label). Do not delete it — preserve forensic evidence.</li>
+              <li><strong>Capture forensics:</strong> <code>kubectl exec</code> into the pod to capture running processes, network connections, modified files. Or use <code>kubectl debug</code> with an ephemeral container if exec is too risky.</li>
+              <li><strong>Rotate all secrets the pod had access to.</strong> Assume all secrets accessible via the pod's ServiceAccount are compromised. Rotate immediately.</li>
+              <li><strong>Investigate the root cause:</strong> which CVE was exploited? Which image layer? Was it a supply chain attack on a base image or dependency?</li>
+              <li><strong>Deploy a clean replacement</strong> from a verified image digest.</li>
+              <li><strong>Post-mortem and preventive controls.</strong></li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q49: Design an alerting strategy that minimizes false positives while catching real incidents before users notice.</summary>
+          <div class="answer-content">
+            <p>Alert fatigue is one of the most dangerous conditions in an ops team — when every alert is a false positive, engineers stop responding and the real incident goes unnoticed. The solution is a tiered, symptom-based alerting strategy.</p>
+            <p><strong>Principle 1: Alert on symptoms, not causes.</strong> Users experience slow responses — alert on latency and error rate, not on CPU or memory. CPU at 90% might be normal during batch processing. 5% error rate is never normal.</p>
+            <p><strong>Principle 2: Multi-window burn rate alerts (Google SRE model).</strong> A single threshold alert fires for brief spikes that resolve on their own. Burn rate compares current error rate against the rate that would exhaust the error budget:</p>
+            <div class="code-wrapper">
+              <pre><code class="language-yaml"># Page immediately (critical) — burning budget in 1 hour
+alert: ErrorBudgetBurnCritical
+expr: |
+  error_rate_1h > (14.4 * monthly_error_budget_rate) AND
+  error_rate_5m > (14.4 * monthly_error_budget_rate)
+
+# Ticket (warning) — burning budget in 6 hours
+alert: ErrorBudgetBurnWarning
+expr: |
+  error_rate_6h > (6 * monthly_error_budget_rate) AND
+  error_rate_30m > (6 * monthly_error_budget_rate)</code></pre>
+            </div>
+            <p><strong>Principle 3: Alert ownership.</strong> Every alert must have a clear owner (team), a documented runbook link in the annotation, and a resolution time expectation. If an alert has no runbook, it is not ready for production.</p>
+            <p><strong>Principle 4: Dead man's switch.</strong> Alert if your alerting pipeline itself is silent — if Prometheus has not scraped payment-service in 5 minutes, alert immediately. You cannot trust absence of alerts if the monitoring itself could be broken.</p>
+            <p><strong>TicketFlow alert inventory:</strong> 12 paging alerts (all symptom-based, SLO-driven), 28 warning tickets (leading indicators: disk usage >70%, certificate expiry &lt;30 days, HPA at max replicas). Zero noisy alerts — if an alert fires more than twice without incident action, it is reviewed and either fixed or deleted within 48 hours.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="interview-q">
+        <details>
+          <summary><span class="tag" style="background:#fee2e2;color:#991b1b;margin-right:8px;">Senior</span>Q50: Walk through a complete post-mortem for a production incident. What makes a post-mortem effective?</summary>
+          <div class="answer-content">
+            <p>A post-mortem is a structured retrospective after a production incident aimed at understanding root causes and preventing recurrence. The most important rule: <strong>blameless</strong>. Engineers make decisions based on the information available at the time. The system had the conditions that allowed the failure — fix the system, not the person.</p>
+            <p><strong>TicketFlow incident — payment-service outage, 23 minutes:</strong></p>
+            <p><strong>Timeline:</strong></p>
+            <ul>
+              <li>14:30 — payment-service error rate rises to 45%. Alertmanager fires P1 alert.</li>
+              <li>14:33 — on-call engineer acknowledges. Initial investigation: all pods CrashLoopBackOff.</li>
+              <li>14:35 — previous container logs show: <code>ERROR: Cannot connect to vault.internal:8200 — connection refused</code></li>
+              <li>14:37 — root cause identified: HashiCorp Vault was upgraded 10 minutes earlier. The new Vault version changed the AppRole mount path. payment-service's startup sequence cannot fetch its DB credentials and crashes.</li>
+              <li>14:41 — hotfix: updated Vault mount path in payment-service ConfigMap. Rolling restart begins.</li>
+              <li>14:53 — all pods healthy. Error rate returns to 0.02%. Incident resolved.</li>
+            </ul>
+            <p><strong>Root cause:</strong> Vault upgrade was not included in payment-service's change dependency matrix. No integration test verified the startup credential fetch after infrastructure changes.</p>
+            <p><strong>Action items (time-boxed, assigned owners):</strong></p>
+            <ol>
+              <li>[SRE — 1 week] Add Vault AppRole integration test to payment-service CI pipeline. Fails CI if mount path changes.</li>
+              <li>[Platform — 2 weeks] Implement graceful startup retry — payment-service should retry credential fetch with exponential backoff for 5 minutes before crashing, absorbing transient Vault restarts.</li>
+              <li>[SRE — 3 days] Add a synthetic canary that tests payment-service startup from scratch every 30 minutes in staging.</li>
+              <li>[Platform — 1 week] Create infrastructure change communication process — Vault/Kubernetes upgrades require notification to service owners 48 hours in advance.</li>
+            </ol>
+            <p><strong>What makes a post-mortem effective:</strong> specific action items with owners and deadlines (not vague "improve testing"), root cause analysis that asks "why" five times (5 Whys), public sharing with the whole engineering org (others learn from it), and a follow-up review in 30 days to verify all action items were completed.</p>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /.interview-section Observability + Security -->
+
+    <!-- SECTION 11 — PRODUCTION CHECKLIST -->
+    <h2 id="interview-prep-checklist" class="section-title">Interview Preparation Checklist</h2>
+
+    <ul class="checklist">
+      <li>Can explain Docker image vs container without hesitation (Q1)</li>
+      <li>Understands layer caching and writes Dockerfiles in the correct order (Q2)</li>
+      <li>Can explain namespaces + cgroups without looking it up (Q3)</li>
+      <li>Knows the difference between Deployment, ReplicaSet, StatefulSet and when to use each (Q12, Q17)</li>
+      <li>Can describe the Kubernetes control plane and what survives its failure (Q24)</li>
+      <li>Understands liveness vs readiness vs startup probes and the consequences of misconfiguring each (Q16)</li>
+      <li>Can design a CI/CD pipeline end-to-end including security scanning (Q28)</li>
+      <li>Understands GitOps and can explain why it is different from traditional push-based CI/CD (Q27)</li>
+      <li>Can explain CAP theorem with a concrete trade-off example (Q36)</li>
+      <li>Understands SLOs, error budgets, and burn rate alerts (Q42, Q49)</li>
+      <li>Can describe a Saga pattern for distributed transactions (Q37)</li>
+      <li>Can walk through a real incident post-mortem with blameless analysis and action items (Q50)</li>
+      <li>Practices all senior-level answers using the STAR method with TicketFlow scenarios</li>
+      <li>Has prepared 2–3 real production incidents from their own experience to use as examples</li>
+      <li>Can draw the TicketFlow architecture from memory: services, registries, K8s components, CI/CD flow</li>
+    </ul>
+
+    <!-- SECTION 12 — ARCHITECT NOTE -->
+    <h2 id="final-perspective" class="section-title">Final Architect Perspective</h2>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect Insight</span>
+      <p>The questions in this guide are not trivia tests. Every one of them was designed to surface a specific engineering judgment: How do you reason about trade-offs? How do you behave under production pressure? How do you learn from failure?</p>
+      <p>The engineers who pass senior system design interviews are not the ones with the most memorized definitions. They are the ones who can say: "In my experience, we faced exactly this problem at [company]. Here is what we tried, what failed, what we shipped, and what we would do differently." That lived specificity — even when the scenario is TicketFlow rather than your actual employer — is what distinguishes a candidate who has <em>thought deeply</em> from one who has <em>read widely</em>.</p>
+      <p>Use this portal. Build TicketFlow mentally. Every page in this course is a layer of that architecture. By the time you have read all 24 pages, you should be able to describe a complete system — from Dockerfile to Kubernetes to Argo CD to Prometheus — as if you built it yourself. Because in your imagination, you did.</p>
+    </div>
+
+  </div><!-- /.page-content -->
+</main>
+
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

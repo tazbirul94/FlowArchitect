@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArgoCD &amp; GitOps — DevArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="17" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
+    <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
+    <nav id="sidebar-nav"></nav>
+  </aside>
+
+  <!-- Mobile header -->
+  <div id="mobile-header">
+    <button id="hamburger">☰</button>
+    <span style="font-weight:700;">DevArchitect</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- Main content -->
+  <main id="main-content">
+    <div class="top-bar">
+      <span class="breadcrumb">Helm &amp; GitOps → ArgoCD &amp; GitOps</span>
+      <button id="theme-toggle-desktop" id="theme-toggle">🌙</button>
+    </div>
+    <div class="page-content">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           PAGE HEADER
+           ═══════════════════════════════════════════════════════════ -->
+      <div class="page-header">
+        <div class="page-meta">
+          <span class="level-badge badge-advanced">Advanced</span>
+          <span class="tag">⏱ 40 min read</span>
+          <span class="tag">Epic 5</span>
+        </div>
+        <h1 class="page-title">ArgoCD &amp; GitOps</h1>
+        <p class="page-subtitle">Git as the single source of truth — automatically reconcile your Kubernetes cluster state to whatever is declared in your repository.</p>
+      </div>
+
+      <div class="toc-placeholder"></div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 1 — THE STORY
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="story" class="section-title">The Story Behind GitOps</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏦 The Bank That Deployed With Runbooks</span>
+        <p>In 2019, a well-known fintech company had 40 microservices running on Kubernetes. Deployments were done by an operations team who would SSH into the cluster, run <code>kubectl apply -f ...</code> commands from their laptops, and record what they changed in a Confluence page. Rollbacks meant trying to remember which YAML was applied last week and hoping someone had saved it.</p>
+        <p>On a Friday afternoon, a routine deployment to the payment-service contained a misconfigured resource limit. Within minutes, the pods were OOMKilled and the service went down. The on-call engineer started reverting changes — but which changes? In what order? Which environment variables had been tweaked directly on the cluster since the last deployment?</p>
+        <p>Four hours of downtime. A post-mortem that identified a single root cause: <strong>there was no single source of truth for what the cluster was supposed to look like</strong>. The cluster had drifted far from anything written down. Nobody could confidently describe the live state of the system.</p>
+        <p>GitOps, and specifically ArgoCD, was invented to solve exactly this problem. The rule is simple: <strong>if it is not in Git, it does not exist.</strong></p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 2 — WHAT IS GITOPS?
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="what-is-gitops" class="section-title">What is GitOps?</h2>
+
+      <div class="beginner-note">
+        <span class="beginner-note-label">🌱 Beginner Analogy</span>
+        <p>Imagine your home thermostat. You set it to 21°C. The thermostat continuously checks the current room temperature and turns the heating on or off to match. It does not care how the temperature got where it is — it just keeps correcting it back to 21°C.</p>
+        <p>GitOps is the thermostat for your Kubernetes cluster. Your Git repository declares "the cluster should look like this." ArgoCD continuously checks whether the actual cluster matches that declaration and corrects any drift automatically. Someone deleted a deployment manually? ArgoCD recreates it. A ConfigMap was edited directly? ArgoCD reverts it. The desired state in Git always wins.</p>
+      </div>
+
+      <p>GitOps is a set of operational principles, not a specific technology. The four core principles (from the OpenGitOps specification) are:</p>
+
+      <ol>
+        <li><strong>Declarative</strong> — the desired state of the system is expressed declaratively (YAML manifests, Helm values, Kustomize overlays). You describe <em>what</em> you want, not <em>how</em> to get there.</li>
+        <li><strong>Versioned and immutable</strong> — the desired state is stored in a version control system (Git). Every change is a commit. Every state in history is reproducible. Rollback is just checking out a previous commit.</li>
+        <li><strong>Pulled automatically</strong> — approved changes are applied to the system automatically by a software agent (ArgoCD). Humans do not manually run apply commands. The agent pulls from Git — Git never pushes to the cluster.</li>
+        <li><strong>Continuously reconciled</strong> — software agents continuously observe the actual state and attempt to match it to the desired state. Drift is automatically corrected without human intervention.</li>
+      </ol>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 3 — ARGOCD ARCHITECTURE
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="argocd-architecture" class="section-title">ArgoCD Architecture</h2>
+
+      <p>ArgoCD is a Kubernetes-native GitOps tool. It runs inside the cluster it manages and has three core components:</p>
+
+      <h3 class="subsection-title">1. Application Controller</h3>
+      <p>The heart of ArgoCD. A Kubernetes controller that continuously watches two things: the desired state (Git repository) and the live state (Kubernetes API). It compares them and determines whether the application is <strong>Synced</strong>, <strong>OutOfSync</strong>, or in an <strong>Unknown</strong> state. When configured for auto-sync, it drives reconciliation loops to eliminate drift.</p>
+
+      <h3 class="subsection-title">2. Repo Server</h3>
+      <p>Handles all interaction with Git repositories. It clones repos, fetches updates on a configurable polling interval (default 3 minutes), and generates Kubernetes manifests from source templates. The Repo Server supports three source types: raw YAML manifests, Helm charts (generating manifests from <code>values.yaml</code>), and Kustomize overlays. The generated manifests are cached to avoid expensive template rendering on every sync check.</p>
+
+      <h3 class="subsection-title">3. API Server</h3>
+      <p>Exposes a gRPC/HTTP API consumed by both the ArgoCD Web UI and the <code>argocd</code> CLI. Handles authentication (local users, SSO via Dex — OIDC, SAML, GitHub OAuth), authorization (RBAC policies for which teams can sync which applications), and webhook receivers (GitHub/GitLab webhooks trigger immediate sync checks instead of waiting for the polling interval).</p>
+
+      <h3 class="subsection-title">4. Dex (Identity Service)</h3>
+      <p>An optional OIDC identity provider bundled with ArgoCD. Delegates authentication to external providers: GitHub OAuth, Google Workspace, Okta, Azure AD. In enterprise environments, Dex is how SSO is wired into ArgoCD so engineers log in with their corporate credentials.</p>
+
+      <h3 class="subsection-title">5. Redis</h3>
+      <p>ArgoCD uses Redis as an in-memory cache for repository state, application manifests, and cluster live state data. Reduces load on both the Kubernetes API server and the Git repository by caching results of expensive operations.</p>
+
+      <div class="production-tip">
+        <span class="production-tip-label">💡 Architecture Note</span>
+        <p>ArgoCD is a <strong>pull-based</strong> GitOps tool — the agent inside the cluster pulls from Git. This is architecturally superior to push-based CI/CD (where GitHub Actions <code>kubectl apply</code> directly) because the cluster never needs to expose its API server to the internet and no external credentials need to be distributed to CI runners.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 4 — MERMAID DIAGRAM: GITOPS FLOW
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="gitops-flow" class="section-title">GitOps Flow: Git Push to Kubernetes</h2>
+
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+flowchart TD
+    DEV["👨‍💻 Developer\nPushes Code"] --> GH["GitHub\nApp Repository"]
+    GH -->|"CI: build + test"| CI["GitHub Actions\nCI Pipeline"]
+    CI -->|"docker build + push"| REG["Nexus Registry\nnexus.ticketflow.io:5000"]
+    CI -->|"update image tag\nin git commit"| GITOPS["GitOps Repository\nticketflow/k8s-manifests"]
+
+    GITOPS -->|"webhook / poll"| ARGO["ArgoCD\nRepo Server"]
+    ARGO -->|"render manifests\n(Helm / Kustomize)"| CTRL["ArgoCD\nApp Controller"]
+    CTRL -->|"compare desired\nvs live state"| DIFF{{"Diff\nDetected?"}}
+
+    DIFF -->|"In Sync"| OK["✅ No Action\nApplication Healthy"]
+    DIFF -->|"OutOfSync"| SYNC["Reconcile:\nkubectl apply"]
+    SYNC --> EKS["AWS EKS Cluster\nproduction namespace"]
+
+    EKS -->|"pull image"| REG
+
+    style ARGO fill:#e8f5e9,stroke:#2e7d32
+    style CTRL fill:#e8f5e9,stroke:#2e7d32
+    style EKS fill:#e3f2fd,stroke:#1565c0
+    style GITOPS fill:#fff3e0,stroke:#e65100
+        </div>
+      </div>
+
+      <p>Key insight from this diagram: the CI pipeline <strong>never touches the cluster directly</strong>. Its only job is to build an image, push it to Nexus, and update the image tag in the GitOps repository. ArgoCD detects the change in Git and applies it to the cluster. This clean separation between CI (build) and CD (deploy) is a core GitOps principle.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 5 — ENTERPRISE SCENARIO: TICKETFLOW
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow GitOps Setup</h2>
+
+      <div class="story-card">
+        <span class="story-card-label">🏢 TicketFlow Production GitOps</span>
+        <p>TicketFlow manages 6 microservices deployed to AWS EKS across three environments: <code>dev</code>, <code>staging</code>, and <code>production</code>. The GitOps repository (<code>github.com/ticketflow/k8s-manifests</code>) is the single source of truth for all cluster state.</p>
+        <p>Repository layout:</p>
+        <ul>
+          <li><code>apps/</code> — ArgoCD Application manifests (one per service per environment)</li>
+          <li><code>services/user-service/</code>, <code>services/ticket-service/</code>, ... — Helm chart values per environment</li>
+          <li><code>infra/</code> — cluster-level resources: namespaces, RBAC, NetworkPolicies, Prometheus rules</li>
+          <li><code>argocd/</code> — the App-of-Apps root application manifest</li>
+        </ul>
+        <p>When a developer merges a PR to the app repo, GitHub Actions builds and pushes to <code>nexus.ticketflow.io:5000</code>, then opens an automated PR against <code>k8s-manifests</code> updating the image tag in the appropriate <code>values.yaml</code>. A second engineer reviews and merges. ArgoCD detects the change within 3 minutes (or immediately via webhook) and rolls out the new version. No engineer ever runs <code>kubectl apply</code> directly against production.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 6 — CODE EXAMPLES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="code-examples" class="section-title">ArgoCD Configuration Examples</h2>
+
+      <h3 class="subsection-title">Installing ArgoCD on EKS</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Create dedicated namespace
+kubectl create namespace argocd
+
+# Install ArgoCD (official manifests)
+kubectl apply -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for all ArgoCD pods to be ready
+kubectl -n argocd wait --for=condition=available deployment \
+  argocd-server argocd-repo-server argocd-application-controller \
+  --timeout=300s
+
+# Get the initial admin password (base64 encoded in a secret)
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+
+# Port-forward the ArgoCD UI to your local machine
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# Install the ArgoCD CLI (macOS via Homebrew)
+brew install argocd
+
+# Login via CLI
+argocd login localhost:8080 \
+  --username admin \
+  --password $(kubectl -n argocd get secret argocd-initial-admin-secret \
+    -o jsonpath="{.data.password}" | base64 -d) \
+  --insecure</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ArgoCD Application Manifest — ticket-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># apps/ticket-service-production.yaml
+# This ArgoCD Application manifest lives in the GitOps repo
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticket-service-production
+  namespace: argocd
+  # Cascade deletion: when this Application is deleted, also delete K8s resources
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: ticketflow-production
+
+  # Source: where to find the manifests
+  source:
+    repoURL: https://github.com/ticketflow/k8s-manifests.git
+    targetRevision: main
+    path: services/ticket-service/overlays/production
+    # If using Helm:
+    # helm:
+    #   releaseName: ticket-service
+    #   valueFiles:
+    #     - values-production.yaml
+
+  # Destination: where to deploy
+  destination:
+    server: https://kubernetes.default.svc   # in-cluster
+    namespace: production
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true          # delete resources removed from Git
+      selfHeal: true       # revert manual cluster changes
+      allowEmpty: false    # don't accidentally sync empty manifests
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true     # prune old resources AFTER new ones are healthy
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health assessment customization
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # ignore replica count — HPA manages this</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Kustomize Overlay Structure for ticket-service</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># services/ticket-service/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+  labels:
+    app: ticket-service
+    version: "1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ticket-service
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+    spec:
+      containers:
+        - name: ticket-service
+          image: nexus.ticketflow.io:5000/ticket-service:PLACEHOLDER
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "kubernetes"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+---
+# services/ticket-service/overlays/production/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+
+namespace: production
+
+images:
+  - name: nexus.ticketflow.io:5000/ticket-service
+    newTag: "2.4.1"   # <-- CI pipeline updates this line on every release
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: ticket-service
+
+commonLabels:
+  environment: production
+  managed-by: argocd</code></pre>
+      </div>
+
+      <h3 class="subsection-title">App-of-Apps Pattern — Root Application</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># argocd/root-application.yaml
+# The "App of Apps" root — manages ALL other ArgoCD Applications
+# Apply this once manually: kubectl apply -f argocd/root-application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticketflow-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ticketflow/k8s-manifests.git
+    targetRevision: main
+    path: apps   # this directory contains all the Application manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+# Result: ArgoCD manages itself bootstrapping ALL other Applications.
+# Adding a new service = add a new YAML file in apps/ → commit → ArgoCD auto-creates it.
+# This is the App-of-Apps pattern.</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ApplicationSet — Git Generator (all services, all environments)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># argocd/applicationset-ticketflow.yaml
+# ApplicationSet automatically creates one Application per service/environment combination
+# found by scanning the Git repository directory structure.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ticketflow-services
+  namespace: argocd
+spec:
+  generators:
+    # Git generator: scan repo for directories matching pattern
+    - git:
+        repoURL: https://github.com/ticketflow/k8s-manifests.git
+        revision: main
+        directories:
+          - path: "services/*/overlays/*"
+          # Finds:
+          #   services/user-service/overlays/dev
+          #   services/user-service/overlays/staging
+          #   services/user-service/overlays/production
+          #   services/ticket-service/overlays/dev
+          #   ...etc for all 6 services × 3 environments = 18 Applications
+
+  template:
+    metadata:
+      # Extract service name and environment from the path
+      name: "{{path[1]}}-{{path[3]}}"
+      # e.g.: user-service-production, ticket-service-staging
+      namespace: argocd
+    spec:
+      project: ticketflow
+      source:
+        repoURL: https://github.com/ticketflow/k8s-manifests.git
+        targetRevision: main
+        path: "{{path}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{path[3]}}"   # dev / staging / production
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true</code></pre>
+      </div>
+
+      <h3 class="subsection-title">ApplicationSet — Cluster Generator (multi-cluster)</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># Deploy ticket-service to multiple EKS clusters (e.g. us-east-1, eu-west-1)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ticket-service-multicluster
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            environment: production
+            team: ticketflow
+        # ArgoCD clusters are registered with labels:
+        # kubectl label secret <cluster-secret> -n argocd environment=production team=ticketflow
+  template:
+    metadata:
+      name: "ticket-service-{{name}}"   # name = cluster name
+    spec:
+      project: ticketflow-production
+      source:
+        repoURL: https://github.com/ticketflow/k8s-manifests.git
+        targetRevision: main
+        path: services/ticket-service/overlays/production
+      destination:
+        server: "{{server}}"    # cluster API server URL from cluster secret
+        namespace: production
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true</code></pre>
+      </div>
+
+      <h3 class="subsection-title">CI Pipeline: Update Image Tag in GitOps Repo</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-yaml"># .github/workflows/ticket-service-ci.yml (excerpt)
+# Runs in the APPLICATION repo (not the GitOps repo)
+name: ticket-service CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths: ['services/ticket-service/**']
+
+jobs:
+  build-and-update-gitops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push to Nexus
+        run: |
+          IMAGE_TAG="${{ github.sha }}"
+          docker build -t nexus.ticketflow.io:5000/ticket-service:${IMAGE_TAG} \
+            -f services/ticket-service/Dockerfile \
+            services/ticket-service/
+          docker push nexus.ticketflow.io:5000/ticket-service:${IMAGE_TAG}
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+        env:
+          NEXUS_USER: ${{ secrets.NEXUS_USER }}
+          NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
+
+      - name: Update image tag in GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: ticketflow/k8s-manifests
+          token: ${{ secrets.GITOPS_PAT }}
+          path: k8s-manifests
+
+      - name: Patch kustomization.yaml with new image tag
+        run: |
+          cd k8s-manifests
+          # Use kustomize edit to update the image tag
+          kustomize edit set image \
+            nexus.ticketflow.io:5000/ticket-service=nexus.ticketflow.io:5000/ticket-service:${{ env.IMAGE_TAG }} \
+            --kustomization services/ticket-service/overlays/staging/kustomization.yaml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: update ticket-service to ${{ env.IMAGE_TAG }}"
+          git push
+        # ArgoCD will detect this push and sync staging automatically</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Rollback via Git Revert</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># Rollback is simply a git revert — no special ArgoCD commands needed
+# Identify the bad commit in the GitOps repo
+git log --oneline services/ticket-service/overlays/production/kustomization.yaml
+# a3f9b12 chore: update ticket-service to abc1234  ← bad version
+# 9d2e1a8 chore: update ticket-service to def5678  ← last good version
+
+# Option 1: Revert the bad commit (creates a new commit, safe for main branch)
+git revert a3f9b12
+git push origin main
+# ArgoCD detects the change and immediately rolls back production to def5678
+
+# Option 2: Direct rollback via ArgoCD CLI to a specific Git revision
+argocd app rollback ticket-service-production 9d2e1a8
+# ArgoCD syncs the app to that exact git commit
+
+# Option 3: ArgoCD UI — History → select previous revision → Rollback
+
+# Verify rollback in progress
+argocd app get ticket-service-production
+argocd app wait ticket-service-production --health
+
+# Check current image running
+kubectl get deployment ticket-service -n production \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'</code></pre>
+      </div>
+
+      <h3 class="subsection-title">Health Checks and Sync Status</h3>
+      <div class="code-wrapper">
+        <pre><code class="language-bash"># List all applications and their health/sync status
+argocd app list
+
+# Detailed view of one application
+argocd app get ticket-service-production
+# Shows: Sync Status (Synced/OutOfSync), Health Status (Healthy/Degraded/Progressing)
+# Lists: all managed resources with individual health
+
+# Manually trigger a sync (for applications without auto-sync)
+argocd app sync ticket-service-production
+
+# Sync and wait for completion
+argocd app sync ticket-service-production --wait
+
+# Sync only specific resources (surgical sync)
+argocd app sync ticket-service-production \
+  --resource apps:Deployment:ticket-service
+
+# Force sync even if already synced (useful after ignoreDifferences changes)
+argocd app sync ticket-service-production --force
+
+# Check diff between Git desired state and live cluster state
+argocd app diff ticket-service-production
+
+# Refresh to force a Git poll (instead of waiting for next poll interval)
+argocd app get ticket-service-production --refresh</code></pre>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 7 — OS TABS
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="cli-os-tabs" class="section-title">ArgoCD CLI by Operating System</h2>
+
+      <div class="os-tabs">
+        <div class="os-tab-buttons">
+          <button class="os-tab-btn active" data-tab="mac">macOS</button>
+          <button class="os-tab-btn" data-tab="linux">Linux</button>
+          <button class="os-tab-btn" data-tab="windows">Windows</button>
+        </div>
+
+        <div class="os-tab-panel active" data-tab="mac">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install ArgoCD CLI on macOS
+brew install argocd
+
+# Verify installation
+argocd version --client
+
+# Login to ArgoCD server
+argocd login argocd.ticketflow.io \
+  --username admin \
+  --sso              # use SSO (GitHub OAuth via Dex)
+
+# Or with password
+argocd login argocd.ticketflow.io \
+  --username admin \
+  --password $(op read "op://vault/argocd/password")  # from 1Password CLI
+
+# Context switching (if managing multiple clusters)
+argocd context
+argocd context production-eks</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="linux">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install ArgoCD CLI on Linux (amd64)
+ARGOCD_VERSION=$(curl -L -s \
+  https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION)
+
+curl -sSL -o /usr/local/bin/argocd \
+  https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-linux-amd64
+
+chmod +x /usr/local/bin/argocd
+
+# Verify
+argocd version --client
+
+# Login
+argocd login argocd.ticketflow.io \
+  --username admin \
+  --insecure   # remove --insecure if using valid TLS cert
+
+# On CI/CD runners — use token-based auth
+argocd login argocd.ticketflow.io \
+  --auth-token $ARGOCD_AUTH_TOKEN</code></pre>
+          </div>
+        </div>
+
+        <div class="os-tab-panel" data-tab="windows">
+          <div class="code-wrapper">
+            <pre><code class="language-bash"># Install ArgoCD CLI on Windows via Chocolatey
+choco install argocd-cli
+
+# Or via Scoop
+scoop install argocd
+
+# Or manually — download from GitHub releases
+# https://github.com/argoproj/argo-cd/releases/latest
+# Download: argocd-windows-amd64.exe → rename to argocd.exe → add to PATH
+
+# Verify
+argocd version --client
+
+# Login (from PowerShell or Git Bash)
+argocd login argocd.ticketflow.io `
+  --username admin `
+  --password $env:ARGOCD_PASSWORD</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 8 — BEHIND THE SCENES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
+
+      <details>
+        <summary>What happens when ArgoCD detects an OutOfSync application?</summary>
+        <div class="answer-content">
+          <ol>
+            <li>The <strong>Repo Server</strong> polls the Git repository on its configured interval (default: 3 minutes) or receives an immediate webhook notification from GitHub. It fetches the latest commit for the tracked branch and checks its SHA against the cached SHA.</li>
+            <li>If the SHA has changed, the Repo Server clones/fetches the new commit, runs the appropriate renderer (plain YAML, Helm template render, Kustomize build), and produces a flat list of Kubernetes resource manifests from the desired state.</li>
+            <li>The <strong>Application Controller</strong> receives the rendered manifests and compares them against the live state fetched from the Kubernetes API server. It performs a structural diff — it does not compare raw YAML strings but normalized Kubernetes resource objects. Fields annotated with <code>kubectl.kubernetes.io/last-applied-configuration</code> are excluded from the diff.</li>
+            <li>If any resource differs (different image tag, different replica count, missing resource, extra resource), the Application status transitions to <strong>OutOfSync</strong>. The specific diff is recorded and visible in the ArgoCD UI.</li>
+            <li>If <code>automated.selfHeal: true</code> is set, the Application Controller immediately enqueues a sync operation. If <code>automated</code> is not set, the Application stays OutOfSync until a human triggers a sync via UI or CLI.</li>
+            <li>During sync, the Application Controller applies resources to the Kubernetes API server using server-side apply (<code>kubectl apply --server-side</code>). Resources are applied in dependency order: Namespaces first, then CRDs, then RBAC, then Deployments and Services. This ordering is controlled by ArgoCD sync waves.</li>
+            <li>After applying, ArgoCD polls the Kubernetes API to assess health. For Deployments, "Healthy" means <code>availableReplicas == desiredReplicas</code>. For Jobs, it means completion. For custom resources, ArgoCD uses Lua-based health assessment scripts (customizable per CRD kind).</li>
+            <li>Once all resources are Healthy and the applied state matches the desired state, the Application transitions to <strong>Synced + Healthy</strong>. A sync history entry is written with the Git commit SHA, timestamp, and result.</li>
+          </ol>
+          <p><strong>Prune behaviour:</strong> If <code>prune: true</code> is set and a resource exists in the cluster but no longer exists in Git (e.g., a Service was deleted from the manifests), ArgoCD deletes it from the cluster. Without prune, orphaned resources remain. With <code>PruneLast=true</code>, ArgoCD waits until all new resources are healthy before deleting the old ones — enabling zero-downtime resource replacement.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does self-healing work and when is it triggered?</summary>
+        <div class="answer-content">
+          <p>Self-healing is triggered when the live state diverges from the desired state through <em>any</em> means other than ArgoCD itself: a developer ran <code>kubectl edit deployment</code>, a bug in a controller modified a resource, an HPA scaled replicas and the deployment was then manually edited, etc.</p>
+          <p>The Application Controller watches Kubernetes resources via informers (watch API). When any watched resource changes, it re-evaluates the diff. If <code>selfHeal: true</code>, it immediately queues a sync — reverting the change back to Git's desired state.</p>
+          <p>Self-heal has a <strong>self-heal timeout</strong> (default: 5 seconds) to debounce rapid changes and avoid sync storms. After detection, ArgoCD waits 5 seconds before syncing, giving time for legitimate in-progress operations (like rollouts managed by ArgoCD itself) to complete without triggering unnecessary re-syncs.</p>
+          <p>Important caveat: fields listed in <code>ignoreDifferences</code> are excluded from self-healing. This is how HPA-managed replica counts are preserved — you add <code>/spec/replicas</code> to <code>ignoreDifferences</code> for Deployments managed by HPA, and ArgoCD will not revert HPA's scaling decisions back to the value in Git.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How does ArgoCD Projects work for multi-team access control?</summary>
+        <div class="answer-content">
+          <p>An ArgoCD <strong>Project</strong> (<code>AppProject</code>) is a grouping construct that enforces boundaries on what Applications within it can do:</p>
+          <ul>
+            <li><strong>Source repos</strong> — which Git repositories Applications in this project may use as source. A project for the payments team can be restricted to only the payments GitOps repo.</li>
+            <li><strong>Destination clusters and namespaces</strong> — which K8s clusters and namespaces Applications in this project may deploy to. The payments project can only deploy to the <code>payments</code> namespace, not <code>kube-system</code>.</li>
+            <li><strong>Allowed resource kinds</strong> — which Kubernetes resource types are permitted. You can block projects from creating ClusterRoles or PersistentVolumes.</li>
+            <li><strong>RBAC roles</strong> — ArgoCD RBAC (defined in <code>argocd-rbac-cm</code> ConfigMap) maps SSO groups to project-level roles. The frontend team's GitHub team can sync Applications in the <code>frontend</code> project but cannot touch <code>infra</code> project applications.</li>
+          </ul>
+          <p>At TicketFlow, there are four AppProjects: <code>ticketflow-dev</code> (all engineers can sync), <code>ticketflow-staging</code> (senior engineers + CI bots can sync), <code>ticketflow-production</code> (only SRE team and automated sync), and <code>ticketflow-infra</code> (SRE only, cluster-level resources).</p>
+        </div>
+      </details>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 9 — COMMON MISTAKES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 1: Using the Application Repository as the GitOps Repository</span>
+        <p>Developers put their Kubernetes manifests in a <code>k8s/</code> folder inside the same repository as their application code. Every code commit triggers an ArgoCD sync, even if only a unit test changed. ArgoCD's sync history becomes noise — you cannot tell when an actual Kubernetes change was deployed versus when only app code changed.</p>
+        <p><strong>Fix:</strong> Maintain a separate GitOps repository exclusively for Kubernetes manifests. The CI pipeline updates it via automated commits. This gives you a clean audit trail of exactly what changed in the cluster, when, and why — completely independent of application code history.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 2: Enabling Auto-Sync on Production Without prune and selfHeal Thought-Out</span>
+        <p>Teams enable <code>automated: {}</code> on production but forget about <code>prune: true</code>, leaving orphaned resources that consume cluster resources indefinitely. Or they enable <code>selfHeal: true</code> without adding <code>ignoreDifferences</code> for HPA-managed replicas, causing ArgoCD to fight HPA — ArgoCD resets replicas to 3, HPA scales to 10, ArgoCD resets to 3, ad infinitum, generating hundreds of unnecessary sync operations.</p>
+        <p><strong>Fix:</strong> For production: enable <code>prune: true</code> with <code>PruneLast=true</code>. Add <code>ignoreDifferences</code> for <code>/spec/replicas</code> on all Deployments managed by HPA. Test auto-sync behavior in staging for at least two weeks before enabling in production.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 3: Storing All Environments in One Branch</span>
+        <p>All three environments (dev/staging/production) track the same <code>main</code> branch. Merging a staging-only experimental feature to <code>main</code> immediately triggers a production sync. Environments lose their independence — promotion becomes implicit and uncontrolled.</p>
+        <p><strong>Fix:</strong> Use directory-based environment separation (preferred) within a single main branch: <code>overlays/dev</code>, <code>overlays/staging</code>, <code>overlays/production</code>. Each ArgoCD Application points to its own overlay path. Promote between environments by running <code>kustomize edit set image</code> in the specific overlay and committing. Promotion is explicit, reviewable, and auditable.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 4: Not Setting ignoreDifferences for Operator-Managed Fields</span>
+        <p>Some Kubernetes operators and controllers mutate resource fields after creation — cert-manager adds annotations to Ingresses, Istio injects sidecar containers into pod specs, AWS Load Balancer Controller adds annotations to Services. ArgoCD sees these mutations as drift and marks the Application as OutOfSync permanently, generating alert noise and causing spurious syncs that remove the operator's additions.</p>
+        <p><strong>Fix:</strong> Add <code>ignoreDifferences</code> rules for fields managed by operators. For Istio: ignore the <code>spec.template.spec.containers</code> count. For cert-manager: ignore <code>metadata.annotations</code> matching cert-manager prefixes. Identify these during staging deployment before production rollout.</p>
+      </div>
+
+      <div class="common-mistake">
+        <span class="common-mistake-label">Mistake 5: No ArgoCD High Availability Setup</span>
+        <p>ArgoCD is deployed as a single replica of each component. The <code>argocd-application-controller</code> pod crashes and no deployments happen for 20 minutes while it restarts — including an urgent hotfix deployment during an incident. The tool meant to eliminate downtime itself causes downtime.</p>
+        <p><strong>Fix:</strong> Run ArgoCD in HA mode: 3 replicas of <code>argocd-server</code>, 3 replicas of <code>argocd-repo-server</code>, a StatefulSet for <code>argocd-application-controller</code> with sharding enabled (one shard per N applications). Use the <code>argocd-ha</code> install manifests. Back up ArgoCD's configuration (ApplicationSet, AppProject, and Application resources) to Git — which you already have if you follow the App-of-Apps pattern.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 10 — ARCHITECT NOTES
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
+
+      <div class="architect-note">
+        <span class="architect-note-label">Architect Note</span>
+        <p>GitOps is not just an operational pattern — it is an <strong>organizational pattern</strong>. When Git is the sole mechanism for cluster changes, several organizational benefits emerge that go beyond deployment automation:</p>
+        <ul>
+          <li><strong>Immutable audit trail:</strong> every cluster change is a Git commit with an author, timestamp, and message. Compliance teams can audit exactly what was deployed to production, when, and by whom — without querying Kubernetes audit logs or asking engineers.</li>
+          <li><strong>Pull request as a change management process:</strong> production changes require a PR, a review, and a merge. This enforces four-eyes principles without a separate change management tool. The PR review IS the change advisory board approval for most organizations.</li>
+          <li><strong>Disaster recovery becomes trivial:</strong> to rebuild a destroyed cluster, create a new cluster and apply the ArgoCD bootstrap manifest. ArgoCD reconciles the entire desired state within minutes. The GitOps repo is your runbook, your DR plan, and your configuration database all in one.</li>
+          <li><strong>Progressive delivery integration:</strong> combine ArgoCD with Argo Rollouts for canary deployments and blue-green strategies. The rollout strategy is declared in Git like everything else. A canary weight of 10% → 50% → 100% is a series of commits, reviewable and revertible.</li>
+        </ul>
+        <p><strong>When GitOps does not fit:</strong> GitOps assumes all desired state can be expressed as declarative Kubernetes manifests. Stateful workloads with complex migration procedures (database schema migrations, data backups before upgrades) require orchestration beyond what ArgoCD provides. Use ArgoCD Sync Waves with pre-sync and post-sync hooks for these cases, or complement with a tool like Argo Workflows for the procedural parts.</p>
+        <p><strong>Security boundary:</strong> the GitOps repository is now a privileged artifact — committing to it is equivalent to deploying to production. Protect the <code>main</code> branch with required reviews, signed commits (GPG/SSH commit signing), and branch protection rules. A compromised GitOps repo gives an attacker control over your entire cluster.</p>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 11 — PRODUCTION CHECKLIST
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
+
+      <ul class="checklist">
+        <li>GitOps repository is separate from application code repositories</li>
+        <li>ArgoCD deployed in HA mode (3 replicas of server and repo-server, sharded app-controller)</li>
+        <li>All Applications organized under AppProjects with scoped source repos and destination namespaces</li>
+        <li>SSO configured via Dex (GitHub OAuth or corporate OIDC) — no shared admin passwords</li>
+        <li>RBAC policies defined: dev team syncs dev, SRE syncs production, no one has wildcard access</li>
+        <li>Auto-sync enabled with <code>prune: true</code> and <code>PruneLast: true</code> on all production Applications</li>
+        <li>selfHeal enabled and <code>ignoreDifferences</code> configured for HPA-managed replicas and operator-injected fields</li>
+        <li>App-of-Apps or ApplicationSet pattern used — no manually created Applications that are not tracked in Git</li>
+        <li>GitHub/GitLab webhooks configured for instant sync trigger instead of relying on polling</li>
+        <li>ArgoCD notifications configured: Slack/PagerDuty alerts for sync failures and degraded health</li>
+        <li>Sync waves configured for ordered rollout: infra resources before application resources</li>
+        <li>GitOps repo branch protection: required PR reviews, signed commits, no direct push to main</li>
+        <li>Argo CD disaster recovery tested: cluster rebuilt from GitOps repo bootstrap procedure</li>
+        <li>Image update automation configured (Argo CD Image Updater or CI-driven tag updates in GitOps repo)</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 12 — HANDS-ON LAB
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Deploy TicketFlow ticket-service via ArgoCD</h2>
+
+      <div class="lab-box">
+        <span class="lab-box-label">Lab — Requires: kubectl + a running K8s cluster (minikube, kind, or EKS) + argocd CLI</span>
+
+        <p>This lab walks through installing ArgoCD, creating a GitOps repository structure, and deploying the TicketFlow ticket-service using a real ArgoCD Application manifest.</p>
+
+        <h3 class="subsection-title" style="margin-top:1rem;">Step 1: Install ArgoCD</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Start minikube if using local cluster
+minikube start --cpus=4 --memory=6144
+
+# Install ArgoCD
+kubectl create namespace argocd
+kubectl apply -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl -n argocd wait --for=condition=available deployment \
+  argocd-server argocd-repo-server --timeout=120s
+
+# Get initial admin password
+ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d)
+echo "Admin password: $ARGOCD_PASSWORD"
+
+# Port-forward the UI
+kubectl port-forward svc/argocd-server -n argocd 8443:443 &
+# Open https://localhost:8443 — accept the self-signed cert warning</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 2: Create a GitOps repository structure locally</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Create a local GitOps repo (in a real scenario this would be on GitHub)
+mkdir -p ~/ticketflow-gitops/services/ticket-service/base
+mkdir -p ~/ticketflow-gitops/services/ticket-service/overlays/dev
+cd ~/ticketflow-gitops
+git init
+
+# Create the base deployment manifest
+cat > services/ticket-service/base/deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ticket-service
+  template:
+    metadata:
+      labels:
+        app: ticket-service
+    spec:
+      containers:
+        - name: ticket-service
+          image: nginx:1.25-alpine   # using nginx as stand-in for demo
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-service
+spec:
+  selector:
+    app: ticket-service
+  ports:
+    - port: 80
+      targetPort: 80
+EOF
+
+# Create the dev overlay kustomization
+cat > services/ticket-service/overlays/dev/kustomization.yaml << 'EOF'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+namespace: dev
+commonLabels:
+  environment: dev
+EOF
+
+# Commit everything
+git add .
+git commit -m "initial: ticket-service manifests"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 3: Register the repository and create the Application</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Login to ArgoCD CLI
+argocd login localhost:8443 \
+  --username admin \
+  --password "$ARGOCD_PASSWORD" \
+  --insecure
+
+# Create the dev namespace
+kubectl create namespace dev
+
+# Create the ArgoCD Application pointing at the local repo
+# (in a real scenario use the GitHub HTTPS URL)
+argocd app create ticket-service-dev \
+  --repo file:///$(pwd) \
+  --path services/ticket-service/overlays/dev \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace dev \
+  --sync-policy automated \
+  --self-heal \
+  --auto-prune
+
+# Check the application status
+argocd app get ticket-service-dev
+
+# Watch the sync happen
+argocd app wait ticket-service-dev --health
+
+# Verify pods are running
+kubectl get pods -n dev</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 4: Simulate a change and observe reconciliation</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Manually edit the deployment in the cluster (simulate an operator)
+kubectl scale deployment ticket-service -n dev --replicas=3
+
+# ArgoCD should detect this drift within 5 seconds (selfHeal)
+# Watch it revert back to 1 replica
+watch argocd app get ticket-service-dev
+
+# Now make a legitimate change via Git (the right way)
+# Update replica count in the overlay
+cat > services/ticket-service/overlays/dev/kustomization.yaml << 'EOF'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+namespace: dev
+commonLabels:
+  environment: dev
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+      name: ticket-service
+EOF
+
+git add . && git commit -m "feat: scale ticket-service to 2 replicas in dev"
+
+# Trigger immediate sync (instead of waiting for poll)
+argocd app sync ticket-service-dev
+
+# Verify 2 pods now running
+kubectl get pods -n dev</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Step 5: Rollback via Git revert</h3>
+        <div class="code-wrapper">
+          <pre><code class="language-bash"># Check sync history — shows all previous Git commits ArgoCD synced
+argocd app history ticket-service-dev
+
+# Revert the last commit (go back to 1 replica)
+git revert HEAD --no-edit
+git push   # or just commit locally if using file:// repo
+
+# Sync ArgoCD to pick up the revert immediately
+argocd app sync ticket-service-dev --wait
+
+# Confirm back to 1 replica
+kubectl get deployment ticket-service -n dev
+
+echo "Lab complete! You deployed via GitOps and practiced rollback."</code></pre>
+        </div>
+
+        <p style="margin-top:1rem;"><strong>Key observations from this lab:</strong></p>
+        <ol>
+          <li>The cluster state was corrected within seconds of the manual scale — this is self-healing in action.</li>
+          <li>The legitimate change via Git commit was picked up and applied automatically — zero <code>kubectl apply</code> commands from you.</li>
+          <li>Rollback was a <code>git revert</code> + <code>git push</code> — no special ArgoCD rollback knowledge required.</li>
+          <li>The full history of what was deployed is visible as Git commits — the GitOps repo is your deployment log.</li>
+        </ol>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 13 — INTERVIEW Q&A
+           ═══════════════════════════════════════════════════════════ -->
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
+
+      <p>These are the most commonly asked ArgoCD and GitOps questions in senior DevOps, platform engineering, and architect-level interviews.</p>
+
+      <div class="interview-section">
+
+        <div class="interview-q">
+          <details>
+            <summary>Q1: What is GitOps and how does it differ from traditional CI/CD?</summary>
+            <div class="answer-content">
+              <p><strong>GitOps</strong> is an operational framework that uses Git as the single source of truth for declarative infrastructure and application state. The desired state of the system is always expressed in Git, and a software agent continuously reconciles the live system to match that state.</p>
+              <p>The key difference from traditional CI/CD is the <strong>direction of deployment</strong>:</p>
+              <ul>
+                <li><strong>Traditional CI/CD (push-based):</strong> A CI runner (e.g., GitHub Actions) has cluster credentials and actively pushes changes — runs <code>kubectl apply</code>, <code>helm upgrade</code>, etc. The cluster is a passive target.</li>
+                <li><strong>GitOps (pull-based):</strong> An agent inside the cluster (ArgoCD) pulls from Git. The cluster is an active participant. No external system holds cluster credentials. The cluster owns its own state reconciliation.</li>
+              </ul>
+              <p>Other differences: GitOps provides continuous reconciliation (auto-corrects drift, not just deploys once), complete audit trail (every change is a Git commit), and built-in rollback (revert a commit). Traditional CI/CD deploys once and does not monitor for subsequent drift.</p>
+              <p>In practice, TicketFlow uses both: GitHub Actions for CI (test, build, push image) and ArgoCD for CD (deploy, reconcile). CI updates the GitOps repo; ArgoCD deploys from it.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q2: What are the four core components of ArgoCD and what does each do?</summary>
+            <div class="answer-content">
+              <p><strong>1. Application Controller</strong> — a Kubernetes controller that continuously compares the desired state (from Git, rendered by Repo Server) against the live state (from Kubernetes API). It determines sync status (Synced/OutOfSync), triggers automatic synchronization when configured, and assesses resource health. It is the core reconciliation engine.</p>
+              <p><strong>2. Repo Server</strong> — responsible for all Git interactions. Clones repositories, checks for new commits, and generates (renders) Kubernetes manifests from source format: raw YAML, Helm chart values, or Kustomize overlays. Caches rendered manifests to avoid redundant rendering. Completely stateless — can be scaled horizontally.</p>
+              <p><strong>3. API Server</strong> — exposes the gRPC/HTTP API consumed by the Web UI and <code>argocd</code> CLI. Handles authentication (SSO via Dex), authorization (RBAC), and real-time streaming of application state updates via Server-Sent Events. Also receives Git webhooks to trigger immediate sync checks.</p>
+              <p><strong>4. Dex</strong> — an optional OIDC identity provider that federates authentication to external systems: GitHub, Google, Okta, Azure AD. Allows engineers to log into ArgoCD with their corporate SSO credentials instead of a local username/password.</p>
+              <p><strong>Supporting services:</strong> Redis (caching of cluster state and rendered manifests), ApplicationSet Controller (generates Applications from templates using generators like Git directory scanning and cluster enumeration).</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q3: What is the App-of-Apps pattern and why is it used?</summary>
+            <div class="answer-content">
+              <p>The App-of-Apps pattern solves the bootstrapping problem: how do you manage many ArgoCD Applications in a GitOps way when ArgoCD itself manages resources declaratively?</p>
+              <p>The pattern works like this: you create one <strong>root Application</strong> that points to a Git directory containing YAML files, where each YAML file defines an ArgoCD <code>Application</code> resource. The root Application is the only thing you apply manually (<code>kubectl apply -f root-app.yaml</code>). From that point, every other Application is managed by ArgoCD itself — adding, updating, or deleting Application manifests in Git is all that is needed to manage the entire set of deployed services.</p>
+              <p><strong>Benefits:</strong></p>
+              <ul>
+                <li>All ArgoCD Application definitions are in Git — not created manually via CLI or UI.</li>
+                <li>Adding a new microservice = add one YAML file to the <code>apps/</code> directory and commit.</li>
+                <li>Deleting a service = delete its Application YAML file from Git — ArgoCD removes the Application and (with prune enabled) its Kubernetes resources.</li>
+                <li>The entire cluster configuration is bootstrappable from Git in minutes after a disaster.</li>
+              </ul>
+              <p><strong>App-of-Apps vs ApplicationSet:</strong> ApplicationSet is the newer, more powerful evolution. Where App-of-Apps requires manually maintaining individual Application YAML files, ApplicationSet generates them dynamically from templates and generators (Git directory scanning, cluster enumeration, list generators). For new projects, ApplicationSet is preferred. App-of-Apps is still valuable for heterogeneous Applications that cannot be expressed with a uniform template.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q4: How do you handle secrets in a GitOps workflow?</summary>
+            <div class="answer-content">
+              <p>Secrets are the most challenging aspect of GitOps because Git repositories should never contain plaintext secret values — they may be public, or at minimum accessible to many engineers.</p>
+              <p>There are three main approaches used in production GitOps environments:</p>
+              <p><strong>1. Sealed Secrets (Bitnami)</strong> — an in-cluster controller that holds a private key. You encrypt secrets using the public key (<code>kubeseal</code> CLI) and commit the encrypted SealedSecret YAML to Git. Only the Sealed Secrets controller in that specific cluster can decrypt it. Safe to commit. Limitation: rotation requires re-encrypting and committing; tight coupling to the cluster's key pair.</p>
+              <p><strong>2. External Secrets Operator (ESO)</strong> — the preferred enterprise approach. ExternalSecret resources in Git reference secrets in external vaults (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, GCP Secret Manager). The operator fetches the actual secret values from the vault and creates Kubernetes Secrets. Git contains only the reference path (<code>secretsmanager/ticketflow/production/db-password</code>), never the value. At TicketFlow: all production secrets are in AWS Secrets Manager; ExternalSecret manifests are committed to Git.</p>
+              <p><strong>3. ArgoCD Vault Plugin (AVP)</strong> — a plugin that integrates with Helm/Kustomize rendering. Manifest templates contain placeholders (<code>&lt;path:secret/data/db#password&gt;</code>). The plugin fetches values from Vault at render time, substituting placeholders before ArgoCD applies manifests. Useful when all config is already in HashiCorp Vault.</p>
+              <p><strong>What not to do:</strong> commit plaintext Kubernetes Secrets (even base64-encoded), use <code>kubectl create secret</code> manually (bypasses GitOps), or store secrets in Helm values files committed to Git.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q5: How do you perform a rollback with ArgoCD and what are the different options?</summary>
+            <div class="answer-content">
+              <p>ArgoCD offers three rollback mechanisms, with different trade-offs:</p>
+              <p><strong>1. Git Revert (recommended)</strong> — the purest GitOps approach. Run <code>git revert &lt;commit-sha&gt;</code> on the GitOps repository and push. This creates a new commit that undoes the problematic change. ArgoCD detects the new commit and reconciles the cluster to the reverted state. This is the recommended approach because: the rollback itself is auditable (a commit with a message and author), it preserves forward history, and it follows the GitOps principle that all changes go through Git.</p>
+              <p><strong>2. ArgoCD CLI Rollback</strong> — <code>argocd app rollback &lt;app-name&gt; &lt;history-id&gt;</code>. ArgoCD syncs the application to a previous Git revision from its sync history. Fast and convenient during an incident. Limitation: this puts the application in a state where Git (main branch) says one thing but the cluster is running something different. ArgoCD marks the application as OutOfSync. You must follow up with a proper Git revert to restore alignment.</p>
+              <p><strong>3. ArgoCD UI History</strong> — in the ArgoCD web interface, navigate to the application, click History, select a previous sync revision, and click Rollback. Equivalent to the CLI approach.</p>
+              <p><strong>At TicketFlow:</strong> during incidents, use the CLI rollback for immediate recovery (fast). Then, within 30 minutes of recovery, open a PR with a proper <code>git revert</code> to restore Git as the source of truth. This two-step process balances recovery speed with GitOps integrity.</p>
+              <p>Note: if <code>automated.selfHeal: true</code> is configured, ArgoCD will immediately re-sync the application to the current Git HEAD after a CLI rollback, undoing the rollback. Disable automated sync before performing a CLI rollback in a selfHeal-enabled environment.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q6: What is an ApplicationSet and when would you use it over App-of-Apps?</summary>
+            <div class="answer-content">
+              <p>An <strong>ApplicationSet</strong> is a custom resource that generates multiple ArgoCD Application objects from a single template, using generators to enumerate the variations. Instead of maintaining 18 separate Application YAML files (6 services × 3 environments), you write one ApplicationSet with a generator that produces all 18 automatically.</p>
+              <p><strong>Generator types:</strong></p>
+              <ul>
+                <li><strong>Git generator</strong> — scans a Git repository for directories or files matching a pattern. A new directory <code>services/notification-service/overlays/dev</code> automatically creates a new Application without touching the ApplicationSet manifest.</li>
+                <li><strong>Cluster generator</strong> — enumerates registered ArgoCD clusters matching label selectors. Used for deploying the same application to multiple clusters (multi-region, multi-tenant).</li>
+                <li><strong>List generator</strong> — a static list of key-value pairs. Simple and explicit, useful when the variations are known and enumerable.</li>
+                <li><strong>Matrix generator</strong> — computes the Cartesian product of two generators (e.g., all services × all clusters).</li>
+                <li><strong>SCM provider generator</strong> — scans GitHub/GitLab organizations for repositories matching a filter, generating one Application per repo.</li>
+              </ul>
+              <p><strong>Use ApplicationSet when:</strong> you have many similar Applications (same structure, different parameters like service name/environment/cluster), when onboarding new services should be zero-config (just create the directory), or when deploying to multiple clusters.</p>
+              <p><strong>Use App-of-Apps when:</strong> your Applications are heterogeneous (different source formats, different sync policies, different project assignments) and cannot be expressed with a uniform template. Also use App-of-Apps as the root that deploys ApplicationSets themselves — a common pattern at scale.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="interview-q">
+          <details>
+            <summary>Q7: How would you design a promotion workflow across dev, staging, and production with ArgoCD?</summary>
+            <div class="answer-content">
+              <p>A robust multi-environment promotion workflow with ArgoCD typically follows this structure:</p>
+              <p><strong>Repository layout:</strong> a single GitOps repository with Kustomize overlays per environment — <code>overlays/dev</code>, <code>overlays/staging</code>, <code>overlays/production</code>. Each overlay contains a <code>kustomization.yaml</code> that patches the base manifests with environment-specific values (image tags, replica counts, resource limits, environment variables).</p>
+              <p><strong>Promotion flow:</strong></p>
+              <ol>
+                <li><strong>CI builds image:</strong> GitHub Actions builds <code>nexus.ticketflow.io:5000/ticket-service:sha-abc123</code> and pushes to Nexus.</li>
+                <li><strong>Auto-deploy to dev:</strong> CI opens a PR against the GitOps repo updating the image tag in <code>overlays/dev/kustomization.yaml</code>. An auto-merge bot (or <code>--auto-merge</code> GitHub label) merges it immediately. ArgoCD picks it up and deploys to dev within minutes.</li>
+                <li><strong>Promote to staging:</strong> after automated integration tests pass in dev, CI (or a developer) opens a second PR updating the image tag in <code>overlays/staging/kustomization.yaml</code>. Requires one peer review. ArgoCD deploys to staging on merge.</li>
+                <li><strong>Promote to production:</strong> after staging sign-off, a PR updates <code>overlays/production/kustomization.yaml</code>. Requires two senior reviews + SRE approval. Merged during a deployment window. ArgoCD auto-syncs production.</li>
+              </ol>
+              <p><strong>Progressive delivery:</strong> combine with Argo Rollouts for canary deployments in production. The production Application points to an <code>argo-rollout</code> resource instead of a plain Deployment. Rollout strategy (canary steps: 10% → analysis → 50% → analysis → 100%) is declared in Git. ArgoCD deploys the Rollout; Argo Rollouts controller manages the traffic split.</p>
+              <p><strong>Key safeguards:</strong> branch protection on <code>main</code> in the GitOps repo, required status checks (automated tests passing in source repo before GitOps PR can be merged), CODEOWNERS file requiring SRE approval for production overlay changes, and notifications to Slack on every production sync.</p>
+            </div>
+          </details>
+        </div>
+
+      </div><!-- /.interview-section -->
+
+    </div><!-- /.page-content -->
+  </main>
+
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

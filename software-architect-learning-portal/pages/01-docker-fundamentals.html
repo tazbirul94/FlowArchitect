@@ -16,10 +16,10 @@
 
   <!-- Sidebar -->
   <aside id="sidebar">
-    <div class="logo">
-      <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
-      <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
-    </div>
+    <a href="../index.html" class="logo" style="display:block;text-decoration:none;cursor:pointer;">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">DevArchitect</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Beginner → Architect</div>
+  </a>
     <input type="text" id="search-input" placeholder="Search topics... (Ctrl+K)">
     <nav id="sidebar-nav"></nav>
   </aside>
@@ -52,10 +52,12 @@
         <p class="page-subtitle">Why Docker exists, how containers work, and why every developer needs to understand them.</p>
       </div>
 
+      <div class="toc-placeholder"></div>
+
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 1 — THE STORY
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">The Story Behind Docker</h2>
+      <h2 id="story" class="section-title">The Story Behind Docker</h2>
 
       <div class="story-card">
         <span class="story-card-label">📦 The Shipping Container Revolution</span>
@@ -67,7 +69,7 @@
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 2 — THE PROBLEM DOCKER SOLVES
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">The Problem Docker Solves</h2>
+      <h2 id="problem" class="section-title">The Problem Docker Solves</h2>
 
       <div class="common-mistake">
         <span class="common-mistake-label">🔥 The "It Works On My Machine" Problem</span>
@@ -79,7 +81,7 @@
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 3 — WHAT IS DOCKER? (BEGINNER)
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">What is Docker?</h2>
+      <h2 id="what-is-docker" class="section-title">What is Docker?</h2>
 
       <div class="beginner-note">
         <span class="beginner-note-label">🥪 Beginner Analogy</span>
@@ -98,7 +100,7 @@
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 4 — TECHNICAL EXPLANATION
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">How Docker Actually Works</h2>
+      <h2 id="how-docker-works" class="section-title">How Docker Actually Works</h2>
 
       <p>Docker is not magic — it is a user-friendly interface on top of three powerful Linux kernel features that have existed for years:</p>
 
@@ -135,7 +137,7 @@
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 5 — DIAGRAM: DEVELOPER TO PRODUCTION
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">From Developer to Production</h2>
+      <h2 id="dev-to-production" class="section-title">From Developer to Production</h2>
 
       <div class="mermaid-wrapper">
         <div class="mermaid">
@@ -158,7 +160,7 @@ flowchart TD
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 6 — VM VS CONTAINER
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">VMs vs Containers</h2>
+      <h2 id="vms-vs-containers" class="section-title">VMs vs Containers</h2>
 
       <p>The most common question from engineers new to containers: <em>"How is this different from a VM?"</em> The short answer: VMs virtualize hardware; containers virtualize the operating system. Here is the full breakdown:</p>
 
@@ -235,7 +237,7 @@ flowchart LR
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 7 — KEY COMPONENTS DEEP DIVE
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Key Components Deep Dive</h2>
+      <h2 id="key-components" class="section-title">Key Components Deep Dive</h2>
 
       <details>
         <summary>Docker Image</summary>
@@ -296,7 +298,7 @@ flowchart LR
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 8 — ENTERPRISE SCENARIO
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Enterprise Scenario: TicketFlow</h2>
+      <h2 id="enterprise-scenario" class="section-title">Enterprise Scenario: TicketFlow</h2>
 
       <div class="story-card">
         <span class="story-card-label">🏢 Real-World Example</span>
@@ -316,7 +318,7 @@ flowchart LR
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 9 — CONTAINER LIFECYCLE
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Container Lifecycle</h2>
+      <h2 id="container-lifecycle" class="section-title">Container Lifecycle</h2>
 
       <p>Understanding the container lifecycle is critical for debugging. A container can be in several states, and knowing the transitions helps you understand why <code>docker ps</code> shows nothing but <code>docker ps -a</code> shows your container as "Exited".</p>
 
@@ -348,7 +350,7 @@ stateDiagram-v2
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 10 — BEHIND THE SCENES
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Behind the Scenes</h2>
+      <h2 id="behind-the-scenes" class="section-title">Behind the Scenes</h2>
 
       <details>
         <summary>What happens when you run <code>docker run nginx</code>?</summary>
@@ -370,7 +372,7 @@ stateDiagram-v2
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 11 — COMMON MISTAKES
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Common Mistakes</h2>
+      <h2 id="common-mistakes" class="section-title">Common Mistakes</h2>
 
       <div class="common-mistake">
         <span class="common-mistake-label">❌ Mistake 1: Using <code>:latest</code> in Production</span>
@@ -405,7 +407,7 @@ stateDiagram-v2
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 12 — ARCHITECT NOTES
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Architect Perspective</h2>
+      <h2 id="architect-notes" class="section-title">Architect Perspective</h2>
 
       <div class="architect-note">
         <span class="architect-note-label">🏛️ Architect Note</span>
@@ -422,7 +424,7 @@ stateDiagram-v2
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 13 — PRODUCTION CHECKLIST
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Production Readiness Checklist</h2>
+      <h2 id="production-checklist" class="section-title">Production Readiness Checklist</h2>
 
       <p>Before deploying any containerized application to production, verify all of the following:</p>
 
@@ -442,7 +444,7 @@ stateDiagram-v2
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 14 — HANDS-ON LAB
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Hands-On Lab: Your First Container</h2>
+      <h2 id="hands-on-lab" class="section-title">Hands-On Lab: Your First Container</h2>
 
       <div class="lab-box">
         <span class="lab-box-label">🧪 Lab — Requires Docker Desktop installed</span>
@@ -531,7 +533,7 @@ docker system df</code></pre>
       <!-- ═══════════════════════════════════════════════════════════
            SECTION 15 — INTERVIEW QUESTIONS
            ═══════════════════════════════════════════════════════════ -->
-      <h2 class="section-title">Interview Questions</h2>
+      <h2 id="interview-questions" class="section-title">Interview Questions</h2>
 
       <p>These are the most frequently asked Docker questions in software engineering and DevOps interviews. Click each question to reveal a complete answer.</p>
 
