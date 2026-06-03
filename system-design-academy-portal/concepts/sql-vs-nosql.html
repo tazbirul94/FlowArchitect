@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL vs NoSQL — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="sql-vs-nosql" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">SQL vs NoSQL</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Data <span>→</span> SQL vs NoSQL</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Data</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner–Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">SQL vs NoSQL</h1>
+      <p class="page-subtitle">Understand when to use relational databases with ACID guarantees and when to reach for document, key-value, wide-column, or graph stores.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Data</span>
+        <span class="tag">Databases</span>
+        <span class="tag">Architecture</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p><strong>SQL databases</strong> are like a carefully organised filing cabinet: every document goes into a labelled folder, every folder into a named drawer, every drawer into the same cabinet. The rigid structure means you can always find anything instantly — but you must decide on the folder labels before you file anything.</p>
+      <p><strong>NoSQL databases</strong> are like a backpack: you can throw in a book, a laptop, a water bottle, and a crumpled receipt all at once. You get flexibility and quick access to whatever you dropped in last — but "find me everything under $10 that I bought in March" is considerably harder.</p>
+    </div>
+
+    <p>The choice between SQL and NoSQL is not about which technology is "better" — it is about matching the data model and access patterns to the problem. SQL excels at structured, relational data with complex queries. NoSQL excels at scale, flexibility, and specialised access patterns. Most large systems use both.</p>
+
+    <p>Understanding this trade-off is foundational to system design. Every interview question about database selection, every architectural decision about where to store data, and every production incident caused by the wrong database choice comes back to these fundamentals.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fast-growing SaaS company built their entire product on a single PostgreSQL instance. The schema was clean, queries were fast, and the team was happy. They stored users, subscriptions, feature flags, activity logs, cached search results, and real-time notifications — all in one Postgres database, because "it's relational data and we know SQL."
+      </div>
+      <div class="story-problem">
+        At 500,000 users the problems started. The activity_logs table had 800 million rows — every query touched it. Feature flag lookups fired 200 times per page load, each a round-trip to Postgres under full connection-pool pressure. The notification fan-out query took 4.2 seconds. The database CPU pegged at 95% during peak hours. Adding read replicas helped briefly, then the primary write volume overwhelmed the instance. Their $12K/month RDS bill was growing faster than revenue.
+      </div>
+      <div class="story-solution">
+        The team analysed their access patterns and separated concerns by data type. PostgreSQL kept what it was good at: users, subscriptions, billing (ACID, complex JOINs, reporting). Redis replaced the feature flag lookups (O(1) hash lookup, 0.3ms vs 12ms). Cassandra absorbed activity logs (append-only writes, time-range reads — exactly what wide-column is built for). Elasticsearch handled search. Each database solved the problem it was designed for.
+      </div>
+      <div class="story-outcome">
+        Page load time dropped from 3.8 seconds to 400ms. Database costs fell by 60% because each store was right-sized for its workload. The Postgres primary CPU dropped to 15% at peak. The team could scale each component independently: Cassandra for write-heavy logging, Redis for ultra-low-latency lookups, Postgres for transactional correctness. This pattern — called polyglot persistence — is how every large-scale system is built.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you are organising your music collection. The <strong>SQL way</strong> is to build a spreadsheet: one sheet for Artists (ID, Name, Country), one sheet for Albums (ID, ArtistID, Title, Year), one sheet for Songs (ID, AlbumID, Title, DurationSeconds). Every piece of data lives in exactly one place. If an artist changes their name, you update one row and every song automatically reflects the change. This is called <em>normalisation</em>.</p>
+          <p>The <strong>NoSQL way</strong> is a folder of JSON files: one file per artist, and inside each file you embed all their albums and songs directly. Fetching "everything about Taylor Swift" is instant — one read, one file. But if Taylor Swift changes her name, you have to update it everywhere it appears.</p>
+          <p>Neither approach is wrong. SQL wins when you need consistency and complex queries across many things. NoSQL wins when you usually fetch one thing at a time and need to do it very fast at very large scale.</p>
+        </div>
+
+        <h3 class="subsection-title">The Relational Model at a Glance</h3>
+        <ul>
+          <li><strong>Tables</strong> — Data lives in rows and columns, like a spreadsheet.</li>
+          <li><strong>Schema</strong> — You define the columns up front. Every row must have the same columns.</li>
+          <li><strong>Primary Key</strong> — A unique identifier for each row (e.g., <code>user_id = 42</code>).</li>
+          <li><strong>Foreign Key</strong> — A column that points to a row in another table, creating a relationship.</li>
+          <li><strong>JOIN</strong> — Combining rows from two tables based on a shared column.</li>
+          <li><strong>ACID</strong> — A guarantee that transactions are Atomic, Consistent, Isolated, and Durable.</li>
+        </ul>
+
+        <h3 class="subsection-title">Data Model Comparison — Same Data, Two Approaches</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+erDiagram
+    USERS {
+        int user_id PK
+        string name
+        string email
+    }
+    ORDERS {
+        int order_id PK
+        int user_id FK
+        date created_at
+        decimal total
+    }
+    ORDER_ITEMS {
+        int item_id PK
+        int order_id FK
+        string product
+        int quantity
+        decimal price
+    }
+    USERS ||--o{ ORDERS : "places"
+    ORDERS ||--o{ ORDER_ITEMS : "contains"
+          </div>
+        </div>
+
+        <p>The same data in a <strong>document store (MongoDB)</strong> would look like this — one JSON document per user, with orders embedded inside:</p>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">{
+  "_id": "user_42",
+  "name": "Alice Chen",
+  "email": "alice@example.com",
+  "orders": [
+    {
+      "order_id": "ord_1001",
+      "created_at": "2024-03-15",
+      "total": 94.50,
+      "items": [
+        { "product": "Wireless Headphones", "quantity": 1, "price": 79.99 },
+        { "product": "USB-C Cable",         "quantity": 3, "price": 4.99  }
+      ]
+    }
+  ]
+}</code></pre>
+        </div>
+
+        <p><strong>SQL version:</strong> fetching Alice's orders requires a JOIN across three tables. <strong>MongoDB version:</strong> one document read returns everything. But to find all orders over $50 across all users, SQL runs one clean query; MongoDB must scan every user document.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level the question becomes: what are the actual technical strengths of each approach, and when do those strengths matter?</p>
+
+        <h3 class="subsection-title">SQL Strengths</h3>
+        <ul>
+          <li><strong>ACID transactions</strong> — Either all steps of a transaction complete, or none do. Critical for financial operations (debit one account, credit another — both must succeed or neither does).</li>
+          <li><strong>JOINs</strong> — Query data across multiple tables without duplicating it. Normalised data is stored once and referenced everywhere.</li>
+          <li><strong>Complex queries</strong> — Aggregations, filters, groupings, window functions — SQL is a full query language, not a key lookup API.</li>
+          <li><strong>Schema enforcement</strong> — The database rejects bad data. You cannot accidentally insert a string into an integer column or leave a required field null.</li>
+          <li><strong>Mature tooling</strong> — Decades of ORMs, query planners, migration tools, monitoring, and operational knowledge.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- SQL: "Total revenue per country for orders placed in Q1 2024"
+-- This query spans 3 tables — trivial in SQL
+SELECT
+    u.country,
+    COUNT(DISTINCT o.order_id)  AS total_orders,
+    SUM(oi.price * oi.quantity) AS total_revenue
+FROM users u
+JOIN orders o       ON o.user_id  = u.user_id
+JOIN order_items oi ON oi.order_id = o.order_id
+WHERE o.created_at BETWEEN '2024-01-01' AND '2024-03-31'
+GROUP BY u.country
+ORDER BY total_revenue DESC;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">The Four NoSQL Families</h3>
+
+        <p><strong>1. Document Store (MongoDB, Firestore, CouchDB)</strong></p>
+        <p>Stores JSON-like documents. Related data is embedded in one document. Best for: content management, user profiles, product catalogues — any entity that is always fetched as a whole and has variable structure.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// MongoDB: find all products in the "electronics" category priced under $100
+db.products.find(
+  { category: "electronics", price: { $lt: 100 } },
+  { name: 1, price: 1, rating: 1 }
+).sort({ rating: -1 }).limit(20);</code></pre>
+        </div>
+
+        <p><strong>2. Key-Value Store (Redis, DynamoDB, Memcached)</strong></p>
+        <p>The simplest model: a key maps to a value. Lookup is O(1) — always sub-millisecond at any scale. Best for: session storage, caching, rate-limiting counters, feature flags, leaderboards.</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Redis: cache a user's profile with 15-minute TTL
+import redis
+r = redis.Redis()
+
+# Write (SET with expiry)
+r.setex(f"user:42:profile", 900, json.dumps(user_profile))
+
+# Read (GET)
+cached = r.get(f"user:42:profile")
+if cached:
+    return json.loads(cached)   # O(1), ~0.3ms
+
+# Increment a counter atomically (rate limiting)
+count = r.incr(f"rate_limit:user:42")
+r.expire(f"rate_limit:user:42", 60)   # reset every minute</code></pre>
+        </div>
+
+        <p><strong>3. Wide-Column Store (Cassandra, HBase, DynamoDB in table mode)</strong></p>
+        <p>Rows have a primary key but columns can vary per row and are grouped into "column families". Data is distributed across nodes by partition key. Best for: time-series data, activity logs, IoT sensor readings, write-heavy workloads across multiple regions.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Cassandra: activity log table optimised for "recent events for user X"
+CREATE TABLE activity_log (
+    user_id   UUID,
+    event_ts  TIMESTAMP,
+    event_type TEXT,
+    metadata  MAP&lt;TEXT, TEXT&gt;,
+    PRIMARY KEY (user_id, event_ts)   -- partition by user, sort by time
+) WITH CLUSTERING ORDER BY (event_ts DESC);
+
+-- Insert: O(1) regardless of table size (append to partition)
+INSERT INTO activity_log (user_id, event_ts, event_type, metadata)
+VALUES (uuid(), toTimestamp(now()), 'page_view', {'page': '/checkout'});
+
+-- Query: "Last 50 events for user X" — reads a single partition, fast
+SELECT * FROM activity_log
+WHERE user_id = :user_id
+LIMIT 50;</code></pre>
+        </div>
+
+        <p><strong>4. Graph Database (Neo4j, Amazon Neptune)</strong></p>
+        <p>Relationships are first-class citizens — stored as edges, not foreign keys. Traversing "friends of friends" in a graph DB is O(depth), not O(table size). Best for: social networks, fraud detection, recommendation engines, knowledge graphs.</p>
+
+        <div class="code-wrapper" data-lang="cypher">
+          <pre><code class="language-cypher">// Neo4j Cypher: "Find products that friends of Alice bought, that Alice hasn't bought"
+MATCH (alice:User {name: "Alice"})-[:FRIEND]->(friend:User)
+      -[:PURCHASED]->(product:Product)
+WHERE NOT (alice)-[:PURCHASED]->(product)
+RETURN product.name, COUNT(friend) AS friend_purchases
+ORDER BY friend_purchases DESC
+LIMIT 10;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Quick Decision Heuristic</h3>
+        <ul>
+          <li>You need ACID transactions (payments, bookings, inventory) → <strong>SQL</strong></li>
+          <li>You have a fixed, well-understood schema → <strong>SQL</strong></li>
+          <li>You need complex reporting/analytics queries → <strong>SQL</strong></li>
+          <li>Your data is a flexible JSON document, read as a whole → <strong>Document (MongoDB)</strong></li>
+          <li>You need sub-millisecond lookup by a single key → <strong>Key-Value (Redis)</strong></li>
+          <li>You have write-heavy time-series or log data → <strong>Wide-Column (Cassandra)</strong></li>
+          <li>Your most important queries traverse relationships → <strong>Graph (Neo4j)</strong></li>
+        </ul>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level the question is about trade-offs under constraints — and how the CAP theorem explains why NoSQL systems make the choices they do.</p>
+
+        <h3 class="subsection-title">CAP Theorem Connection</h3>
+        <p>The CAP theorem states that a distributed system can guarantee at most two of three properties simultaneously: <strong>Consistency</strong> (every read returns the most recent write), <strong>Availability</strong> (every request gets a response), and <strong>Partition tolerance</strong> (the system continues operating when network partitions occur). Since network partitions are inevitable in distributed systems, the real choice is <strong>CP vs AP</strong>.</p>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>CAP Choice</th>
+              <th>Consistency Model</th>
+              <th>Implication</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>PostgreSQL</strong></td>
+              <td>CA (single-node)</td>
+              <td class="good">Strong (serialisable)</td>
+              <td>Cannot horizontally partition — scale with vertical sizing or read replicas</td>
+            </tr>
+            <tr>
+              <td><strong>MongoDB</strong></td>
+              <td>CP (default)</td>
+              <td class="good">Tunable (strong to eventual)</td>
+              <td>Majority reads/writes; minority nodes can serve stale data</td>
+            </tr>
+            <tr>
+              <td><strong>Cassandra</strong></td>
+              <td>AP</td>
+              <td class="bad">Eventual (tunable quorum)</td>
+              <td>Always available; may return stale data; must handle conflicts</td>
+            </tr>
+            <tr>
+              <td><strong>Redis</strong></td>
+              <td>CP (Cluster mode)</td>
+              <td class="good">Strong for single keys</td>
+              <td>Cluster partitions by keyspace; cross-slot transactions limited</td>
+            </tr>
+            <tr>
+              <td><strong>DynamoDB</strong></td>
+              <td>AP (default)</td>
+              <td class="bad">Eventually consistent reads (cheap) or strongly consistent (2x cost)</td>
+              <td>Choose per-request; pay for stronger guarantees</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Full Trade-Off Matrix: SQL vs Each NoSQL Type</h3>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>SQL (Postgres/MySQL)</th>
+              <th>Document (MongoDB)</th>
+              <th>Key-Value (Redis)</th>
+              <th>Wide-Column (Cassandra)</th>
+              <th>Graph (Neo4j)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Data model</strong></td>
+              <td>Tables, rows, columns</td>
+              <td>JSON documents</td>
+              <td>Key → value</td>
+              <td>Rows + dynamic columns</td>
+              <td>Nodes + edges</td>
+            </tr>
+            <tr>
+              <td><strong>Schema</strong></td>
+              <td class="good">Strict (enforced)</td>
+              <td>Flexible (per-doc)</td>
+              <td>None</td>
+              <td>Semi-structured</td>
+              <td>Property graph</td>
+            </tr>
+            <tr>
+              <td><strong>ACID transactions</strong></td>
+              <td class="good">Full ACID</td>
+              <td>Multi-doc (v4+)</td>
+              <td class="bad">Single-key only</td>
+              <td class="bad">Lightweight TX (v4+)</td>
+              <td class="good">ACID</td>
+            </tr>
+            <tr>
+              <td><strong>Complex queries</strong></td>
+              <td class="good">Excellent (SQL)</td>
+              <td>Aggregation pipeline</td>
+              <td class="bad">Not supported</td>
+              <td class="bad">Query by PK only</td>
+              <td>Graph traversals</td>
+            </tr>
+            <tr>
+              <td><strong>Horizontal scale</strong></td>
+              <td class="bad">Hard (sharding complex)</td>
+              <td class="good">Built-in sharding</td>
+              <td class="good">Redis Cluster</td>
+              <td class="good">Native multi-node</td>
+              <td>Limited</td>
+            </tr>
+            <tr>
+              <td><strong>Write throughput</strong></td>
+              <td>High (single node)</td>
+              <td>High</td>
+              <td class="good">Extreme (&gt;1M ops/sec)</td>
+              <td class="good">Extreme (log-structured)</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td><strong>Read latency</strong></td>
+              <td>1–10ms (indexed)</td>
+              <td>1–5ms</td>
+              <td class="good">0.1–0.5ms</td>
+              <td>1–5ms (partition key)</td>
+              <td>1–100ms (depth)</td>
+            </tr>
+            <tr>
+              <td><strong>JOINs</strong></td>
+              <td class="good">Native, optimised</td>
+              <td class="bad">$lookup (slow at scale)</td>
+              <td class="bad">None</td>
+              <td class="bad">None (by design)</td>
+              <td class="good">Traversal (relationship)</td>
+            </tr>
+            <tr>
+              <td><strong>Ops maturity</strong></td>
+              <td class="good">50+ years, excellent</td>
+              <td>Good</td>
+              <td class="good">Excellent</td>
+              <td>Complex to operate</td>
+              <td>Moderate</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When "NoSQL is Faster" is False</h3>
+        <p>A common misconception is that NoSQL is inherently faster than SQL. Speed depends entirely on the access pattern:</p>
+        <ul>
+          <li><strong>Redis is faster</strong> for single-key lookups. Always. SQL cannot compete with an in-memory hash map.</li>
+          <li><strong>PostgreSQL is faster</strong> for complex multi-table aggregations. A Mongo aggregation pipeline over embedded documents is often slower than a well-indexed SQL query.</li>
+          <li><strong>Cassandra is faster</strong> for high-volume time-series writes distributed across nodes. Postgres write throughput is bounded by a single primary node.</li>
+          <li><strong>SQL is faster</strong> for ad-hoc reporting. Running an analytics query against MongoDB requires reading entire documents to extract one field. SQL column-oriented storage or even PostgreSQL is far more efficient.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>The root cause of most bad database choices is designing for <em>data storage</em> instead of <em>access patterns</em>. Before choosing a database, answer: what are the three most frequent read queries? What are the most frequent write operations? What are the latency and throughput requirements for each? The database that serves those access patterns best at the required scale is the right choice — regardless of which family it belongs to.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At the expert level the questions become: how do you manage a polyglot persistence architecture in production, how do you migrate between stores, and how do compliance requirements constrain database choice?</p>
+
+        <h3 class="subsection-title">Polyglot Persistence: Operational Reality</h3>
+        <p>Polyglot persistence — using multiple database types in one system — solves performance problems but creates operational complexity. The real costs are:</p>
+        <ul>
+          <li><strong>Cross-database transactions</strong> — You cannot atomically write to Postgres and Cassandra in one transaction. Solutions: Saga pattern (compensating transactions), outbox pattern (write to one DB, fan out via event stream), or accept eventual consistency.</li>
+          <li><strong>Data duplication</strong> — The same entity may live in Postgres (authoritative), Redis (cached), and Elasticsearch (searchable). Keeping them in sync requires event-driven architecture or change data capture (CDC).</li>
+          <li><strong>Operational overhead</strong> — Each database type has a different backup strategy, scaling model, monitoring approach, and failure mode. Your team must be competent across all of them.</li>
+          <li><strong>Debugging complexity</strong> — A "wrong data" bug could be a Postgres constraint failure, a cache invalidation race, a Cassandra eventual-consistency window, or an Elasticsearch reindex lag. Tracing it requires knowing all systems.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Outbox Pattern: atomically commit to Postgres + publish event
+# (solves cross-database consistency without distributed transactions)
+import psycopg2
+
+def create_order(user_id: str, items: list, total: float):
+    with db.transaction():
+        # 1. Write authoritative record
+        order = db.execute(
+            "INSERT INTO orders (user_id, total, status) VALUES (%s, %s, 'pending') RETURNING id",
+            (user_id, total)
+        ).fetchone()
+
+        # 2. Write to outbox in SAME transaction (atomic)
+        db.execute(
+            "INSERT INTO outbox (aggregate_id, event_type, payload, created_at) "
+            "VALUES (%s, 'order.created', %s, NOW())",
+            (order['id'], json.dumps({'order_id': order['id'], 'user_id': user_id, 'total': total}))
+        )
+        # Transaction commits both rows or neither
+
+    # 3. A separate relay process reads outbox and publishes to Kafka
+    #    Kafka consumers then update Redis cache, Elasticsearch index, etc.
+    # This decouples the write path from downstream propagation</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Migration Patterns: SQL → NoSQL (and back)</h3>
+        <p>Migrating a production database without downtime requires a careful multi-phase approach:</p>
+
+        <div class="code-wrapper" data-lang="bash">
+          <pre><code class="language-bash"># Phase 1: Dual-write (write to both, read from old)
+# Zero risk — old system is authoritative, new system catches up
+deploy_dual_write_code
+run_backfill_job --source postgres --target cassandra --table activity_logs
+
+# Phase 2: Dark read (compare results between old and new)
+# Validate correctness before switching reads
+deploy_shadow_read_code     # reads both, logs discrepancies, returns old result
+monitor_discrepancy_rate    # should converge to 0% over 24–48h
+
+# Phase 3: Read from new (canary → ramp)
+flip_feature_flag --read_from=cassandra --percentage=5
+monitor_error_rate --alert_threshold=0.1%
+flip_feature_flag --read_from=cassandra --percentage=100
+
+# Phase 4: Remove old writes
+deploy_single_write_code    # writes only to Cassandra
+schedule_postgres_table_cleanup --after=90_days</code></pre>
+        </div>
+
+        <h3 class="subsection-title">GDPR and Compliance Across Database Types</h3>
+        <p>GDPR's "right to be forgotten" requires deleting a user's personal data across every store it appears in. Each database handles this differently:</p>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Deletion Mechanism</th>
+              <th>Compliance Challenge</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>PostgreSQL</strong></td>
+              <td>DELETE WHERE user_id = :id</td>
+              <td class="good">Straightforward. Cascades via FK constraints if configured.</td>
+            </tr>
+            <tr>
+              <td><strong>MongoDB</strong></td>
+              <td>deleteMany({ user_id: id })</td>
+              <td>Must find all collections where user data was embedded — easy to miss one.</td>
+            </tr>
+            <tr>
+              <td><strong>Redis</strong></td>
+              <td>DEL key, SCAN + DEL pattern</td>
+              <td class="bad">If user data is encoded in cached keys, must enumerate all patterns.</td>
+            </tr>
+            <tr>
+              <td><strong>Cassandra</strong></td>
+              <td>DELETE (tombstone)</td>
+              <td class="bad">Tombstones are not physical deletes — data persists until compaction. Compaction can take days. Encryption + key deletion is safer.</td>
+            </tr>
+            <tr>
+              <td><strong>Elasticsearch</strong></td>
+              <td>delete by query</td>
+              <td>Deletes are eventually consistent — re-indexed segments may still contain data briefly.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Expert Pattern</span>
+          <p>The cleanest GDPR compliance pattern for polyglot systems: use a <strong>user data service</strong> as the single source of truth for PII. All other databases reference a user_id only — no PII stored. When a deletion request arrives, the user data service deletes the record and publishes a <code>user.deleted</code> event. Downstream services tombstone or anonymise their records. Cassandra rows with only a user_id reference contain no PII and do not need deletion. Encryption per-user with key deletion (crypto-erasure) is an alternative that works well for Cassandra's tombstone latency problem.</p>
+        </div>
+
+        <h3 class="subsection-title">Database Selection at Scale — Decision Checklist</h3>
+        <ul class="checklist">
+          <li>Access patterns documented: primary read queries, primary write operations, QPS estimates</li>
+          <li>Consistency requirements assessed: does wrong data cause money loss or just UX degradation?</li>
+          <li>Schema stability assessed: will the data model change frequently?</li>
+          <li>Scale requirements: data volume (GB/TB/PB), throughput (ops/sec), latency SLO (p99)</li>
+          <li>GDPR/compliance requirements reviewed for all stored PII fields</li>
+          <li>Team operational competency confirmed for the chosen database type</li>
+          <li>Managed vs self-hosted decision made (AWS RDS vs self-managed Postgres, Atlas vs self-hosted Mongo)</li>
+          <li>Cross-database consistency strategy defined (saga/outbox/eventual) if polyglot</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Airbnb — Polyglot Persistence at 150M+ Users</span>
+      <p><strong>Context:</strong> Airbnb's platform handles 150M+ active users, millions of listings, real-time availability calendars, billions of activity events, and billions of dollars in transactions annually. No single database family could serve all these workloads efficiently.</p>
+      <p><strong>How they use each database:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><strong>PostgreSQL</strong> — Core booking and payment data. ACID transactions are mandatory: a booking must simultaneously reserve the listing, charge the guest, and update the host's payout ledger. Postgres's serialisable isolation prevents double-bookings. Data size: hundreds of GB, but not TB — correctness over scale.</li>
+        <li><strong>MySQL</strong> — User profiles, host settings, listing metadata. Strong consistency required (a host's payout settings must be read correctly), but access patterns are simpler than bookings. MySQL's battle-tested replication is well-understood by the team.</li>
+        <li><strong>Cassandra</strong> — Messaging inbox and activity feed. Hosts and guests send millions of messages per day. Airbnb's access pattern is: "fetch the last 50 messages for conversation X" — a perfect Cassandra time-series query. Write throughput vastly exceeds what a single Postgres primary can handle. Eventual consistency is acceptable: a message appearing 100ms late is fine.</li>
+        <li><strong>Redis</strong> — Session tokens, search result caching, rate limiting, and the "availability calendar" cache. A listing availability check fires on every search result — with millions of concurrent searches, even a 5ms Postgres query per listing would collapse the system. Redis returns the cached calendar in 0.3ms.</li>
+        <li><strong>Elasticsearch</strong> — Full-text and geo-spatial search ("find entire homes in Paris under $150/night, pet-friendly, with free cancellation"). Postgres full-text search cannot handle this at Airbnb's query volume. Elasticsearch indexes are rebuilt nightly from Postgres via a Kafka-based CDC pipeline.</li>
+      </ol>
+      <p><strong>Business Impact:</strong> Before the polyglot architecture, a single Cassandra incident or Redis outage could cascade into booking failures because all systems shared one overloaded database tier. After separation: a Redis outage means slower search (falls back to Postgres, higher latency) but bookings continue. A Cassandra hiccup means delayed messages — no revenue impact. Independence between data tiers is as important as the per-tier performance gain.</p>
+      <p><strong>Key lesson:</strong> Airbnb did not choose Cassandra because it is "NoSQL and modern." They chose it because their messaging workload is literally a time-series append log — the exact problem wide-column stores are designed for. The data model drove the decision, not the technology label.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">"NoSQL is Faster Than SQL"</span>
+      <p>This is the most pervasive misconception in database selection. Speed is entirely workload-dependent. Redis is faster than Postgres for a single-key hash lookup — by two orders of magnitude. Postgres is faster than MongoDB for a multi-collection aggregation query. Cassandra is faster than Postgres for sustained million-row-per-second time-series writes across a distributed cluster. Postgres is faster than Cassandra for ad-hoc analytical queries.</p>
+      <p>The correct framing: <em>which database is fastest for the specific access pattern at the specific scale I need?</em> Choosing MongoDB because "NoSQL scales better" for an app that primarily runs complex reporting queries will result in worse performance and a painful migration.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Choosing MongoDB Because "JSON is Natural"</span>
+      <p>Teams familiar with JavaScript or Python often choose MongoDB because storing JSON documents "feels natural" compared to SQL tables. This reasoning ignores access patterns entirely. If your application frequently queries data across multiple entity types (e.g., "all orders for users in a specific region who signed up after a date"), the document model forces either expensive $lookup aggregations (essentially a slow JOIN) or massive data duplication. Many production MongoDB clusters were migrated back to Postgres precisely because the team discovered, after going live, that their query patterns were inherently relational.</p>
+      <p>The right question is not "what format is my data in?" but "how do I most often need to query it?"</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Ignoring ACID Requirements for Financial Data</span>
+      <p>Building payment or inventory systems on an eventually-consistent NoSQL store is a serious architectural error. Cassandra's eventual consistency means two writes to the same balance can arrive at different replicas in different orders — your account balance becomes undefined. Redis (without Redis Cluster transactions and careful scripting) can lose writes during failover. MongoDB's multi-document transactions (introduced in v4.0) work but add significant performance overhead and are often disabled in high-throughput configurations.</p>
+      <p>Any operation that must be <em>atomic</em> — deducting stock and creating a reservation, debiting one account and crediting another, creating an order and capturing payment — belongs in a database with full ACID transaction support. Use Postgres or MySQL. Do not fight the tool.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        SQL gives you ACID transactions, complex JOINs, and strict schemas — ideal for relational data where correctness is paramount. NoSQL gives you scale, flexibility, and access-pattern-optimised data models — ideal when you've outgrown a single machine or need specialised performance characteristics.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "SQL and NoSQL serve different access patterns. SQL — Postgres, MySQL — is the right choice when you need ACID transactions, like a payment system where you can't afford inconsistency, or when you have complex query requirements like analytics across many tables. The schema enforcement also prevents data quality problems. NoSQL covers four families: document stores like MongoDB for flexible-schema entities fetched as a whole; key-value stores like Redis for O(1) lookups at microsecond latency; wide-column stores like Cassandra for write-heavy time-series data distributed across nodes; and graph databases like Neo4j when relationships are the primary query axis. In practice, large systems use both — this is called polyglot persistence. The decision should be driven by access patterns, consistency requirements, and scale — not by familiarity or hype."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>How would you store user activity logs for 10 million users generating 1,000 events each per day?</li>
+        <li>Why can't you just use MongoDB for everything?</li>
+        <li>How do you handle transactions that span two different database types?</li>
+        <li>What is eventual consistency and when is it acceptable?</li>
+        <li>How does the CAP theorem affect your database choice?</li>
+        <li>If you are building a social network, what database would you use for the friend graph?</li>
+        <li>How would you migrate a MySQL table to Cassandra without downtime?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "NoSQL scales better" without qualifying what type of workload or what kind of scale — interviewers will immediately probe this.</li>
+        <li>Treating this as SQL vs. "one NoSQL" — there are four distinct NoSQL families with completely different models; conflating them signals shallow knowledge.</li>
+        <li>Forgetting to mention consistency trade-offs when recommending a NoSQL store for financial data.</li>
+        <li>Not connecting the choice to access patterns — the answer "I'd use MongoDB for user profiles" is weak without explaining the access pattern that makes documents better than tables for that case.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Use SQL When</th>
+          <th>Use NoSQL When</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Money moves, inventory decrements, multi-step operations that must be atomic</td>
+          <td>User preferences, view counts, activity logs — losing one event is acceptable</td>
+        </tr>
+        <tr>
+          <td><strong>Query flexibility</strong></td>
+          <td>Ad-hoc queries, complex aggregations, reports spanning many entities</td>
+          <td>Fixed access patterns known at design time (by PK, by time range, by key)</td>
+        </tr>
+        <tr>
+          <td><strong>Schema stability</strong></td>
+          <td>Well-defined, rarely-changing entity structures (e.g., invoices, contracts)</td>
+          <td>Rapidly evolving structures, varying fields per record (product attributes, user configs)</td>
+        </tr>
+        <tr>
+          <td><strong>Scale axis</strong></td>
+          <td>Vertical scale + read replicas sufficient; data volume in GB–low-TB range</td>
+          <td>Horizontal partitioning required; data in TB–PB range; millions of writes/sec</td>
+        </tr>
+        <tr>
+          <td><strong>Latency requirement</strong></td>
+          <td>1–10ms acceptable; complex query worth the latency</td>
+          <td>Sub-millisecond required (cache/session); use Redis key-value</td>
+        </tr>
+        <tr>
+          <td><strong>Team knowledge</strong></td>
+          <td>Team has SQL expertise; mature ORM ecosystem; extensive operational tooling</td>
+          <td>Team has specific NoSQL expertise; access patterns justify the operational complexity</td>
+        </tr>
+        <tr>
+          <td><strong>Compliance</strong></td>
+          <td>Auditability required; schema guarantees data shape; easy GDPR deletion via FK cascades</td>
+          <td>Must assess per-store deletion guarantees; Cassandra tombstones require crypto-erasure strategy</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="databases.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Databases</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Relational, columnar, in-memory, and time-series storage models.</span>
+      </a>
+      <a href="indexing.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Indexing</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">How databases find rows fast without scanning every record.</span>
+      </a>
+      <a href="sharding.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Sharding</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Partitioning data across multiple nodes for horizontal scale.</span>
+      </a>
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Storing computed results close to the reader to cut latency.</span>
+      </a>
+      <a href="cap-theorem.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Distributed Systems</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CAP Theorem</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The fundamental consistency-availability trade-off in distributed data.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authorization — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="authorization" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Authorization</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Security <span>→</span> Authorization</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Security</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Authorization</h1>
+      <p class="page-subtitle">Controlling what authenticated users are allowed to do — who can read, write, or delete which resources.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Security</span>
+        <span class="tag">RBAC</span>
+        <span class="tag">Access Control</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Authentication is your hotel key card — it proves who you are and gets you past the lobby. Authorization is the list of floors your card is actually programmed to open. A guest card opens floors 3–8. A housekeeper card opens floors 3–8 but only between 8 AM and 4 PM. A manager card opens the executive lounge too. Same building, different permissions per card.</p>
+    </div>
+
+    <p>Authentication answers "who are you?" Authorization answers "what are you allowed to do?" They are distinct systems that work together. A logged-in user might be able to view their own profile but not delete another user's account. A finance employee can read salary reports but not modify them. Authorization is the set of rules that enforces these boundaries — and getting it wrong is one of the most common causes of data breaches.</p>
+
+    <p>The difference matters architecturally: authentication happens once at login, while authorization is evaluated on <em>every request</em>. Authorization must live in backend services, not just the UI — hiding a "Delete" button in the frontend is not authorization. The API itself must enforce access control on every call.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A healthcare startup built a patient records portal. Doctors could view patient records for their department, nurses could add notes, and admin staff could edit billing information. The engineering team wired up authentication properly — every user needed to log in with MFA. For authorization, they added simple role checks: <code>if user.role === 'doctor'</code> before rendering patient data in the UI.
+      </div>
+      <div class="story-problem">
+        A junior developer noticed that if you changed the patient ID in the URL from <code>/patients/1042</code> to <code>/patients/1043</code>, you could see a different patient's full record — even one outside your department, even across hospitals in the same network. The backend API never checked whether the requesting doctor was actually assigned to that patient. The UI had no "View" button for those records, but the API endpoint had no authorization check at all. Over 40,000 patient records were accessible to any authenticated user.
+      </div>
+      <div class="story-solution">
+        The team introduced resource-level authorization. Every API call now validated: (1) is the user authenticated? (2) does the user's role include read access to patient records? (3) is this specific patient in the user's assigned department or explicitly shared with this doctor? They deployed OPA (Open Policy Agent) as a policy sidecar, separating policy logic from application code. Policies were written in Rego, stored in version control, and evaluated on every request.
+      </div>
+      <div class="story-outcome">
+        The vulnerability was closed with zero patient data exposure confirmed. A full audit log of authorization decisions — who accessed which record, when, and whether it was permitted or denied — was added for HIPAA compliance. Six months later, the audit log caught an insider threat: a billing admin who was querying patient diagnoses outside their role. The logs provided exact evidence for the investigation.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Think of a company building. Everyone who works there has a key card (authentication — proves they're an employee). But the key card is programmed differently for each person. The intern can get into the lobby and their own floor. The HR manager can get into the HR floor and employee files. The CEO can get into every floor. The security guard can get into every floor but only during working hours.</p>
+          <p><strong>Authorization</strong> is the system that defines and enforces those rules. In software, instead of floors, we have actions: "can read document", "can delete user", "can approve payment". Instead of a key card programmer, we have code that checks these rules before allowing any action to proceed.</p>
+          <p>The most common form is <strong>Role-Based Access Control (RBAC)</strong>: you assign users to roles (admin, editor, viewer), and roles have permissions. Instead of giving 500 employees permissions one by one, you give each employee a role, and the role has the permissions.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Permission</strong> — A specific action allowed on a resource (e.g., "can read invoices", "can delete users").</li>
+          <li><strong>Role</strong> — A named collection of permissions (e.g., "editor" = can read + write, but not delete).</li>
+          <li><strong>Principal</strong> — The entity being authorized (a user, a service, an API key).</li>
+          <li><strong>Resource</strong> — The thing being protected (a document, an API endpoint, a database row).</li>
+          <li><strong>Deny by default</strong> — If no rule explicitly allows an action, it is denied. The safe baseline.</li>
+        </ul>
+
+        <h3 class="subsection-title">RBAC Permission Check Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A[Incoming Request\nUser: alice, Action: delete, Resource: invoice-42] --> B{Is user authenticated?}
+    B -- No --> Z1[401 Unauthorized]
+    B -- Yes --> C[Look up alice's roles\nalice → editor]
+    C --> D[Look up editor's permissions\neditor: read, write]
+    D --> E{Does role include\n'delete' permission?}
+    E -- No --> Z2[403 Forbidden\nInsufficient permissions]
+    E -- Yes --> F[Allow request\n200 OK]
+          </div>
+        </div>
+
+        <p>Notice there are two different error codes: <strong>401</strong> means "I don't know who you are" (not authenticated). <strong>403</strong> means "I know who you are, but you're not allowed to do this" (not authorized). This distinction is important for debugging and for API clients to handle correctly.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Real systems need more than flat role lists. Users need permissions scoped to specific resources, and roles need hierarchy.</p>
+
+        <h3 class="subsection-title">RBAC Implementation</h3>
+        <p>A typical RBAC schema in a database:</p>
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Users table (already exists)
+-- users(id, email, name, ...)
+
+-- Roles
+CREATE TABLE roles (
+  id   SERIAL PRIMARY KEY,
+  name VARCHAR(64) UNIQUE NOT NULL  -- 'admin', 'editor', 'viewer'
+);
+
+-- Permissions
+CREATE TABLE permissions (
+  id       SERIAL PRIMARY KEY,
+  action   VARCHAR(64) NOT NULL,    -- 'read', 'write', 'delete'
+  resource VARCHAR(64) NOT NULL,    -- 'invoice', 'user', 'report'
+  UNIQUE (action, resource)
+);
+
+-- Map roles → permissions
+CREATE TABLE role_permissions (
+  role_id       INT REFERENCES roles(id),
+  permission_id INT REFERENCES permissions(id),
+  PRIMARY KEY (role_id, permission_id)
+);
+
+-- Map users → roles (many-to-many: user can have multiple roles)
+CREATE TABLE user_roles (
+  user_id INT REFERENCES users(id),
+  role_id INT REFERENCES roles(id),
+  PRIMARY KEY (user_id, role_id)
+);</code></pre>
+        </div>
+
+        <p>An authorization check in application code:</p>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">def can_perform(user_id: int, action: str, resource: str) -> bool:
+    """Check if user has permission to perform action on resource."""
+    result = db.execute("""
+        SELECT 1
+        FROM user_roles ur
+        JOIN role_permissions rp ON rp.role_id = ur.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE ur.user_id = %s
+          AND p.action    = %s
+          AND p.resource  = %s
+        LIMIT 1
+    """, [user_id, action, resource])
+    return result.rowcount > 0
+
+# Usage in an API handler
+@app.delete("/invoices/{invoice_id}")
+def delete_invoice(invoice_id: int, current_user: User):
+    if not can_perform(current_user.id, "delete", "invoice"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    db.execute("DELETE FROM invoices WHERE id = %s", [invoice_id])
+    return {"deleted": invoice_id}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Permission Hierarchy — Resource-Level vs Field-Level</h3>
+        <p>Permissions exist at multiple granularities:</p>
+        <ul>
+          <li><strong>Endpoint-level</strong> — Can the user call <code>DELETE /invoices</code> at all?</li>
+          <li><strong>Resource-level (row-level)</strong> — Can the user delete <em>this specific invoice</em> (e.g., only ones they created)?</li>
+          <li><strong>Field-level</strong> — Can the user see the <code>salary</code> field in an employee record, even if they can read the overall employee record?</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">def get_employee(employee_id: int, current_user: User) -> dict:
+    employee = db.get_employee(employee_id)
+
+    # Resource-level: can this user read this employee's record at all?
+    if not can_perform(current_user.id, "read", "employee"):
+        raise HTTPException(status_code=403)
+
+    # Row-level: can they read employees in the same department only?
+    if current_user.department != employee.department:
+        if not current_user.has_role("hr_admin"):
+            raise HTTPException(status_code=403, detail="Cross-department access denied")
+
+    # Field-level: strip sensitive fields unless user is HR or finance
+    result = employee.to_dict()
+    if not current_user.has_any_role(["hr_admin", "finance"]):
+        del result["salary"]
+        del result["ssn"]
+
+    return result</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Principle of Least Privilege</h3>
+        <p>Every user, service, and API key should have the minimum permissions needed to do its job — nothing more. Common violations:</p>
+        <ul>
+          <li>A reporting service with write access to the database it only reads.</li>
+          <li>All developers with production database admin access "just in case".</li>
+          <li>A new employee defaulting to the same role as a 10-year senior employee.</li>
+          <li>Service accounts with wildcard permissions (<code>*</code>) because it was convenient to set up.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Implementation Pattern</span>
+          <p>Cache authorization decisions, but with care. A permission check might hit the DB on every request. Cache the result (e.g., in Redis) with a short TTL — 1 to 5 minutes. When a user's role changes, invalidate their cache entry. Never cache for longer than your acceptable "stale permission" window — if you revoke a user's access, how quickly must it take effect?</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>RBAC breaks down when permissions depend on context — the time of day, the data itself, or the relationship between the user and the resource. Two more advanced models address this.</p>
+
+        <h3 class="subsection-title">ABAC — Attribute-Based Access Control</h3>
+        <p>Policy decisions are based on <em>attributes</em> of the user, the resource, and the environment — not just the role.</p>
+
+        <div class="code-wrapper" data-lang="rego">
+          <pre><code class="language-rego"># OPA Policy — Rego language
+package authz.invoices
+
+import future.keywords.if
+
+# Allow a user to read an invoice if:
+# - their department matches the invoice's owner department
+# - AND it's during business hours
+default allow := false
+
+allow if {
+    input.action == "read"
+    input.user.department == input.resource.owner_department
+    time.clock(time.now_ns())[0] >= 8     # hour >= 8
+    time.clock(time.now_ns())[0] < 18    # hour < 18
+}
+
+# Finance team can always read any invoice
+allow if {
+    input.action == "read"
+    "finance" in input.user.roles
+}
+
+# Nobody can delete invoices older than 7 years (legal hold)
+deny if {
+    input.action == "delete"
+    age_years := (time.now_ns() - input.resource.created_at_ns) / (365 * 24 * 3600 * 1e9)
+    age_years >= 7
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">ReBAC — Relationship-Based Access Control</h3>
+        <p>Permissions derive from the <em>relationship graph</em> between users and resources. This is what powers Google Drive: you own a document, you share it with a group, members of that group can view it.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+graph LR
+    alice([alice]) -- OWNER --> doc1([doc: proposal.pdf])
+    alice([alice]) -- MEMBER --> teamA([team: product])
+    teamA -- EDITOR --> doc2([doc: roadmap.pdf])
+    bob([bob]) -- MEMBER --> teamA
+    carol([carol]) -- VIEWER --> doc1
+    style alice fill:#3b82f6,color:#fff
+    style bob fill:#3b82f6,color:#fff
+    style carol fill:#3b82f6,color:#fff
+    style doc1 fill:#8b5cf6,color:#fff
+    style doc2 fill:#8b5cf6,color:#fff
+    style teamA fill:#f59e0b,color:#fff
+          </div>
+        </div>
+
+        <p>To check if bob can edit roadmap.pdf: traverse the graph — bob is MEMBER of teamA, teamA is EDITOR of roadmap.pdf → bob can edit. This traversal is the key operation, and it can be expensive at scale.</p>
+
+        <h3 class="subsection-title">RBAC vs ABAC vs ReBAC Trade-offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Strengths</th>
+              <th>Weaknesses</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>RBAC</strong></td>
+              <td class="good">Simple, fast, easy to audit. Works for 1000s of users with a handful of roles.</td>
+              <td class="bad">Can't do row-level or context-sensitive checks. Role explosion when fine-grained rules needed.</td>
+              <td>Enterprise apps with clear, stable role boundaries.</td>
+            </tr>
+            <tr>
+              <td><strong>ABAC</strong></td>
+              <td class="good">Extremely flexible — any attribute can be used. Handles time, location, data sensitivity.</td>
+              <td class="bad">Policy complexity explodes. Hard to audit ("why was this denied?"). Performance cost of evaluating policies.</td>
+              <td>Compliance-heavy domains (healthcare, finance) with conditional access rules.</td>
+            </tr>
+            <tr>
+              <td><strong>ReBAC</strong></td>
+              <td class="good">Natural model for user-generated content with sharing. Handles inherited permissions elegantly.</td>
+              <td class="bad">Graph traversal is expensive at scale. Complex to debug. Hard to answer "who has access to this?" (reverse lookup).</td>
+              <td>Collaboration platforms (docs, files, tickets) where users share resources dynamically.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">OPA — Open Policy Agent</h3>
+        <p>OPA decouples authorization policy from application code. Instead of <code>if user.role == 'admin'</code> scattered across services, all policy lives in a central OPA service queried via HTTP or sidecar.</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># OPA input document — sent from your service on each request
+{
+  "input": {
+    "user": {
+      "id": "user-42",
+      "roles": ["editor"],
+      "department": "engineering"
+    },
+    "action": "delete",
+    "resource": {
+      "type": "invoice",
+      "id": "inv-1099",
+      "owner_department": "finance",
+      "created_at_ns": 1680000000000000000
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import httpx
+
+def is_authorized(user: dict, action: str, resource: dict) -> bool:
+    """Query OPA for an authorization decision."""
+    response = httpx.post(
+        "http://opa:8181/v1/data/authz/invoices/allow",
+        json={"input": {"user": user, "action": action, "resource": resource}},
+        timeout=0.1  # authorization must be fast — 100ms budget
+    )
+    return response.json().get("result", False)</code></pre>
+        </div>
+
+        <div class="production-tip">
+          <span class="production-tip-label">Production Note</span>
+          <p>OPA can run as a sidecar (co-deployed with each service, ultra-low latency) or as a central service (easier to update policies centrally, single network hop). For latency-sensitive paths, sidecar mode with policy bundle pre-loaded is preferred. Bundle updates push new policies to all sidecars without a service restart.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Google Zanzibar — The Model Behind Global Authorization</h3>
+        <p>In 2019 Google published the Zanzibar paper describing the authorization system behind Google Drive, YouTube, Maps, and Calendar. It manages over 10 trillion ACL entries and handles 10 million+ QPS at 95th percentile latency under 10ms globally.</p>
+
+        <p>Zanzibar is a ReBAC system. Every permission is an <em>ACL tuple</em>:</p>
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text"># Tuple format: &lt;resource&gt;#&lt;relation&gt;@&lt;user-or-userset&gt;
+doc:proposal#owner@alice
+doc:proposal#viewer@carol
+group:product#member@bob
+doc:roadmap#editor@group:product#member   # All members of group:product are editors of doc:roadmap</code></pre>
+        </div>
+
+        <p>A permission check — "can bob edit doc:roadmap?" — becomes a graph traversal over these tuples. Zanzibar calls this a <em>check</em> request. The traversal can go multiple hops: bob → member of group:product → group:product is editor of doc:roadmap → allow.</p>
+
+        <p>Open-source implementations inspired by Zanzibar: <strong>OpenFGA</strong> (by Auth0/Okta), <strong>SpiceDB</strong> (by Authzed), <strong>Ory Keto</strong>. All expose a similar tuple API and check endpoint.</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import openfga_sdk
+
+# Write a relationship tuple
+client.write(body={
+    "writes": {
+        "tuple_keys": [
+            {"object": "document:proposal", "relation": "owner", "user": "user:alice"},
+            {"object": "document:proposal", "relation": "viewer", "user": "user:carol"},
+        ]
+    }
+})
+
+# Check permission — Zanzibar-style
+result = client.check(body={
+    "tuple_key": {
+        "object": "document:proposal",
+        "relation": "viewer",
+        "user": "user:carol"
+    }
+})
+# result.allowed == True</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Audit Logging — SOC 2 &amp; GDPR Requirements</h3>
+        <p>Every authorization decision — not just denials, but every allow too — should be logged. This is a hard requirement for SOC 2 Type II (CC6.2, CC6.3) and GDPR Article 32 (accountability). The log must capture:</p>
+        <ul>
+          <li><strong>Who</strong> — user ID, service account ID, session ID</li>
+          <li><strong>What</strong> — action attempted, resource ID, resource type</li>
+          <li><strong>When</strong> — ISO 8601 timestamp with milliseconds</li>
+          <li><strong>Decision</strong> — allow / deny, and which policy rule triggered</li>
+          <li><strong>Context</strong> — IP address, user agent, request ID for correlation</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">{
+  "ts": "2024-11-15T14:32:11.443Z",
+  "event": "authz.decision",
+  "user_id": "usr_8fg2k9",
+  "session_id": "sess_3jd8k1",
+  "action": "delete",
+  "resource_type": "invoice",
+  "resource_id": "inv-1099",
+  "decision": "deny",
+  "policy_rule": "authz.invoices/deny — resource.age_years >= 7",
+  "ip": "10.0.4.22",
+  "request_id": "req_a9bc23",
+  "latency_ms": 2
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Compliance Checklist</h3>
+        <ul class="checklist">
+          <li>SOC 2 CC6.2: Logical access controls implemented and enforced at all layers</li>
+          <li>SOC 2 CC6.3: Role assignments reviewed quarterly; terminated employees de-provisioned within 24 hours</li>
+          <li>GDPR Art. 25: Data minimization — authorization restricts access to minimum required fields (field-level)</li>
+          <li>GDPR Art. 32: Audit logs retained for minimum 90 days (SOC 2) or 1 year (many compliance programs)</li>
+          <li>HIPAA 164.312(a)(1): Role-based access control for PHI; unique user IDs in all audit logs</li>
+          <li>PCI DSS 7: Access to cardholder data limited to business need-to-know; access matrix documented</li>
+          <li>Policies in version control — every policy change is a PR with a reviewer</li>
+          <li>Automated tests for critical deny paths — regression tests for known privilege escalation scenarios</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Zanzibar Consistency Model</span>
+          <p>Zanzibar introduced the concept of a <em>zookie</em> (consistency token) to handle a key problem: if Alice shares a document with Bob and Bob immediately tries to open it, the check might run on a replica that hasn't seen the write yet — and deny him. Zanzibar solves this by returning a zookie with every write. Bob passes the zookie in his check request, forcing evaluation on a replica that is at least as up-to-date as that write. This is "snapshot reads with external consistency" — a key design pattern for globally distributed authorization systems.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Google — Zanzibar Global Authorization (10 trillion ACLs, 10M+ QPS)</span>
+      <p><strong>Context:</strong> Google runs a single unified authorization system — Zanzibar — for Google Drive, YouTube, Google Maps, Google Calendar, Google Photos, and more. At peak it evaluates over 10 million authorization checks per second, with a 95th percentile latency under 10ms globally, managing over 10 trillion ACL relationship tuples. It was published as a research paper in 2019 and became the reference model for modern authorization infrastructure.</p>
+      <p><strong>Why a shared system:</strong> Before Zanzibar, each Google product managed its own ACL system. Drive had different sharing semantics than Calendar. Integrations (e.g., "share a Google Doc link in a Calendar invite") required cross-product authorization checks that each team implemented differently — inconsistently and insecurely. Zanzibar unified all of them behind a single tuple model and check API.</p>
+      <p><strong>The architecture:</strong> Zanzibar stores tuples in Spanner (Google's globally distributed relational database). Checks traverse the relationship graph: "can user U perform relation R on object O?" is resolved by expanding relation R recursively through userset rewrite rules until reaching a leaf user. Negative caching (caching "deny" results) and Leopard indexing (precomputed group membership) reduce the cost of deep traversals.</p>
+      <p><strong>Concrete numbers from the paper:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>10 trillion ACL entries under management</li>
+        <li>10 million+ check QPS at production peak</li>
+        <li>95th percentile check latency: &lt;10ms globally</li>
+        <li>99th percentile check latency: &lt;25ms</li>
+        <li>Consistency guaranteed via zookie tokens (new-enemy problem solved)</li>
+      </ol>
+      <p><strong>Business impact and open-source ecosystem:</strong> The Zanzibar paper inspired a generation of open-source implementations. Auth0 (now Okta) released OpenFGA. Authzed released SpiceDB. Ory released Ory Keto. Companies like Airbnb, Carta, and Duolingo now use Zanzibar-model authorization instead of building custom RBAC. The model enables fine-grained sharing (exactly what a Google Drive "share with specific person" requires) while remaining consistent at global scale.</p>
+      <p><strong>Lesson:</strong> For consumer-scale systems with user-generated content and complex sharing needs, graph-based authorization (ReBAC) is the right model — but it requires infrastructure investment. Simple RBAC is appropriate until you need row-level or dynamic sharing semantics.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Authorization Only in the Frontend</span>
+      <p>Hiding a "Delete" button in the UI for users who aren't admins is <em>not</em> authorization. It's UI logic. Any user with browser dev tools or a tool like <code>curl</code> can call the API directly and bypass every frontend check. Authorization must be enforced in the backend on every API call — the frontend is convenience, not security. This is one of the most common causes of OWASP A01 (Broken Access Control) vulnerabilities.</p>
+      <p><strong>Fix:</strong> Every API endpoint that accesses or mutates data must have an authorization check. Treat frontend permission checks as a UX nicety, never as a security control.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Audit Log of Authorization Decisions</span>
+      <p>Most teams log authentication events (login, logout, failed login). Few log authorization decisions. But authorization logs are what SOC 2 Type II requires (CC6.2, CC6.3), what GDPR Article 32 accountability demands, and what your security team needs to detect insider threats and investigate breaches. "Who accessed which data, when, and was it permitted?" must be answerable from logs.</p>
+      <p><strong>Fix:</strong> Log every authorization decision — not just denials. Include user ID, resource ID, action, decision, and a request correlation ID. Ship logs to a SIEM where they cannot be tampered with by the application itself.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Hardcoded Role Strings Scattered Across the Codebase</span>
+      <p>Checking <code>if user.role === "admin"</code> in 47 different places means one typo or one undocumented role name bypasses security. When a new role is added, every check has to be found and updated. There is no central place to audit what "admin" is actually allowed to do. This is policy-as-code's worst anti-pattern: policy-as-string-literals.</p>
+      <p><strong>Fix:</strong> Centralize permission checks in a single authorization module or policy engine. Define permissions as constants (<code>Permission.DELETE_INVOICE</code>), not magic strings. Use a policy engine like OPA, Casbin, or a dedicated authorization service so that all policy lives in one auditable place.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Authorization is the enforcement of who is allowed to do what to which resources — implemented on the backend on every request, distinct from authentication, using models like RBAC, ABAC, or ReBAC depending on how dynamic and fine-grained the access rules need to be.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Authorization is separate from authentication. Authentication proves who you are; authorization decides what you're allowed to do. It must live in the backend — never only in the UI. The most common model is RBAC: users get roles, roles have permissions, and every API call checks whether the current user's role includes the required permission. For more dynamic needs, ABAC adds context — you can write policies like 'allow read if user.department matches resource.owner_department and it's business hours.' For user-generated content with sharing semantics, ReBAC models permissions as a relationship graph — this is how Google Drive works. At scale, a policy engine like OPA separates policy from code: policies are in version control, deployed independently, and every authorization decision is evaluated by OPA rather than scattered if-statements. Critical production requirement: log every authorization decision for compliance and incident response."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is the difference between authentication and authorization?</li>
+        <li>How would you implement row-level security (a user can only see their own records)?</li>
+        <li>What is the "confused deputy problem" in authorization?</li>
+        <li>How does Google Zanzibar solve the "new enemy problem"?</li>
+        <li>How would you design authorization for a multi-tenant SaaS application?</li>
+        <li>What is the principle of least privilege and how do you enforce it in practice?</li>
+        <li>How would you handle permission caching — how long do you cache and what invalidates it?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Conflating authentication with authorization — they are distinct systems. Authentication is a prerequisite, not a substitute.</li>
+        <li>Describing only frontend checks — interviewers specifically probe whether you understand that authorization lives in the backend API layer.</li>
+        <li>Treating RBAC as the only model — for systems with dynamic sharing or attribute-based rules, RBAC alone is insufficient.</li>
+        <li>Forgetting audit logging — in any compliance or security context, the interviewer expects you to mention authorization logs as a requirement, not an afterthought.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>RBAC</th>
+          <th>ABAC</th>
+          <th>ReBAC (Zanzibar)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Simplicity</strong></td>
+          <td>High — roles and permissions are easy to reason about</td>
+          <td>Low — policy combinatorics become complex quickly</td>
+          <td>Medium — the graph model is intuitive but graph traversal logic is hard</td>
+        </tr>
+        <tr>
+          <td><strong>Flexibility</strong></td>
+          <td>Low — can't easily express "only on business hours" or "only their own records"</td>
+          <td>Very high — any attribute can be used in any combination</td>
+          <td>High — relationship hierarchies handle complex sharing semantics naturally</td>
+        </tr>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>Fast — role lookup is a single DB join or cache hit</td>
+          <td>Slower — policy evaluation requires loading attribute data for user and resource</td>
+          <td>Variable — graph traversal cost scales with depth and fan-out of relationships</td>
+        </tr>
+        <tr>
+          <td><strong>Auditability</strong></td>
+          <td>Easy — "what can role X do?" is a simple query</td>
+          <td>Hard — "who has access to resource Y?" requires evaluating all policies for all users</td>
+          <td>Medium — reverse lookups are possible but expensive at scale</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Scales to millions of users with a few hundred roles</td>
+          <td>Policy evaluation adds latency at high QPS — policy engine must be co-located</td>
+          <td>Requires specialized infrastructure (Spanner-level) at Google scale; OpenFGA/SpiceDB at startup scale</td>
+        </tr>
+        <tr>
+          <td><strong>Best for</strong></td>
+          <td>Enterprise SaaS with fixed roles (admin, editor, viewer)</td>
+          <td>Regulated industries with conditional access rules</td>
+          <td>Collaboration platforms with user-driven sharing</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="authentication.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Authentication</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Verifying identity before you can enforce access rules.</span>
+      </a>
+      <a href="oauth.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">OAuth</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Delegated authorization — letting third parties act on your behalf with scoped permissions.</span>
+      </a>
+      <a href="jwt.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">JWT</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Signed tokens that carry claims (including roles/scopes) across service boundaries.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Restricting how often a principal can perform an action — a complement to permission-based access control.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

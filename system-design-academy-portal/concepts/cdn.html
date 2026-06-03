@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDN — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="cdn" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">CDN</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Networking <span>→</span> CDN</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Networking</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner–Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">CDN</h1>
+      <p class="page-subtitle">A Content Delivery Network distributes copies of your static assets across hundreds of edge servers worldwide so every user gets content from the closest location possible.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Networking</span>
+        <span class="tag">Performance</span>
+        <span class="tag">Caching</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Imagine your favourite book is only stocked at a single warehouse in New York. Every time someone in London, Tokyo, or Sydney wants a copy, they have to wait for it to be shipped from New York. Now imagine the publisher pre-ships copies to local bookshops in every major city. Customers in Tokyo grab it from the shop around the corner — same book, delivered in minutes instead of days.</p>
+      <p>A CDN does the same for your website's files. Your origin server is the warehouse. The CDN's edge nodes are the local bookshops.</p>
+    </div>
+
+    <p>Without a CDN, every user worldwide sends requests to your single origin server. A visitor in Singapore waiting for a JavaScript bundle hosted in Virginia adds ~200ms of round-trip latency before the browser even starts rendering. Multiply that by every asset on every page and the performance impact compounds quickly.</p>
+
+    <p>A CDN caches your static assets — images, JS, CSS, fonts, videos — at hundreds of Points of Presence (PoPs) distributed globally. When a user requests a file, Anycast DNS routes them to the nearest PoP. If that PoP already has the file cached (a cache HIT), it is served immediately without touching your origin. Only on a cache MISS does the request flow back to origin, and even then the CDN caches the response for all future requests from that region.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fast-growing SaaS company launched a video-heavy marketing site to coincide with a major product announcement. Their origin server — a single EC2 instance in us-east-1 — hosted all HTML, CSS, JavaScript, and product demo videos totalling ~80 MB per page load.
+      </div>
+      <div class="story-problem">
+        The announcement went viral. Within 30 minutes, 40,000 simultaneous visitors arrived — 60% from Europe and Asia-Pacific. Median page load time jumped from 1.2 seconds to 18 seconds. Product demo videos buffered endlessly. The EC2 instance's outbound bandwidth hit its cap. The AWS bill for that single day was $4,200 in data transfer costs alone. Bounce rate hit 78%.
+      </div>
+      <div class="story-solution">
+        The team spent two hours configuring Cloudflare as a CDN in front of their origin. They set <code>Cache-Control: public, max-age=31536000, immutable</code> on hashed asset filenames (e.g. <code>app.7f3ab2.js</code>), and <code>Cache-Control: public, max-age=300</code> on HTML. No code changes to the app — just DNS pointed to Cloudflare and cache headers added to the web server config.
+      </div>
+      <div class="story-outcome">
+        Within an hour of the CDN being live, cache HIT ratio reached 94%. Median page load time dropped to 0.9 seconds globally — faster than the original single-region performance. The origin EC2 instance dropped from 100% CPU to 8%. The equivalent traffic day the following week cost $180 in data transfer. The company never removed the CDN.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>When you visit a website, your browser downloads the page's files — images, stylesheets, JavaScript — before anything appears on screen. Each file is a separate request to a server. If that server is on the other side of the world, each request takes hundreds of milliseconds just to travel there and back.</p>
+          <p>A <strong>CDN</strong> fixes this by storing copies of those files on servers that are physically close to your users. When someone in Berlin requests your logo image, they get it from a CDN server in Frankfurt instead of one in California. The file travels 10ms instead of 150ms.</p>
+          <p>The magic word is <strong>caching</strong>: the CDN saves a copy of each file the first time anyone requests it from that region. Every subsequent request gets the cached copy instantly — the origin server is never contacted again until the cache expires.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>PoP (Point of Presence)</strong> — A CDN data centre location. Major CDNs have 200–300+ PoPs worldwide. Cloudflare has 300+, Fastly has 80+.</li>
+          <li><strong>Edge node / Edge server</strong> — A server inside a PoP that stores cached copies of your files and serves them to nearby users.</li>
+          <li><strong>Origin server</strong> — Your actual web server. The CDN fetches files from here when it doesn't have a cached copy yet.</li>
+          <li><strong>Cache HIT</strong> — The CDN has the file cached and serves it directly. Fast and cheap.</li>
+          <li><strong>Cache MISS</strong> — The CDN doesn't have the file yet; it fetches from origin, caches it, then serves it. Slightly slower on first request.</li>
+          <li><strong>TTL (Time To Live)</strong> — How long the CDN keeps a cached file before it expires and must be refreshed from origin.</li>
+        </ul>
+
+        <h3 class="subsection-title">Request Flow: Without CDN vs With CDN</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    subgraph Without CDN
+        U1[User in Tokyo] -->|200ms round-trip| O1[Origin in Virginia]
+    end
+    subgraph With CDN - Cache MISS first request
+        U2[User in Tokyo] -->|20ms| E1[CDN PoP in Tokyo]
+        E1 -->|200ms fetch + cache| O2[Origin in Virginia]
+        E1 -->|cached response| U2
+    end
+    subgraph With CDN - Cache HIT every subsequent request
+        U3[User in Tokyo] -->|20ms| E2[CDN PoP in Tokyo]
+        E2 -->|instant from cache| U3
+    end
+          </div>
+        </div>
+
+        <h3 class="subsection-title">What a CDN Caches</h3>
+        <ul>
+          <li>Images (<code>.jpg</code>, <code>.png</code>, <code>.webp</code>, <code>.svg</code>)</li>
+          <li>JavaScript bundles (<code>.js</code>)</li>
+          <li>CSS stylesheets (<code>.css</code>)</li>
+          <li>Fonts (<code>.woff2</code>, <code>.ttf</code>)</li>
+          <li>Videos and media files</li>
+          <li>Static HTML (less common — careful with personalised content)</li>
+        </ul>
+
+        <div class="beginner-note">
+          <span class="beginner-note-label">What a CDN does NOT cache by default</span>
+          <p>Anything requiring personalisation or authentication — your dashboard page, your shopping cart, API responses with user data. These must always come from your origin. Serving cached authenticated content to the wrong user would be a serious security breach.</p>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Understanding CDNs at an intermediate level means understanding how cache control actually works — how you tell the CDN what to cache, for how long, and how to invalidate it when you deploy.</p>
+
+        <h3 class="subsection-title">Cache-Control Headers — The Full Picture</h3>
+        <p>The <code>Cache-Control</code> response header is the primary signal both browsers and CDNs use to decide caching behaviour. Key directives:</p>
+        <ul>
+          <li><code>public</code> — Response may be cached by CDNs (not just browsers). Required for CDN caching.</li>
+          <li><code>private</code> — Only the user's browser may cache this. CDNs must not cache it. Use for authenticated responses.</li>
+          <li><code>max-age=N</code> — Cache for N seconds (used by browsers).</li>
+          <li><code>s-maxage=N</code> — Cache for N seconds specifically at CDN/shared caches. Overrides <code>max-age</code> for CDNs. Lets you have short browser cache but long CDN cache.</li>
+          <li><code>no-cache</code> — Don't serve from cache without revalidating with origin first. CDN must check if the file changed.</li>
+          <li><code>no-store</code> — Never cache. Not even by the browser. Use for sensitive data (authentication tokens, bank statements).</li>
+          <li><code>immutable</code> — The file will never change. Browser and CDN can serve it forever. Only safe if you use content-hash filenames.</li>
+          <li><code>stale-while-revalidate=N</code> — Serve the stale cached version while fetching fresh in the background. Eliminates wait during revalidation.</li>
+        </ul>
+
+        <h3 class="subsection-title">The Content-Hash Strategy</h3>
+        <p>The most effective CDN caching strategy for static assets uses <strong>content hashing</strong>: the build tool appends a hash of the file's content to its filename.</p>
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text"># Before build
+styles.css
+app.js
+
+# After build (webpack/vite generates these)
+styles.a3f7bc.css
+app.8d2e14.js</code></pre>
+        </div>
+        <p>Because the filename changes every time the content changes, you can safely set a very long TTL:</p>
+        <div class="code-wrapper" data-lang="nginx">
+          <pre><code class="language-nginx"># nginx config for hashed static assets
+location ~* \.(js|css|woff2|png|jpg|webp|svg)$ {
+    # Only applies to hashed assets (e.g. app.8d2e14.js)
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    # 1 year TTL — safe because filename changes on every deploy
+}
+
+# HTML files: short TTL so users get the latest shell quickly
+location ~* \.html$ {
+    add_header Cache-Control "public, max-age=300, s-maxage=3600";
+    # Browser caches 5 min, CDN caches 1 hour
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Cache Invalidation Methods</h3>
+        <p>When you deploy and need users to get new assets immediately:</p>
+        <ul>
+          <li><strong>Content-hash filenames (recommended)</strong> — New deploy creates <code>app.9f1c22.js</code>. Old file URL stays valid. New file URL is automatically a cache MISS. Zero cost, instant.</li>
+          <li><strong>CDN purge API</strong> — Explicitly tell the CDN to remove a cached path. Instant but costs money at scale. Cloudflare charges for bulk purge operations; Fastly purge in real-time (&lt;150ms globally) but at API cost.</li>
+          <li><strong>Surrogate Keys / Cache Tags</strong> — Tag cached objects (e.g. tag all product page variants with <code>product-123</code>). Purge the tag to invalidate all variants at once. Much more granular than path-based purge.</li>
+          <li><strong>TTL expiry</strong> — Do nothing and wait for the TTL. Only acceptable for assets with short TTLs. Never acceptable for critical assets after a bug fix deploy.</li>
+        </ul>
+
+        <h3 class="subsection-title">Vary Header — The Cache Segmentation Trap</h3>
+        <p>The <code>Vary</code> header tells CDNs to store separate cache entries per value of a named request header. Common misuse:</p>
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text"># BAD: Vary: Cookie causes CDN to cache a separate copy per unique cookie value
+# This effectively defeats CDN caching for authenticated users
+Vary: Cookie
+
+# BAD: Vary: User-Agent stores separate copies per browser/device string
+# Thousands of User-Agent strings = terrible cache efficiency
+Vary: User-Agent
+
+# OK: Vary: Accept-Encoding is standard — separate copies for gzip vs brotli
+Vary: Accept-Encoding</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Code Example: Setting Cache Headers in Express (Node.js)</h3>
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">const express = require('express');
+const path = require('path');
+const app = express();
+
+// Hashed static assets — 1 year, immutable
+app.use('/static', express.static(path.join(__dirname, 'public/static'), {
+  maxAge: '1y',
+  immutable: true,
+  setHeaders(res, filePath) {
+    // Ensure CDNs can also cache these
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}));
+
+// HTML entry point — short TTL so deploys propagate quickly
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400');
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+// API responses — never cache at CDN
+app.get('/api/user/:id', authenticateMiddleware, (req, res) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.json({ userId: req.params.id, data: '...' });
+});</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Cache Header Debugging Tip</span>
+          <p>Use <code>curl -I https://yoursite.com/app.js</code> to inspect response headers. Look for <code>cf-cache-status: HIT</code> (Cloudflare), <code>x-cache: HIT</code> (CloudFront), or <code>fastly-cache-status: HIT</code> (Fastly) to confirm CDN caching is working. If you see <code>MISS</code> on every request, check your <code>Cache-Control</code> headers and <code>Vary</code> header for issues.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, CDN becomes an architectural component — not just a cache layer but an active part of request routing, security, and dynamic content delivery.</p>
+
+        <h3 class="subsection-title">Origin Shield</h3>
+        <p>On a cache MISS, every PoP independently fetches from origin. With 300 PoPs, a popular new asset could result in 300 simultaneous origin requests — the <strong>thundering herd problem</strong>. Origin Shield solves this:</p>
+        <ul>
+          <li>One designated PoP acts as a buffer ("shield") between all other PoPs and origin.</li>
+          <li>On a cache MISS, edge PoPs forward the request to the Shield PoP instead of directly to origin.</li>
+          <li>The Shield PoP has a high-capacity cache. If it already has the file, it serves the edge PoP. If not, it fetches from origin — and only one PoP hits origin at a time.</li>
+          <li>Dramatically reduces origin load and egress costs, especially on deploys when the entire cache is cold.</li>
+        </ul>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    subgraph Without Origin Shield
+        E1[PoP Singapore] -->|MISS x3| O[Origin]
+        E2[PoP Frankfurt] -->|MISS x3| O
+        E3[PoP São Paulo] -->|MISS x3| O
+    end
+    subgraph With Origin Shield
+        E4[PoP Singapore] -->|MISS| S[Shield PoP Virginia]
+        E5[PoP Frankfurt] -->|MISS| S
+        E6[PoP São Paulo] -->|MISS| S
+        S -->|single fetch| O2[Origin]
+    end
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Dynamic Content at the Edge</h3>
+        <p>CDNs are no longer just caches. Edge computing runtimes let you run JavaScript logic at every PoP:</p>
+        <ul>
+          <li><strong>Cloudflare Workers</strong> — V8 isolates running at Cloudflare's 300+ PoPs. &lt;1ms cold start. Can rewrite requests, A/B test, generate HTML, call APIs. No concept of a "region" — code runs wherever the user is.</li>
+          <li><strong>AWS Lambda@Edge</strong> — Node.js functions running at CloudFront PoPs. Can modify request/response headers, redirect, authentication checks. Slightly higher latency than Workers due to Lambda cold starts.</li>
+          <li><strong>Fastly Compute@Edge</strong> — WebAssembly-based, supports Rust/Go/JS. Fastest edge runtime for compute-heavy tasks.</li>
+        </ul>
+
+        <h3 class="subsection-title">Trade-Offs by CDN Strategy</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Benefit</th>
+              <th>Cost / Risk</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Long TTL + content hash</strong></td>
+              <td class="good">Maximum cache efficiency, near-zero origin load</td>
+              <td class="bad">Build pipeline must support hashing; stale cache if hashing breaks</td>
+              <td>JS/CSS/image assets from modern build tools</td>
+            </tr>
+            <tr>
+              <td><strong>Short TTL on HTML</strong></td>
+              <td class="good">Rapid deploy propagation; CDN still absorbs traffic spikes</td>
+              <td class="bad">More cache MISSes; origin must handle revalidation traffic</td>
+              <td>Server-rendered HTML that changes per deploy</td>
+            </tr>
+            <tr>
+              <td><strong>Surrogate-key purge</strong></td>
+              <td class="good">Surgical invalidation of content by type/tag</td>
+              <td class="bad">Requires CDN vendor support; purge API adds deploy complexity</td>
+              <td>CMS content where specific pages must update immediately</td>
+            </tr>
+            <tr>
+              <td><strong>Origin Shield</strong></td>
+              <td class="good">Protects origin on cold cache; reduces egress cost</td>
+              <td class="bad">Adds one extra hop for cache MISSes (+5–15ms); shield PoP is a SPOF if misconfigured</td>
+              <td>High-traffic sites with expensive origin compute</td>
+            </tr>
+            <tr>
+              <td><strong>Edge computing</strong></td>
+              <td class="good">Personalisation without origin round-trip; A/B testing, auth, redirects at edge</td>
+              <td class="bad">Debugging is harder; vendor lock-in; some runtimes have cold start issues</td>
+              <td>Personalised content, authentication, feature flags at global scale</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">CDN Cost Model</h3>
+        <p>CDN pricing has two main components:</p>
+        <ul>
+          <li><strong>Egress / Data Transfer</strong> — charged per GB served to end users. Cloudflare charges $0 (unlimited on paid plans). AWS CloudFront: ~$0.008–0.08/GB depending on region. Fastly: ~$0.12/GB base.</li>
+          <li><strong>Request charges</strong> — charged per HTTP request. CloudFront: $0.0075–$0.016 per 10,000 requests. Cloudflare: unlimited on Business/Enterprise.</li>
+        </ul>
+        <p><strong>Cache HIT ratio is the most important cost driver.</strong> At 90% HIT ratio, only 10% of requests hit origin (reducing origin compute and egress). At 50% HIT ratio, you pay full price for half your traffic and get no performance benefit from the CDN for those requests.</p>
+
+        <h3 class="subsection-title">HTTPS and Certificate Management</h3>
+        <p>CDNs terminate TLS at the edge, meaning:</p>
+        <ul>
+          <li>The CDN manages certificates for your domain — auto-renewal via Let's Encrypt or vendor CA.</li>
+          <li>Connection between CDN and origin can be HTTP (insecure) or HTTPS with a self-signed or origin CA cert.</li>
+          <li>Full end-to-end encryption ("Full Strict" in Cloudflare) requires a valid cert on origin — the most secure option.</li>
+          <li>CDNs handle TLS handshake overhead so your origin doesn't have to, reducing origin CPU.</li>
+        </ul>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At expert level, CDN strategy touches multi-region resilience, security architecture, DDoS mitigation, and cost optimisation at scale — CDN is a core reliability component, not an add-on.</p>
+
+        <h3 class="subsection-title">Multi-CDN Strategy</h3>
+        <p>Relying on a single CDN provider is itself a SPOF. Major outages are rare but consequential — Fastly's June 2021 outage took down GitHub, Reddit, Twitch, and The Guardian simultaneously for ~1 hour. Multi-CDN approaches:</p>
+        <ul>
+          <li><strong>DNS-based failover</strong> — Use primary CDN for normal traffic. Health check monitors edge response times. Automated DNS failover to secondary CDN if latency exceeds threshold or if primary returns errors. 60–120 second DNS propagation lag limits switchover speed.</li>
+          <li><strong>Weighted DNS split</strong> — Permanently split traffic (90%/10%) between two CDNs. Both are always warm. Failover redirects the minority share. No cold-cache problem on failover.</li>
+          <li><strong>Client-side multi-CDN</strong> — Application fetches assets from the faster CDN based on real-time performance measurement. Used by major video platforms (Netflix, Amazon Video).</li>
+          <li><strong>Anycast routing with BGP</strong> — Operate your own Anycast IP space. Announce the same IP from multiple CDN PoPs. Traffic routes to nearest by BGP — no DNS involved. Extremely fast failover (&lt;1s), but requires running your own CDN infrastructure.</li>
+        </ul>
+
+        <h3 class="subsection-title">CDN Security — DDoS Mitigation and WAF</h3>
+        <p>CDNs are the first line of defence against volumetric attacks:</p>
+        <ul>
+          <li><strong>Volumetric DDoS absorption</strong> — Cloudflare's network capacity is 230+ Tbps. A 500 Gbps DDoS attack that would saturate a normal ISP connection is a rounding error to Cloudflare. The CDN absorbs and drops malicious traffic before it reaches origin. Origin IP is never exposed — attackers cannot bypass CDN protection by hitting origin directly (assuming origin egress firewall only allows CDN IPs).</li>
+          <li><strong>Layer 7 DDoS (application layer)</strong> — Valid-looking HTTP requests that exhaust application resources. CDN WAF (Web Application Firewall) applies rate limiting, bot scoring, challenge pages (JS/CAPTCHA challenges), and ML-based anomaly detection. Cloudflare blocked 212 billion cyberattacks per day in 2023.</li>
+          <li><strong>Bot management</strong> — Distinguish legitimate crawlers (Googlebot) from scrapers/credential stuffers. Challenge or block based on browser fingerprint, request patterns, IP reputation.</li>
+          <li><strong>Origin IP protection</strong> — Never expose origin IP in DNS. Never mention it in email headers or error messages. Rotate origin IP if it becomes known (e.g. via old DNS records in certificate transparency logs).</li>
+        </ul>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Cache HIT ratio monitored — alert if drops below 80% for 10 minutes</li>
+          <li>Origin error rate monitored separately from CDN error rate</li>
+          <li>Content-hash filenames enforced in build pipeline (webpack/vite config verified)</li>
+          <li>Cache purge API integrated into deploy pipeline (purge HTML on deploy)</li>
+          <li>Origin IP not exposed in DNS — firewall only allows CDN IP ranges</li>
+          <li>WAF enabled with at minimum OWASP Core Rule Set</li>
+          <li>DDoS protection tier matched to business risk level</li>
+          <li>TLS "Full Strict" mode enabled — origin has valid certificate</li>
+          <li>Certificate expiry monitoring on origin cert (alert at 30 days)</li>
+          <li>Multi-CDN or CDN failover plan documented and tested</li>
+          <li>Egress costs reviewed monthly — alert if &gt;20% MoM increase</li>
+          <li>No <code>Vary: Cookie</code> or <code>Vary: User-Agent</code> on public static assets</li>
+        </ul>
+
+        <h3 class="subsection-title">Enterprise Cost Model at Scale</h3>
+        <p>For a site serving 100TB/month of assets at 90% CDN HIT ratio:</p>
+        <ul>
+          <li>CDN egress: 100 TB × $0.02/GB (CloudFront average) = $2,000/month</li>
+          <li>Origin egress (10% MISSes): 10 TB × $0.09/GB (AWS inter-region) = $900/month</li>
+          <li>Origin compute savings: 90% fewer requests means 10× smaller origin fleet vs no CDN</li>
+          <li>Cloudflare Enterprise flat-rate eliminates per-GB egress charges — economical above ~50TB/month</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architecture Principle</span>
+          <p>Treat CDN configuration as infrastructure code. Cache headers, WAF rules, routing logic, and purge policies belong in version-controlled Terraform/Pulumi, not clicked through a web console. A misconfigured cache header (e.g. accidentally caching authenticated responses) is a data breach vector — it must go through code review and tested in staging before production. CDN misconfigurations have caused serious incidents at major companies including exposing private S3 bucket contents and caching payment pages.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Cloudflare — Black Friday 2023 at Internet Scale</span>
+      <p><strong>Context:</strong> Cloudflare operates the world's largest CDN by network capacity. On Black Friday / Cyber Monday 2023, the company published verified metrics from its network that quantify what CDN performance looks like at genuine internet scale.</p>
+      <p><strong>Numbers:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><strong>71 million requests/second</strong> — peak traffic handled on Black Friday, up from 55M/sec the prior year</li>
+        <li><strong>90% cache HIT ratio</strong> — only 1 in 10 requests reached origin servers behind the CDN</li>
+        <li><strong>230 Tbps</strong> — network capacity available for traffic absorption</li>
+        <li><strong>212 billion</strong> — cyberattacks blocked per day across the network</li>
+        <li><strong>300+ PoPs</strong> — cities worldwide where edge nodes served content</li>
+        <li><strong>&lt;50ms</strong> — median TTFB (Time To First Byte) for cached assets globally</li>
+      </ul>
+      <p><strong>Architecture behind the numbers:</strong> Cloudflare uses Anycast routing — all PoPs announce the same IP ranges via BGP. User DNS resolves to the same IP globally; the internet's routing layer steers each user to the nearest PoP automatically. No DNS-based geo-routing latency. Each PoP runs the same Cloudflare software stack including WAF, bot management, Workers runtime, and cache. The 90% HIT ratio means that for every 10 requests that arrived at 71M/sec, only 7.1M/sec hit any origin server worldwide — origin operators served 10% of peak Black Friday traffic because the CDN absorbed the rest.</p>
+      <p><strong>Lessons for application teams:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Cache HIT ratio is the primary metric</strong> — if your CDN HIT ratio is below 70%, you're paying for CDN infrastructure but not getting its core benefit. Audit <code>Vary</code> headers and <code>Cache-Control</code> headers first.</li>
+        <li><strong>Black Friday spikes are predictable but still hard</strong> — pre-warming CDN caches before a sale (by hitting key URLs from scripts in each region) avoids the cold-cache MISS thundering herd that can overwhelm origin in the first 2–3 minutes after traffic arrives.</li>
+        <li><strong>DDoS protection is not optional at scale</strong> — 212B attacks/day means roughly 2.5M attacks per second. Origin servers exposed without CDN protection cannot absorb this; a CDN is both a performance and a security investment.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Caching Authenticated or Personalised Responses</span>
+      <p>The most dangerous CDN mistake: serving a cached response containing User A's data to User B. This happens when a response that includes personal data (name, email, cart contents) is returned with <code>Cache-Control: public</code> or no <code>Cache-Control</code> header, and the CDN caches it. The next user who requests the same URL receives User A's data.</p>
+      <p>It has caused real data breaches. Always set <code>Cache-Control: private, no-store</code> on any response that includes session-specific, user-specific, or payment-related data. Never rely on headers like <code>Authorization</code> or <code>Cookie</code> being present to prevent CDN caching — some CDNs ignore these signals unless <code>private</code> is explicitly set.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Setting <code>no-cache</code> on Static Assets — Getting Zero CDN Benefit</span>
+      <p>A common mistake in legacy applications: setting <code>Cache-Control: no-cache</code> on JavaScript and CSS files "to be safe." The <code>no-cache</code> directive does not mean "never cache" — it means "always revalidate before serving from cache." But the more common result is that developers or ops teams set it because they were afraid of stale assets after deploy, and the CDN either treats it as uncacheable or checks origin on every request.</p>
+      <p>The solution is not <code>no-cache</code> on assets — it is content-hash filenames with <code>immutable</code>. A file named <code>app.abc123.js</code> never changes, so <code>max-age=31536000, immutable</code> is completely safe. When you deploy, the HTML references <code>app.def456.js</code> — a new URL that automatically cache-MISSes at the CDN.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Purging the CDN on Deploy — Users Get Old JS/CSS for Hours</span>
+      <p>A team deploys a critical bug fix. The HTML <code>index.html</code> is updated to reference new JS. But the old JS is still cached at CDN PoPs with a 24-hour TTL. Users who receive the new HTML but load the old JS from CDN cache see a broken page — mismatched HTML shell and JS bundle. This is especially bad for SPAs where the HTML references a specific hashed JS bundle that no longer exists on origin.</p>
+      <p>Two fixes work together: (1) Use content-hash filenames so new JS gets a new URL — old URL stays valid and cached, new URL is a cold cache MISS. (2) For HTML files that don't have hashed names, integrate CDN purge into the deploy pipeline: after deploying, call the CDN purge API to invalidate <code>/index.html</code> and any other HTML paths. This should be automated — manual CDN purges after deploys are always forgotten at 2 AM during an incident.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A CDN is a geographically distributed network of edge servers that cache and serve static content from locations close to users, reducing latency and origin load by eliminating round-trips to a single central server.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "A CDN solves two problems: latency and origin load. Without one, every user worldwide waits for round-trip time to your single origin — a user in Tokyo hitting a server in Virginia adds 200ms before the browser receives the first byte. A CDN places cached copies at edge nodes worldwide, so Tokyo users get assets from a Tokyo PoP in 20ms instead. On the origin load side, at 90% cache HIT ratio, your origin only sees 10% of traffic — the CDN absorbs the rest. The key design decision is cache strategy: for static assets like JS and CSS, you use content-hash filenames plus a 1-year immutable TTL for perfect caching with zero stale risk. For HTML, you use a short TTL so deploys propagate quickly. The main trade-off is stale content risk — you must either accept brief staleness, use short TTLs and pay with more origin requests, or build cache invalidation into your deploy pipeline."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is a cache HIT ratio and what's a good target?</li>
+        <li>How do you handle cache invalidation after a deploy?</li>
+        <li>What is the difference between <code>max-age</code> and <code>s-maxage</code>?</li>
+        <li>How does a CDN help with DDoS attacks?</li>
+        <li>How would you design a CDN strategy for a site with both static assets and personalised content?</li>
+        <li>What is Origin Shield and when would you use it?</li>
+        <li>What problems can arise from the <code>Vary</code> header?</li>
+        <li>When would you NOT use a CDN?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "CDNs just cache everything" — interviewers expect you to know that authenticated/personalised content must never be cached at a shared CDN layer.</li>
+        <li>Not mentioning cache invalidation strategy — explaining CDN without explaining how you handle deploys and stale content shows incomplete understanding of the real operational challenge.</li>
+        <li>Conflating CDN with load balancer — CDNs cache and serve static content at the edge; load balancers distribute dynamic requests across origin server instances. They solve different problems (though CDNs can include some routing features).</li>
+        <li>Forgetting security — CDNs absorb DDoS, provide WAF, and hide origin IPs. In senior interviews, omitting the security dimension is a missed opportunity.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Latency</strong></td>
+          <td>Assets served from nearest PoP — 10–30ms vs 100–300ms from origin</td>
+          <td>First request (cache MISS) is slower than direct origin due to CDN hop</td>
+        </tr>
+        <tr>
+          <td><strong>Origin load</strong></td>
+          <td>At 90% HIT ratio, origin handles only 10% of traffic — 10× smaller fleet needed</td>
+          <td>Cache MISSes can cause thundering herd on origin if cache goes cold simultaneously (e.g. after purge)</td>
+        </tr>
+        <tr>
+          <td><strong>Freshness</strong></td>
+          <td>Long TTLs eliminate revalidation overhead for immutable assets</td>
+          <td>Stale content risk for non-hashed assets; cache invalidation adds deploy complexity</td>
+        </tr>
+        <tr>
+          <td><strong>Cost</strong></td>
+          <td>Reduces origin egress and compute costs at scale; often cheaper than equivalent origin capacity</td>
+          <td>CDN egress fees ($0.01–0.12/GB depending on provider); API/request charges add up at high volume</td>
+        </tr>
+        <tr>
+          <td><strong>Security</strong></td>
+          <td>Hides origin IP; absorbs DDoS; WAF at edge; free TLS management</td>
+          <td>Misconfigured caching can expose user data; CDN provider is a trusted intermediary with access to plaintext traffic</td>
+        </tr>
+        <tr>
+          <td><strong>Vendor dependency</strong></td>
+          <td>CDN providers offer 99.9%+ SLAs; global redundancy built-in</td>
+          <td>Single CDN = SPOF; provider outages affect all customers simultaneously (Fastly 2021)</td>
+        </tr>
+        <tr>
+          <td><strong>Dynamic content</strong></td>
+          <td>Edge computing (Workers, Lambda@Edge) enables personalisation without origin round-trip</td>
+          <td>Edge runtime constraints (memory, CPU limits, cold start); debugging at edge is significantly harder</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">In-memory data caching with Redis and Memcached — application layer.</span>
+      </a>
+      <a href="load-balancer.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Load Balancer</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Distributes traffic across multiple origin servers for scale and HA.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Entry point handling auth, routing, and rate limiting for dynamic API traffic.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Controlling request rates to prevent abuse and protect origin infrastructure.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

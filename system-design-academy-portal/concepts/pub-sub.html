@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pub/Sub — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="pub-sub" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Pub/Sub</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Messaging <span>→</span> Pub/Sub</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1: PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Messaging</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Pub/Sub</h1>
+      <p class="page-subtitle">A messaging pattern where publishers broadcast events to a topic and multiple independent subscribers receive each message — without knowing anything about each other.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Messaging</span>
+        <span class="tag">Event-Driven</span>
+        <span class="tag">Decoupling</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2: DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>A newspaper publisher prints one edition and thousands of subscribers each get their own copy. The publisher doesn't know who reads it — and adding a new subscriber doesn't require the publisher to change anything. Contrast this with a direct phone call (point-to-point messaging), where you have to call each person individually.</p>
+    </div>
+
+    <p>Publish/Subscribe (Pub/Sub) is a messaging pattern where <strong>publishers</strong> send messages to a named <strong>topic</strong> — not to specific receivers. <strong>Subscribers</strong> declare interest in a topic and the messaging system delivers a copy of every message to every active subscriber.</p>
+
+    <p>This decoupling is the key architectural win. A publisher doesn't need to know how many consumers exist, what they do, or whether they are even online right now. Adding a new downstream service means subscribing to the existing topic — zero code changes to the publisher. This makes Pub/Sub the natural backbone for event-driven architectures where one event (like <code>order.created</code>) needs to trigger multiple independent workflows simultaneously.</p>
+
+    <p>Contrast this with a traditional message queue: in a queue, each message is delivered to exactly <strong>one</strong> consumer. In Pub/Sub, each message is delivered to <strong>every</strong> subscriber of the topic — this is called <strong>fan-out</strong>. If you need both behaviors (fan-out at the topic level, competing-consumers at the service level), the standard pattern is to put a dedicated queue behind each subscriber, so each service gets its own copy and can scale its workers independently.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3: THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        An e-commerce startup had an <code>order-service</code> that created orders. Every time a new order was placed, the engineering team wired up direct HTTP calls: <code>order-service</code> called <code>billing-service</code>, then called <code>email-service</code>, then called <code>analytics-service</code>. Three sequential HTTP calls before the order was confirmed. Total p99 latency: 1.4 seconds.
+      </div>
+      <div class="story-problem">
+        A product manager requested that warehouse picking start immediately after order creation. The engineer added a fourth HTTP call to <code>warehouse-service</code>. Then marketing wanted a loyalty-points service notified. Then compliance required an audit log. Each new requirement meant changing <code>order-service</code>, redeploying it, and hoping none of the downstream services were slow that day. One afternoon, <code>email-service</code> went down during a deployment. <code>order-service</code> started failing completely — all orders were broken because one non-critical notification service was unavailable.
+      </div>
+      <div class="story-solution">
+        The team introduced Pub/Sub. <code>order-service</code> now publishes a single <code>order.created</code> event to a topic and returns HTTP 201 immediately. Each downstream service subscribes to that topic independently: billing, email, analytics, warehouse, loyalty, audit — all receive their own copy of the event. <code>order-service</code> no longer knows or cares who is consuming it.
+      </div>
+      <div class="story-outcome">
+        Order confirmation latency dropped from 1.4 seconds to 80ms. When <code>email-service</code> went down, orders kept processing — the email queue backed up and flushed when the service came back online. Adding a new downstream service required zero changes to <code>order-service</code>. The team added three new subscribers in the next quarter without a single <code>order-service</code> deployment.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4: LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- ──────────────── BEGINNER PANEL ──────────────── -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine a radio station broadcasting on FM 101.5. The station (publisher) transmits a signal to the airwaves (the topic). Anyone who tunes to that frequency (subscriber) receives the broadcast. The radio station doesn't call each listener individually — it just broadcasts, and any number of radios can pick it up simultaneously.</p>
+          <p>In software, Pub/Sub works the same way. A service (the publisher) sends a message to a named "channel" called a <strong>topic</strong>. Any number of other services (subscribers) that are tuned to that topic each receive a copy of the message. The publisher sends once; everyone subscribed gets it.</p>
+          <p>The big benefit? The publisher doesn't need to know anything about the subscribers. You can add a new subscriber any time without touching the publisher. This makes the system much easier to grow and change over time.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Publisher</strong> — The service that creates and sends a message to a topic.</li>
+          <li><strong>Topic</strong> — A named channel. Messages published here are delivered to all subscribers of that topic.</li>
+          <li><strong>Subscriber</strong> — A service that has registered interest in a topic and receives a copy of every message sent to it.</li>
+          <li><strong>Fan-out</strong> — One message going to many subscribers. Pub/Sub is the canonical fan-out mechanism.</li>
+          <li><strong>Event</strong> — The thing that happened, expressed as a message. e.g. <code>order.created</code>, <code>user.signed-up</code>, <code>video.uploaded</code>.</li>
+        </ul>
+
+        <h3 class="subsection-title">Fan-Out Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    PUB["order-service\n(Publisher)"]
+    T(["order.created\nTopic"])
+    B["billing-service"]
+    E["email-service"]
+    A["analytics-service"]
+    W["warehouse-service"]
+
+    PUB -->|"publishes event"| T
+    T -->|"copy 1"| B
+    T -->|"copy 2"| E
+    T -->|"copy 3"| A
+    T -->|"copy 4"| W
+          </div>
+        </div>
+
+        <p>Notice that <code>order-service</code> sends one message and four independent services each receive their own copy. None of them affects the others. If <code>email-service</code> is down, the other three still receive their copy.</p>
+      </div>
+
+      <!-- ──────────────── INTERMEDIATE PANEL ──────────────── -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <h3 class="subsection-title">Pub/Sub vs Message Queues</h3>
+        <p>These two patterns are often confused because both involve a broker delivering messages asynchronously. The key distinction is <strong>how many consumers receive each message</strong>.</p>
+
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Message Queue</th>
+              <th>Pub/Sub Topic</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Delivery</strong></td>
+              <td>One message → one consumer (competing consumers)</td>
+              <td>One message → all subscribers (fan-out)</td>
+            </tr>
+            <tr>
+              <td><strong>Use case</strong></td>
+              <td>Work distribution (only one worker should process each job)</td>
+              <td>Event broadcasting (many services need to react to one event)</td>
+            </tr>
+            <tr>
+              <td><strong>Example</strong></td>
+              <td>Image resize queue — only one worker resizes each image</td>
+              <td><code>order.created</code> — billing, email, analytics all react</td>
+            </tr>
+            <tr>
+              <td><strong>Common pattern</strong></td>
+              <td>SQS, RabbitMQ queue</td>
+              <td>SNS, Google Cloud Pub/Sub, Kafka topic</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>In practice, Pub/Sub fan-out and queues are often combined: an SNS topic fans out to multiple SQS queues, and each service pulls from its own queue using competing consumers. This gives you both fan-out (every service gets the event) and work distribution (each service can scale its workers independently).</p>
+
+        <h3 class="subsection-title">Push vs Pull Delivery</h3>
+        <p>Pub/Sub systems deliver messages in one of two modes:</p>
+        <ul>
+          <li><strong>Push</strong> — The broker sends (HTTP POST) messages to a subscriber's endpoint as they arrive. Low latency, simple subscriber code. The subscriber must be available and able to handle the incoming rate. Good for: real-time webhooks, low-volume events, subscribers that need immediate processing.</li>
+          <li><strong>Pull</strong> — The subscriber calls the broker to fetch a batch of messages. The subscriber controls the pace. Good for: batch processing, bursty workloads, subscribers that need to control concurrency.</li>
+        </ul>
+
+        <h3 class="subsection-title">Code Example: Publishing an Event</h3>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Google Cloud Pub/Sub — Publishing
+from google.cloud import pubsub_v1
+import json
+
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path("my-project", "order.created")
+
+def publish_order_created(order_id: str, user_id: str, total: float):
+    message = {
+        "event": "order.created",
+        "order_id": order_id,
+        "user_id": user_id,
+        "total": total,
+        "timestamp": "2025-06-03T12:00:00Z"
+    }
+    # Encode to bytes and publish
+    data = json.dumps(message).encode("utf-8")
+
+    # Attributes for server-side filtering
+    future = publisher.publish(
+        topic_path,
+        data=data,
+        event_type="order.created",   # filterable attribute
+        region="us-east-1"
+    )
+    message_id = future.result()      # blocks until confirmed
+    print(f"Published message {message_id}")
+
+publish_order_created("ord-789", "usr-42", 149.99)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Code Example: Subscribing (Pull)</h3>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Google Cloud Pub/Sub — Pull Subscriber (billing-service)
+from google.cloud import pubsub_v1
+import json
+
+subscriber = pubsub_v1.SubscriberClient()
+# Each service has its OWN subscription (its own independent cursor)
+subscription_path = subscriber.subscription_path(
+    "my-project", "order.created-billing-sub"
+)
+
+def handle_message(message):
+    payload = json.loads(message.data.decode("utf-8"))
+    order_id = payload["order_id"]
+    total = payload["total"]
+
+    try:
+        charge_card(order_id, total)     # idempotent — safe to retry
+        message.ack()                    # tell broker: done, don't redeliver
+    except Exception as e:
+        print(f"Billing failed: {e}")
+        message.nack()                   # broker will redeliver after ack_deadline
+
+streaming_pull_future = subscriber.subscribe(
+    subscription_path, callback=handle_message
+)
+print(f"Listening for messages on {subscription_path}...")
+streaming_pull_future.result()           # blocks indefinitely</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Ordering Guarantees</h3>
+        <p>Most Pub/Sub systems are <strong>unordered by default</strong>. A message published first may be delivered after a message published second. This is a deliberate design decision — strict ordering requires coordination that hurts throughput and availability.</p>
+        <ul>
+          <li><strong>Google Cloud Pub/Sub</strong> — Unordered by default. Ordering keys (message attribute) enable in-order delivery within a key, at the cost of lower throughput for that key.</li>
+          <li><strong>AWS SNS</strong> — Standard topics: unordered. FIFO topics: strict order within message group, up to 300 msg/sec per group.</li>
+          <li><strong>Kafka</strong> — Ordered within a partition. Messages with the same partition key always land on the same partition, preserving order per key.</li>
+        </ul>
+        <p>If your subscribers need strict ordering (e.g. account balance updates must process oldest-first), either use Kafka with a consistent partition key or use FIFO-mode SNS/SQS and accept the throughput limit.</p>
+      </div>
+
+      <!-- ──────────────── ADVANCED PANEL ──────────────── -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">At-Least-Once Delivery and Idempotency</h3>
+        <p>All major Pub/Sub systems guarantee <strong>at-least-once delivery</strong>: a message will be delivered to your subscriber at least once, but possibly more than once. Duplicates occur when:</p>
+        <ul>
+          <li>Your subscriber processes the message but crashes before calling <code>ack()</code> — the broker retries after the ack deadline expires.</li>
+          <li>A network partition causes the broker to lose the ack and redeliver.</li>
+          <li>The broker itself duplicates the message due to internal retries.</li>
+        </ul>
+        <p>The consequence: <strong>subscribers must be idempotent</strong>. Processing the same message twice must produce the same result as processing it once. Standard patterns:</p>
+        <ul>
+          <li><strong>Deduplication ID</strong> — Store the message ID in a Redis set or DB table. Before processing, check if the ID exists. Skip if seen before.</li>
+          <li><strong>Upsert instead of insert</strong> — Use database upsert semantics: if the record already exists, update it to the same value rather than inserting a duplicate.</li>
+          <li><strong>Idempotent keys</strong> — Design business logic to be safe on replay. Charging a card "for order-789" twice should fail gracefully on the second attempt, not double-charge.</li>
+        </ul>
+
+        <h3 class="subsection-title">Message Filtering</h3>
+        <p>When a topic carries multiple event types, subscribers can use <strong>attribute-based filtering</strong> to receive only relevant messages — without the broker needing separate topics.</p>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Google Cloud Pub/Sub — Subscription with filter
+# Only delivers messages where event_type = "order.created"
+# analytics-service also subscribes but filters for "order.completed"
+
+from google.cloud import pubsub_v1
+
+subscriber = pubsub_v1.SubscriberClient()
+
+# Create subscription with a server-side filter
+# (done once during provisioning, not in application code)
+subscription = subscriber.create_subscription(
+    request={
+        "name": "projects/my-project/subscriptions/billing-order-created",
+        "topic": "projects/my-project/topics/orders",
+        "filter": 'attributes.event_type = "order.created"',
+        "ack_deadline_seconds": 30,
+    }
+)
+print(f"Created filtered subscription: {subscription.name}")</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Dead Letter Topics</h3>
+        <p>When a subscriber consistently fails to process a message (e.g. malformed payload it cannot parse), the broker retries indefinitely by default — filling up the subscription backlog and blocking all other messages. A <strong>dead letter topic</strong> (DLT) is the safety valve: after N failed delivery attempts, the broker moves the message to a separate DLT where engineers can inspect, repair, and replay it.</p>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Configure dead letter topic on a subscription (Terraform / SDK example)
+# After 5 failed delivery attempts, message goes to dead-letter topic
+
+subscription = subscriber.create_subscription(
+    request={
+        "name": "projects/my-project/subscriptions/billing-order-created",
+        "topic": "projects/my-project/topics/orders",
+        "dead_letter_policy": {
+            "dead_letter_topic": "projects/my-project/topics/orders-dead-letter",
+            "max_delivery_attempts": 5,
+        },
+        "retry_policy": {
+            "minimum_backoff": {"seconds": 10},
+            "maximum_backoff": {"seconds": 600},   # exponential backoff up to 10 min
+        },
+    }
+)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Pub/Sub Trade-offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Aspect</th>
+              <th>Strength</th>
+              <th>Weakness</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Decoupling</strong></td>
+              <td class="good">Publisher needs zero knowledge of subscribers</td>
+              <td class="bad">Hard to trace end-to-end flow across services</td>
+              <td>Distributed tracing (trace ID in message attributes)</td>
+            </tr>
+            <tr>
+              <td><strong>Fan-out</strong></td>
+              <td class="good">One publish, N consumers — free scale-out</td>
+              <td class="bad">N copies of every message stored in broker</td>
+              <td>Set retention windows; use message filtering</td>
+            </tr>
+            <tr>
+              <td><strong>Reliability</strong></td>
+              <td class="good">At-least-once delivery with broker durability</td>
+              <td class="bad">Duplicate delivery requires idempotent consumers</td>
+              <td>Deduplication table in Redis/DB</td>
+            </tr>
+            <tr>
+              <td><strong>Ordering</strong></td>
+              <td class="good">High throughput when order not required</td>
+              <td class="bad">No ordering guarantee by default</td>
+              <td>Ordering keys (GCP), FIFO mode (SNS), Kafka partitions</td>
+            </tr>
+            <tr>
+              <td><strong>Backpressure</strong></td>
+              <td class="good">Pull model lets subscriber control pace</td>
+              <td class="bad">Push model overwhelms slow subscribers</td>
+              <td>Use pull, or configure flow control on push endpoint</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>The SNS+SQS fan-out pattern on AWS is the most commonly used Pub/Sub architecture in enterprise systems. SNS provides the topic (fan-out), and each subscriber has its own SQS queue (independent backlog, independent scaling, independent DLQ). This means a slow subscriber can't block a fast one — each queue grows at its own rate. Always provision a DLQ on the SQS queues, not just on SNS.</p>
+        </div>
+      </div>
+
+      <!-- ──────────────── EXPERT PANEL ──────────────── -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Google Cloud Pub/Sub Internals</h3>
+        <p>Google Cloud Pub/Sub is one of the world's largest managed messaging systems, processing hundreds of billions of messages per day. Understanding its architecture explains its guarantees and limitations.</p>
+        <ul>
+          <li><strong>Global distribution</strong> — Topics are global by default. Messages can be published from any region and delivered to subscribers in any region. The broker replicates messages across multiple zones for durability before acknowledging the publish.</li>
+          <li><strong>Message storage</strong> — Messages are stored in Bigtable-backed storage with configurable retention (default 7 days, up to 31 days). Subscriptions maintain an independent read cursor — each subscription sees all messages independently.</li>
+          <li><strong>Exactly-once delivery (limited)</strong> — GCP Pub/Sub now supports exactly-once delivery within a region on a subscription. The broker tracks which messages have been successfully acknowledged and guarantees no redelivery, at the cost of higher latency (~50ms overhead per message). Only available on pull subscriptions.</li>
+          <li><strong>Flow control</strong> — The client library implements local flow control: maximum outstanding messages and maximum outstanding bytes. This prevents the pull subscriber from pulling faster than it can process, avoiding OOM crashes on burst traffic.</li>
+        </ul>
+
+        <h3 class="subsection-title">AWS SNS + SQS Fan-Out Pattern</h3>
+        <div class="code-wrapper" data-lang="terraform">
+          <pre><code class="language-hcl"># Terraform: SNS topic → multiple SQS queues (fan-out pattern)
+
+resource "aws_sns_topic" "order_created" {
+  name = "order-created"
+}
+
+# Each subscriber gets its own SQS queue
+resource "aws_sqs_queue" "billing_queue" {
+  name                       = "billing-order-created"
+  visibility_timeout_seconds = 30
+  message_retention_seconds  = 86400   # 1 day
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.billing_dlq.arn
+    maxReceiveCount     = 5
+  })
+}
+
+resource "aws_sqs_queue" "billing_dlq" {
+  name = "billing-order-created-dlq"
+}
+
+# Subscribe billing queue to SNS topic
+resource "aws_sns_topic_subscription" "billing_subscription" {
+  topic_arn = aws_sns_topic.order_created.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.billing_queue.arn
+
+  filter_policy = jsonencode({
+    event_type = ["order.created"]
+  })
+}
+
+# SQS policy — allow SNS to send to queue
+resource "aws_sqs_queue_policy" "billing_policy" {
+  queue_url = aws_sqs_queue.billing_queue.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "sns.amazonaws.com" }
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.billing_queue.arn
+      Condition = {
+        ArnEquals = { "aws:SourceArn" = aws_sns_topic.order_created.arn }
+      }
+    }]
+  })
+}
+
+# Repeat aws_sqs_queue + subscription for email-service, analytics-service, etc.</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multi-Region Pub/Sub</h3>
+        <p>For global applications with strict data-residency requirements, Pub/Sub topology must be carefully designed:</p>
+        <ul>
+          <li><strong>Replicated topics</strong> — GCP Pub/Sub topics are global; publishers in any region write to the same topic. AWS SNS is regional — you must create separate topics per region and replicate events using EventBridge or custom Lambda forwarders.</li>
+          <li><strong>Message schema registry</strong> — At scale, schema drift breaks subscribers silently. Use a schema registry (Confluent Schema Registry, AWS Glue Schema Registry) to enforce backward-compatible evolution. Avro or Protobuf over plain JSON enables schema validation at publish time.</li>
+          <li><strong>Observability</strong> — Monitor subscription backlog (oldest_unacked_message_age), not just message count. A backlog of 10K messages is healthy if your subscriber clears it in seconds; it's critical if the oldest message is 4 hours old.</li>
+        </ul>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Dead letter topic configured on every subscription (max 5 delivery attempts)</li>
+          <li>Alerting on DLT message count &gt; 0 (any DLT message warrants investigation)</li>
+          <li>Alerting on subscription backlog oldest_unacked_message_age &gt; 5 minutes</li>
+          <li>Subscribers implement idempotent message handling with deduplication</li>
+          <li>Message schema versioned and validated against schema registry</li>
+          <li>Distributed trace ID injected into message attributes at publish time</li>
+          <li>Retention period set explicitly (not default) per topic criticality</li>
+          <li>Message ordering requirements documented and enforcement mechanism confirmed</li>
+          <li>Load tested: subscriber can clear backlog at 2x peak publish rate</li>
+          <li>Runbook for DLT replay documented and tested</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5: ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">YouTube — video.uploaded at massive scale</span>
+      <p><strong>Context:</strong> YouTube users upload 500 hours of video every minute. Each uploaded video must trigger: transcoding into multiple resolutions (360p, 720p, 1080p, 4K), thumbnail generation, content moderation (CSAM scanning, copyright matching), notification to subscribers of the channel, and analytics ingestion. That is five independent, heavyweight workflows — each with its own scaling requirements and SLAs.</p>
+      <p><strong>How Pub/Sub is used:</strong> When the upload service confirms a video file is stored in GCS, it publishes a single <code>video.uploaded</code> event to a Google Cloud Pub/Sub topic. The event payload contains the video ID, uploader ID, GCS path, and metadata. Five services subscribe to the topic, each with their own subscription and independent processing backlog.</p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><code>transcoding-service</code> — pulls the event, launches a Dataflow job per video. p99 completion time: 8 minutes for 1080p. Has its own DLT for videos that fail transcoding.</li>
+        <li><code>thumbnail-service</code> — generates 3 candidate thumbnails within 30 seconds. Uses pull subscription with flow control (max 500 concurrent jobs).</li>
+        <li><code>moderation-service</code> — highest priority subscription. Uses push delivery with a dedicated endpoint for sub-second latency. Video is restricted from public view until moderation completes.</li>
+        <li><code>notification-service</code> — fans out channel subscriber notifications via FCM/email. Separate rate-limiting layer to avoid notification spam during bulk uploads.</li>
+        <li><code>analytics-service</code> — batch pull subscription. Processes messages in 1-minute windows. Tolerates hours of backlog without impacting other services.</li>
+      </ol>
+      <p><strong>Scale numbers:</strong> 500M+ messages/day on this topic. Peak throughput: ~6,000 messages/second during YouTube premiere events. The <code>transcoding-service</code> subscription maintains a backlog of up to 4 million messages during peak hours — this is expected and healthy. Backlog metrics trigger auto-scaling of Dataflow workers, not alerts.</p>
+      <p><strong>Key engineering decisions:</strong> Each subscription has independent ack deadline configured to match the subscriber's expected processing time (moderation: 60s, transcoding: 900s). Ordering keys are unused — transcoding jobs are independent and order doesn't matter. Schema is Protobuf, validated via GCP Schema Registry, with strict backward-compatibility enforced at publish time.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6: COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Assuming Messages Arrive in Order</span>
+      <p>This is the most common and most dangerous Pub/Sub misconception. Standard Pub/Sub topics deliver messages <strong>out of order</strong>. If you publish events 1, 2, 3 — subscribers may receive them as 2, 1, 3 or 3, 1, 2. Engineers who assume ordering write bugs that are subtle and hard to reproduce.</p>
+      <p>The failure mode: a <code>user.subscription-cancelled</code> event arrives before <code>user.subscription-started</code>. The billing service processes the cancellation first (finds no active subscription, does nothing) and then processes the start (creates a subscription that never gets cancelled). The user is charged indefinitely.</p>
+      <p><strong>Fix:</strong> Design message handlers to be order-independent where possible. If strict ordering is required, use Kafka with a consistent partition key, or GCP Pub/Sub ordering keys / AWS SNS FIFO. Include a <code>timestamp</code> in every event and apply last-writer-wins logic in the subscriber.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Handling Duplicate Delivery</span>
+      <p>At-least-once delivery means your subscriber will receive the same message more than once — this is not a bug, it is a guarantee. Teams that don't design for this ship bugs like double-charging customers, sending duplicate emails, or inserting duplicate analytics records.</p>
+      <p>The failure mode: <code>billing-service</code> charges the card successfully but the network hiccups before <code>message.ack()</code> is called. The broker's ack deadline expires and the message is redelivered. <code>billing-service</code> charges the card a second time.</p>
+      <p><strong>Fix:</strong> Store the <code>message_id</code> in a Redis set (TTL matching your message retention period). At the start of every handler: check if this message ID has been seen before, and skip if so. Alternatively, design business operations as idempotent upserts — "set balance to X" is safe on replay; "add X to balance" is not.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Dead Letter Topic for Unprocessable Messages</span>
+      <p>Without a dead letter topic, a message that your subscriber cannot process (malformed JSON, unexpected field, downstream timeout) will be retried indefinitely until the retention period expires. During that time it consumes retry budget, generates alerts, and depending on your subscriber logic, may block processing of later messages.</p>
+      <p>The failure mode: a schema change in the publisher sends a field as a string instead of an integer. Every subscriber that tries to cast it to int throws an exception, nacks the message, and the broker retries it every 10 seconds — generating thousands of errors per hour. The message is eventually dropped when retention expires, silently. No one investigates.</p>
+      <p><strong>Fix:</strong> Configure a dead letter topic on every subscription with <code>max_delivery_attempts = 5</code>. Set an alert on any message arriving in the DLT. Maintain a runbook describing how to inspect, fix, and replay DLT messages. Treat the DLT as a first-class production signal — every message there is a bug.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7: INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Pub/Sub decouples publishers from subscribers through a topic — publishers broadcast events without knowing who receives them, and multiple subscribers independently receive every message, enabling fan-out and loose coupling in distributed systems.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Pub/Sub is a messaging pattern where publishers send events to a named topic, and any number of subscribers independently receive a copy of each message. The key property is decoupling: the publisher doesn't know who's consuming, which means you can add new subscribers without changing the publisher. The classic use case is an e-commerce system — when an order is created, a single event fans out to billing, email, analytics, and warehouse simultaneously, rather than the order service calling each downstream service sequentially. The main trade-offs to know: first, Pub/Sub is generally unordered, so if you need strict message ordering you need Kafka partitions or FIFO mode. Second, delivery is at-least-once, so subscribers must be idempotent — you will receive duplicates. Third, you need a dead letter topic to handle unprocessable messages, otherwise broken messages retry forever. In practice at AWS, the standard pattern is SNS fan-out to multiple SQS queues — SNS gives you the topic abstraction, SQS gives each service its own independent backlog and dead-letter queue."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between Pub/Sub and a message queue?</li>
+        <li>How do you guarantee a message is processed exactly once?</li>
+        <li>How would you handle a slow subscriber that's falling behind?</li>
+        <li>When would you choose Kafka over Google Cloud Pub/Sub?</li>
+        <li>How do you debug a message that was lost and never processed?</li>
+        <li>How does ordering work in Pub/Sub systems?</li>
+        <li>What is a dead letter queue and when do you need one?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "Pub/Sub guarantees delivery in order" — it does not, unless you explicitly opt into ordering mechanisms with significant trade-offs.</li>
+        <li>Conflating Pub/Sub with message queues — interviewers specifically test whether you know the fan-out vs competing-consumers distinction.</li>
+        <li>Forgetting idempotency — any senior interviewer will ask how you handle duplicates; saying "it won't happen" is a red flag.</li>
+        <li>Not mentioning dead letter topics when discussing reliability — omitting DLTs suggests you haven't operated Pub/Sub in production.</li>
+        <li>Saying "just use Kafka for everything" — Kafka is powerful but operationally heavy. Managed Pub/Sub (GCP, SNS+SQS) is often the right default and interviewers notice when you can articulate the trade-off.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8: TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Constraint</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Decoupling</strong></td>
+          <td>Publisher and subscribers evolve independently; add subscribers with zero publisher changes</td>
+          <td>Harder to trace end-to-end flows; need distributed tracing to follow an event across services</td>
+        </tr>
+        <tr>
+          <td><strong>Fan-out</strong></td>
+          <td>One publish delivers to N services simultaneously — no sequential call chain latency</td>
+          <td>N copies of every message stored in broker; storage cost grows with subscriber count</td>
+        </tr>
+        <tr>
+          <td><strong>Reliability</strong></td>
+          <td>Broker durably stores messages; subscribers can be offline and catch up on reconnect</td>
+          <td>At-least-once delivery requires all subscribers to implement idempotent handlers</td>
+        </tr>
+        <tr>
+          <td><strong>Ordering</strong></td>
+          <td>Unordered delivery maximizes throughput and availability</td>
+          <td>No ordering guarantee by default; ordering features sacrifice throughput</td>
+        </tr>
+        <tr>
+          <td><strong>Observability</strong></td>
+          <td>Broker provides backlog metrics, publish rate, subscription lag out-of-the-box</td>
+          <td>Without DLT + tracing, silent failures (message dropped after retries) are invisible</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Subscribers scale independently; slow subscriber doesn't affect others</td>
+          <td>Each subscriber maintains its own backlog — unbounded growth if subscriber stops consuming</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9: RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Point-to-point delivery where one consumer processes each message.</span>
+      </a>
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">System design paradigm where services communicate through events.</span>
+      </a>
+      <a href="kafka-streaming.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Kafka Streaming</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Ordered, partitioned, durable event streaming at high throughput.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Breaking a system into independent, deployable services.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

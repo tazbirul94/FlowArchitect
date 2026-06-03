@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microservices — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="microservices" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Microservices</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Architecture <span>→</span> Microservices</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Architecture</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate–Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Microservices</h1>
+      <p class="page-subtitle">Breaking a system into small, independently deployable services — each owning its domain, its data, and its destiny.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Architecture</span>
+        <span class="tag">Distributed Systems</span>
+        <span class="tag">DDD</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Imagine a Swiss Army knife versus a toolbox. A monolith is the Swiss Army knife — everything in one tool, convenient until the blade breaks and the whole thing is useless. Microservices are the toolbox — each tool is separate, sharpened for one job, replaceable without touching anything else.</p>
+      <p>Or think of a city: it doesn't have one massive building that does everything. It has a post office, a hospital, a bank, a grocery store — each independent, each communicating through well-defined roads (APIs). One building can be renovated without shutting down the city.</p>
+    </div>
+
+    <p>Microservices is an architectural style where an application is structured as a collection of small, autonomous services — each modelled around a business domain, communicating over lightweight protocols, and deployable independently of one another.</p>
+
+    <p>The opposite is a <strong>monolith</strong>: one large deployable unit where the user interface, business logic, and database access are all bundled together. Monoliths aren't wrong — they're the right starting point. But as organisations grow, a single deployment unit becomes a coordination bottleneck: 50 engineers all merging into one repo, one deploy pipeline, one database schema. A failing payment module can take down the entire product. Microservices solve that — at the cost of a very different set of problems.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story: Amazon's Monolith Crisis</span>
+      <div class="story-scenario">
+        It's 2001. Amazon is a successful bookstore turned general retailer. Their entire platform — product catalogue, checkout, recommendations, accounts, inventory — runs as a single Perl/C++ monolith. Hundreds of engineers work in the same codebase. Every release requires coordinating the entire company. A bug in the recommendations engine can crash checkout.
+      </div>
+      <div class="story-problem">
+        A single product page load triggers 50–100 internal function calls through the same process. Engineering velocity has slowed to a crawl. A junior developer changing a sorting algorithm in the catalogue breaks something unrelated in payments. Releases take weeks to test and deploy. The engineering team cannot scale — adding engineers creates more coordination overhead, not more output. Jeff Bezos issues a mandate: no team may share data except through service interfaces. Any team that doesn't comply will be fired.
+      </div>
+      <div class="story-solution">
+        Amazon decomposed the monolith into services: an ordering service, a product service, a payment service, a recommendations service, a user accounts service. Each team owned its service end-to-end: code, deployment, database, and on-call rotation. Services communicated only through APIs — not through shared database tables, not through shared memory. No exceptions. The process took years and was painful — distributed systems are harder to debug than monoliths. But the organisational structure changed from "release the entire company" to "team deploys on Tuesday when they're ready."
+      </div>
+      <div class="story-outcome">
+        Amazon today runs on hundreds of services. The same infrastructure Amazon built to manage microservice orchestration became AWS — EC2, SQS, DynamoDB, Lambda were all invented to solve Amazon's own operational problems at microservice scale. Amazon Prime, Alexa, and AWS are entirely separate business units that couldn't have existed as departments in a monolith. In 2023, Amazon processed over $500B in merchandise sales — all running on microservices that deploy thousands of times per day.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're building a food delivery app. In a monolith, everything is in one big application: user login, restaurant listing, order management, payments, and driver tracking all live in the same codebase, deployed together.</p>
+          <p>The problem: every time you fix a bug in the payment system, you have to redeploy the entire app — including the restaurant listing code that didn't change at all. If the payment code crashes, the whole app crashes. If you need 10× more power for payments on Friday night, you have to scale the entire app, even the parts that aren't busy.</p>
+          <p>With <strong>microservices</strong>, you split the app into separate mini-apps: one for users, one for restaurants, one for orders, one for payments, one for tracking. Each has its own database. Each deploys independently. The payment service can crash without taking down the restaurant listing. You can scale payments without scaling anything else.</p>
+          <p>The trade-off: instead of one app to monitor and debug, you have five. Requests now travel over the network between services — adding latency and the chance of failures you'd never see in a monolith.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Service</strong> — A small application responsible for one business capability (e.g., "manage orders").</li>
+          <li><strong>API</strong> — How services talk to each other. Think of it as the telephone line between buildings.</li>
+          <li><strong>Database per service</strong> — Each service owns its own database. No two services share the same tables.</li>
+          <li><strong>Independent deployment</strong> — You can update one service without touching or redeploying any other.</li>
+          <li><strong>Monolith</strong> — The opposite: everything in one app, deployed as one unit.</li>
+        </ul>
+
+        <h3 class="subsection-title">Monolith vs Microservices — Visual</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    subgraph Monolith
+        M[Single App\nUser + Order\n+ Payment\n+ Notification]
+        M --- DB1[(One Big DB)]
+    end
+
+    subgraph Microservices
+        US[User\nService]
+        OS[Order\nService]
+        PS[Payment\nService]
+        NS[Notification\nService]
+        US --- DB2[(Users DB)]
+        OS --- DB3[(Orders DB)]
+        PS --- DB4[(Payments DB)]
+        NS --- DB5[(Notif DB)]
+        US <-->|REST API| OS
+        OS <-->|REST API| PS
+        PS <-->|Event| NS
+    end
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level, the key questions are: how do you split a system into services, and how do services talk to each other?</p>
+
+        <h3 class="subsection-title">Service Boundaries: Domain-Driven Design</h3>
+        <p>The most common mistake when moving to microservices is splitting by technical layer (a "UI service", a "database service") rather than by business domain. The right unit is a <strong>Bounded Context</strong> from Domain-Driven Design — a part of the business that has its own language, rules, and data model.</p>
+        <ul>
+          <li><strong>Order service</strong> — knows what an order is, its lifecycle (placed → paid → shipped → delivered), its rules ("an order cannot ship without a successful payment").</li>
+          <li><strong>Payment service</strong> — knows about payment methods, authorisation, refunds. It doesn't care what the order contains.</li>
+          <li><strong>Notification service</strong> — knows how to send emails and push notifications. It doesn't know what an order is — it just receives "send email to user X with message Y".</li>
+        </ul>
+        <p>Good service boundaries feel natural: the team that owns payments doesn't need to read the order team's code to do their job.</p>
+
+        <h3 class="subsection-title">Inter-Service Communication: Sync vs Async</h3>
+        <p>When service A needs data from service B, it has two choices:</p>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Communication Style</th>
+              <th>How</th>
+              <th>Pros</th>
+              <th>Cons</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Synchronous (REST / gRPC)</strong></td>
+              <td>A calls B's API and waits for a response</td>
+              <td class="good">Simple, immediate result, easy to reason about</td>
+              <td class="bad">If B is slow or down, A is also slow or down (tight coupling)</td>
+            </tr>
+            <tr>
+              <td><strong>Asynchronous (Events / Queues)</strong></td>
+              <td>A publishes an event; B consumes it later</td>
+              <td class="good">Loose coupling; B's downtime doesn't affect A; natural backpressure</td>
+              <td class="bad">No immediate feedback; eventual consistency; harder to debug</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p><strong>Rule of thumb:</strong> Use synchronous (REST/gRPC) when the caller needs the result immediately to continue (e.g., "is this payment authorised?"). Use async events when the action can happen in the background (e.g., "send confirmation email after order is placed").</p>
+
+        <h3 class="subsection-title">Service Discovery</h3>
+        <p>In a microservices world, you can't hardcode service addresses. Services scale up and down; IP addresses change. <strong>Service discovery</strong> solves this: services register themselves with a central registry, and callers look up the address at runtime.</p>
+        <ul>
+          <li><strong>Client-side discovery</strong> — The calling service queries the registry (e.g., Consul, Eureka) and picks an instance itself. More control, but every client needs discovery logic.</li>
+          <li><strong>Server-side discovery</strong> — A load balancer or API gateway queries the registry on the caller's behalf. Simpler clients. This is what Kubernetes DNS gives you for free: <code>http://order-service:8080</code> resolves to a healthy pod automatically.</li>
+        </ul>
+
+        <h3 class="subsection-title">Request Flow Example: Place an Order</h3>
+        <div class="code-wrapper" data-lang="sequence">
+          <pre><code class="language-text">Client
+  → POST /orders  (API Gateway)
+    → Order Service: create order record, status=PENDING
+      → Payment Service (sync REST): POST /charge {amount, card}
+        ← 200 OK: payment_id=pay_123
+      ← Order Service: update order status=PAID
+        → Notification Queue (async): publish OrderPaid event
+          → Notification Service: consume event, send email
+← 201 Created: order_id=ord_456</code></pre>
+        </div>
+        <p>The client gets a response (order created) while the email goes out asynchronously. Even if the notification service is down for 10 minutes, the order still completes — the event sits in the queue until the service recovers.</p>
+
+        <h3 class="subsection-title">Data Ownership: Database per Service</h3>
+        <p>The most important rule in microservices architecture: <strong>no service reads another service's database directly</strong>. All data access goes through the owning service's API.</p>
+        <div class="code-wrapper" data-lang="wrong">
+          <pre><code class="language-sql">-- WRONG: Order service directly querying Payment service's DB
+SELECT payment_status FROM payments_db.transactions
+WHERE order_id = 'ord_456';</code></pre>
+        </div>
+        <div class="code-wrapper" data-lang="correct">
+          <pre><code class="language-javascript">// CORRECT: Order service calls Payment service's API
+const payment = await fetch('http://payment-service/payments?orderId=ord_456');
+const { status } = await payment.json();</code></pre>
+        </div>
+        <p>Shared databases create invisible coupling. If the payment team changes a column name, the order service breaks — and nobody knew they had a dependency. Database-per-service enforces the contract at the API layer where it's visible and versioned.</p>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, you're dealing with the hard operational and consistency problems that microservices introduce at scale.</p>
+
+        <h3 class="subsection-title">Distributed Transactions: The Saga Pattern</h3>
+        <p>In a monolith, a database transaction rolls back atomically if anything fails. In microservices with separate databases, there's no global ACID transaction. The <strong>Saga pattern</strong> solves this: instead of one transaction, you model a business process as a sequence of local transactions, each publishing an event that triggers the next step. If a step fails, compensating transactions undo the previous steps.</p>
+
+        <div class="code-wrapper" data-lang="saga-choreography">
+          <pre><code class="language-yaml"># Choreography-based Saga: Place Order
+# Step 1: Order Service
+OrderCreated event published →
+
+# Step 2: Payment Service listens for OrderCreated
+  → Charges card
+  → Publishes PaymentSucceeded (or PaymentFailed)
+
+# Step 3: Inventory Service listens for PaymentSucceeded
+  → Reserves stock
+  → Publishes StockReserved (or StockFailed)
+
+# Step 4: Shipping Service listens for StockReserved
+  → Creates shipment
+  → Publishes ShipmentScheduled
+
+# Compensation on failure:
+# If StockFailed → Payment Service listens, refunds charge
+# If PaymentFailed → Order Service listens, cancels order</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Distributed Tracing</h3>
+        <p>When a request spans 5 services and fails, how do you find where? In a monolith, you read one stack trace. In microservices, you need <strong>distributed tracing</strong>: a <code>trace-id</code> is injected at the API gateway and propagated to every downstream service call. Jaeger, Zipkin, or AWS X-Ray collect these traces and let you visualise the full request journey, including which service added latency.</p>
+
+        <div class="code-wrapper" data-lang="node.js">
+          <pre><code class="language-javascript">// Propagate trace context in every outgoing HTTP call
+const { trace, context, propagation } = require('@opentelemetry/api');
+
+async function callDownstreamService(url) {
+  const headers = {};
+  // Inject current trace context into outgoing headers
+  propagation.inject(context.active(), headers);
+
+  // headers now contains: traceparent, tracestate
+  // e.g. traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+
+  const response = await fetch(url, { headers });
+  return response.json();
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Eventual Consistency</h3>
+        <p>When services communicate asynchronously, data is <strong>eventually consistent</strong> — not immediately consistent. The order service may mark an order as PAID before the notification service has sent the confirmation email. This is acceptable. What's not acceptable is showing a user stale data that causes them to act on incorrect information (e.g., double-charging).</p>
+        <ul>
+          <li><strong>Read-your-writes consistency</strong> — After a write, the same user should see their own write immediately. Achieve this by reading from the service that owns the data, not a replicated copy.</li>
+          <li><strong>Idempotency</strong> — Events can be delivered more than once (at-least-once delivery). Services must handle duplicate events gracefully — a second "PaymentSucceeded" for the same order should not charge the customer twice.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="idempotency">
+          <pre><code class="language-javascript">// Idempotent event handler — safe to call multiple times
+async function handlePaymentSucceeded(event) {
+  const { orderId, paymentId } = event;
+
+  // Check if we've already processed this event
+  const existing = await db.orders.findOne({ id: orderId });
+  if (existing.status === 'PAID') {
+    console.log(`Order ${orderId} already processed, skipping`);
+    return; // Idempotent: no-op on duplicate
+  }
+
+  // Process only if not already done
+  await db.orders.update({ id: orderId }, { status: 'PAID', paymentId });
+  await db.outbox.insert({ event: 'OrderPaid', orderId }); // Transactional outbox
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">When NOT to Use Microservices</h3>
+        <div class="common-mistake">
+          <span class="common-mistake-label">Do Not Split Before You Understand the Domain</span>
+          <p>If you don't fully understand your domain yet, your service boundaries will be wrong. Wrong boundaries create distributed monoliths — services that are tightly coupled across the network, giving you all the complexity of microservices with none of the independence.</p>
+          <p>Martin Fowler's advice: <em>"Don't start with microservices. Start with a monolith, understand your domain, and only decompose when you feel the pain that microservices solve."</em></p>
+        </div>
+
+        <h3 class="subsection-title">Trade-Offs at a Glance</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Microservices</th>
+              <th>Monolith</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Deployment</strong></td>
+              <td class="good">Independent — one team can deploy without coordinating others</td>
+              <td class="bad">All-or-nothing — every change requires a full redeploy</td>
+            </tr>
+            <tr>
+              <td><strong>Scalability</strong></td>
+              <td class="good">Per-service scaling — scale only the payment service on Black Friday</td>
+              <td class="bad">Scale everything — you scale the whole app even if only one part is busy</td>
+            </tr>
+            <tr>
+              <td><strong>Fault isolation</strong></td>
+              <td class="good">One service crashes; others continue (if circuit breakers in place)</td>
+              <td class="bad">One bad module can crash or degrade the entire application</td>
+            </tr>
+            <tr>
+              <td><strong>Technology diversity</strong></td>
+              <td class="good">Each service can use the best language/DB for its job</td>
+              <td class="bad">Entire app must use one language and one tech stack</td>
+            </tr>
+            <tr>
+              <td><strong>Operational complexity</strong></td>
+              <td class="bad">100 services = 100 pipelines, 100 dashboards, distributed debugging</td>
+              <td class="good">One app to deploy, monitor, and debug</td>
+            </tr>
+            <tr>
+              <td><strong>Latency</strong></td>
+              <td class="bad">In-process call: microseconds. HTTP across network: 1–20ms</td>
+              <td class="good">All calls are in-process, sub-microsecond</td>
+            </tr>
+            <tr>
+              <td><strong>Data consistency</strong></td>
+              <td class="bad">Eventual consistency; no cross-service ACID transactions</td>
+              <td class="good">Full ACID transactions across the entire domain</td>
+            </tr>
+            <tr>
+              <td><strong>Team autonomy</strong></td>
+              <td class="good">Conway's Law in your favour — service boundary = team boundary</td>
+              <td class="bad">All teams coupled in the same codebase and release process</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At the expert level, you're operating and evolving a microservices platform at scale — potentially hundreds of services, multiple teams, strict reliability and compliance requirements.</p>
+
+        <h3 class="subsection-title">Service Mesh: Istio and Linkerd</h3>
+        <p>When you have 50+ services, managing TLS between them, retries, timeouts, circuit breakers, and distributed tracing in every service's code becomes unmanageable. A <strong>service mesh</strong> extracts all that cross-cutting concern into a sidecar proxy (Envoy) that runs alongside every service pod. The mesh handles:</p>
+        <ul>
+          <li><strong>mTLS everywhere</strong> — All inter-service communication is mutually authenticated and encrypted, without a single line of application code.</li>
+          <li><strong>Traffic management</strong> — Canary deployments, A/B tests, traffic mirroring, and fault injection are controlled via mesh configuration — no deploys required.</li>
+          <li><strong>Observability</strong> — Every request automatically generates traces, metrics, and logs at the proxy layer. Full visibility without instrumentation in every service.</li>
+          <li><strong>Resilience policies</strong> — Retry budgets, timeouts, and circuit breakers applied uniformly across the fleet via YAML, not per-service code.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="istio-virtual-service">
+          <pre><code class="language-yaml"># Istio VirtualService: canary deploy — 5% traffic to v2
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: payment-service
+spec:
+  hosts:
+    - payment-service
+  http:
+    - route:
+        - destination:
+            host: payment-service
+            subset: v1
+          weight: 95
+        - destination:
+            host: payment-service
+            subset: v2
+          weight: 5</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Distributed Tracing in Production</h3>
+        <p>Jaeger or Zipkin collect spans from every service. At scale, you cannot store 100% of traces — a sampling strategy is required:</p>
+        <ul>
+          <li><strong>Head-based sampling</strong> — Decide at the root service whether to trace this request (e.g., 1%). Simple, but misses rare errors.</li>
+          <li><strong>Tail-based sampling</strong> — Collect all spans, decide at the end whether to keep the trace (e.g., keep 100% of traces that contain errors). More accurate, more expensive. Used by companies like Lightstep and Honeycomb.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="opentelemetry-config">
+          <pre><code class="language-javascript">// OpenTelemetry SDK configuration for Node.js microservice
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+
+const sdk = new NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: 'payment-service',
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.APP_VERSION,
+    'deployment.environment': process.env.NODE_ENV,
+  }),
+  traceExporter: new JaegerExporter({
+    endpoint: 'http://jaeger-collector:14268/api/traces',
+  }),
+  // Sample 10% of requests in production; 100% if they contain errors
+  sampler: new ParentBasedSampler({
+    root: new TraceIdRatioBasedSampler(0.1),
+  }),
+});
+
+sdk.start();</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Organisational Alignment: Conway's Law</h3>
+        <p>"Organisations which design systems are constrained to produce designs which are copies of the communication structures of those organisations." — Melvin Conway, 1967.</p>
+        <p>In practice: if you have a team that owns both the order service and the payment service, they will create tight coupling between them — because it's easiest to just call an internal function. Microservices only deliver team autonomy if each service is owned end-to-end by a single team with a clear API contract. Amazon's two-pizza team rule maps directly to this: a team small enough to be fed by two pizzas is the right size to own a microservice.</p>
+
+        <h3 class="subsection-title">Compliance and Data Residency</h3>
+        <p>In regulated industries, microservices create new compliance challenges:</p>
+        <ul>
+          <li><strong>PCI DSS</strong> — The payment service scope (cardholder data environment) must be tightly controlled. Only the payment service should ever handle raw card data. Other services must never receive PAN data, reducing your PCI scope dramatically — a microservices benefit in compliance.</li>
+          <li><strong>GDPR data residency</strong> — The user-service that stores EU user PII must run on EU infrastructure. If the recommendation service calls the user-service to get user data, that call must not cross EU boundaries. Service mesh routing policies can enforce this without application code changes.</li>
+          <li><strong>Audit trails</strong> — Every inter-service API call should be logged with the originating user identity and trace ID. The event log (Kafka, Kinesis) provides an immutable audit trail for compliance reviews.</li>
+        </ul>
+
+        <h3 class="subsection-title">Service Decomposition Patterns</h3>
+        <p>Beyond basic service splitting, expert practitioners use these patterns:</p>
+        <ul>
+          <li><strong>Strangler Fig</strong> — Incrementally migrate a monolith by routing individual features to new microservices, one at a time, until the monolith is empty. The safest migration path.</li>
+          <li><strong>Anti-Corruption Layer</strong> — When a new microservice must communicate with a legacy system, wrap the legacy system in an adapter that translates its model into your new domain model. Prevents the legacy model from poisoning new code.</li>
+          <li><strong>Sidecar</strong> — Attach cross-cutting functionality (logging, tracing, mTLS) to a service by deploying a companion container alongside it, rather than adding libraries to the service itself. Foundation of the service mesh pattern.</li>
+          <li><strong>CQRS (Command Query Responsibility Segregation)</strong> — Separate the write model (commands) from the read model (queries) within a service. Enables optimised read replicas (e.g., Elasticsearch for search) without polluting the write model.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Amazon — Decomposing the Monolithic Bookstore into 100s of Services</span>
+      <p><strong>Context:</strong> In the early 2000s, Amazon ran a monolithic application built in Perl and C++. As the company grew from an online bookstore to a global marketplace, the monolith became an engineering bottleneck: hundreds of engineers, one codebase, one deploy pipeline, one team's code change could break any other team's feature.</p>
+      <p><strong>The Decomposition:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Jeff Bezos's 2002 mandate: all data and functionality must be exposed only through service interfaces. Teams must not bypass this via shared databases, shared memory, or back-door imports.</li>
+        <li>Services were identified along business domain lines: product catalogue service, ordering service, payment service, recommendation engine, inventory service, seller marketplace service.</li>
+        <li>Each service got its own team, its own database, its own deployment pipeline. Teams could deploy independently — no cross-team coordination for releases.</li>
+        <li>The infrastructure to manage hundreds of services (auto-scaling, messaging, storage) was too expensive to buy and did not exist at the time. Amazon built it themselves.</li>
+        <li>In 2006, Amazon launched AWS — offering the infrastructure they built for microservices management as a public cloud service. EC2, S3, SQS, and DynamoDB were all built to solve Amazon's own microservice scale problems.</li>
+      </ol>
+      <p><strong>Concrete Numbers:</strong> Amazon deploys to production over 50 million times per year — roughly 100 deployments per minute. This is only possible because each microservice deploys independently. The entire Amazon.com retail platform runs on hundreds of services. A failure in the review service does not affect checkout. A recommendation engine rewrite does not require a product catalogue release.</p>
+      <p><strong>Business Impact:</strong> Amazon Prime, Alexa, and AWS exist as separate billion-dollar business units because the microservices architecture allowed organisational independence. In 2023, AWS alone generated $91B in revenue — a business that was only possible because Amazon could spin up new services without disrupting existing ones. The architecture enabled a company of 1.5 million employees to move like a startup in each domain.</p>
+      <p><strong>Lessons learned:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>The 2-pizza team rule maps to a service</strong> — A team small enough to be fed by two pizzas (6–8 people) is the right cognitive size to own a microservice end-to-end. More people than that and you need coordination, defeating the purpose.</li>
+        <li><strong>Build infrastructure before services at scale</strong> — At 50 services you need service discovery, distributed tracing, and a CI/CD pipeline for each. At 100 services these become existential operational requirements. Amazon invented AWS solving this problem.</li>
+        <li><strong>The migration took years and was painful</strong> — Extracting a monolith is not a weekend project. Amazon did it incrementally over several years. Teams used the Strangler Fig pattern: route one feature at a time to the new service, verify it works, remove it from the monolith.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Nanoservices: One Function = One Service</span>
+      <p>Splitting services too finely creates "nanoservices" — a service that does nothing but call another service. Instead of reducing complexity, you've distributed it. A service for "validate email format" that is called by a service for "validate user data" that is called by the user service is not three services with clean boundaries — it's one function spread across three deployment units with three CI pipelines, three dashboards, and three on-call rotations.</p>
+      <p><strong>The test:</strong> Can the service be described by a business capability that a non-engineer would recognise? "Manage user accounts" — yes. "Validate email format" — no, that's a utility function, not a business domain. Put it in a shared library.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Shared Databases Between Services</span>
+      <p>The most common anti-pattern: two services query the same database. This looks convenient but creates invisible coupling that defeats the entire purpose of microservices. When the payment team needs to change a column name in the transactions table, they break the order service without knowing it. There's no API contract, no versioning, no visible dependency. You've built a distributed monolith — all the network complexity of microservices with all the coupling of a monolith.</p>
+      <p><strong>The rule:</strong> If service A needs data owned by service B, it calls B's API. No exceptions. The discomfort of creating an API for every data access is intentional — it surfaces the dependency and makes it a first-class contract.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Service Discovery (Hardcoded IPs)</span>
+      <p>Hardcoding IP addresses or hostnames between services works in development. In production, services scale horizontally, pods restart with new IPs, and blue-green deployments change endpoints. Services that depend on hardcoded addresses become fragile and require manual configuration changes for every scaling event.</p>
+      <p><strong>The fix:</strong> Always use service discovery. In Kubernetes, use the built-in DNS: <code>http://payment-service:8080</code> resolves automatically to healthy pods. Outside Kubernetes, use Consul or AWS Cloud Map. The load balancer or service mesh handles the routing — services should only know the logical service name, never the IP.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Microservices is an architectural style where an application is built as a collection of small, independently deployable services, each owning a bounded business domain and communicating over well-defined APIs.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Microservices is an architecture where you decompose an application into small services that are independently deployable and own their own data. The key benefit is team autonomy — each team can deploy, scale, and evolve their service without coordinating with other teams. For example, Amazon split their monolith into hundreds of services, which enabled them to deploy 50 million times a year and spin up entirely new business units like AWS. The main trade-offs are operational complexity — 100 services means 100 deployment pipelines, 100 dashboards — and distributed systems problems like eventual consistency and network latency. I'd recommend microservices when you have multiple teams working on a large system and deployment coupling is slowing you down, but not as a starting point for a new product where you don't yet understand your domain."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>How do you handle transactions that span multiple services?</li>
+        <li>What is the database-per-service pattern and why does it matter?</li>
+        <li>When would you NOT use microservices? (monolith is a valid and often better answer)</li>
+        <li>How do you debug a request that fails across 5 services?</li>
+        <li>What is a service mesh and when would you use one?</li>
+        <li>How do you handle versioning of service APIs?</li>
+        <li>What is the Strangler Fig pattern?</li>
+        <li>How do microservices relate to Conway's Law?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "microservices are always better than monoliths" — this signals inexperience. Good engineers know when NOT to use microservices.</li>
+        <li>Ignoring the operational complexity cost — mentioning only the benefits without the trade-offs (100 deployment pipelines, distributed debugging, eventual consistency) shows shallow understanding.</li>
+        <li>Conflating microservices with containers or Kubernetes — these are implementation tools, not the architecture. You can run microservices without Kubernetes and a monolith inside Kubernetes.</li>
+        <li>Forgetting the organisational dimension — the best technical answer about microservices always mentions Conway's Law and team autonomy. It's an architectural and organisational pattern, not just a technical one.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Microservices Give You</th>
+          <th>At the Cost Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Deployment independence</strong></td>
+          <td>Teams ship without coordinating with other teams</td>
+          <td>N deployment pipelines, N staging environments to maintain</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Scale individual services to match their load profile</td>
+          <td>Complex orchestration (Kubernetes, service mesh) to manage pods</td>
+        </tr>
+        <tr>
+          <td><strong>Fault isolation</strong></td>
+          <td>A failing service doesn't bring down the whole system</td>
+          <td>Requires circuit breakers, retries, and bulkhead patterns to actually isolate faults</td>
+        </tr>
+        <tr>
+          <td><strong>Technology diversity</strong></td>
+          <td>Use the right tool per service (Go for high throughput, Python for ML)</td>
+          <td>Polyglot operational complexity — N languages, N runtimes to patch and monitor</td>
+        </tr>
+        <tr>
+          <td><strong>Team autonomy</strong></td>
+          <td>Conway's Law working for you: team boundary = service boundary</td>
+          <td>Strong API contracts required; breaking changes across team boundaries are painful</td>
+        </tr>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>Each service sized correctly for its workload</td>
+          <td>Network latency: in-process call = microseconds; HTTP = 1–20ms; cascading calls multiply</td>
+        </tr>
+        <tr>
+          <td><strong>Data consistency</strong></td>
+          <td>Each service's data model can evolve independently</td>
+          <td>No cross-service ACID transactions; eventual consistency; saga pattern required for distributed workflows</td>
+        </tr>
+        <tr>
+          <td><strong>Observability</strong></td>
+          <td>Each service has its own focused logs and metrics</td>
+          <td>Distributed tracing infrastructure (Jaeger/Zipkin) required to correlate a request across services</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="architect-note">
+      <span class="architect-note-label">Architect's Rule of Thumb</span>
+      <p>Microservices solve <em>organisational</em> scale, not just technical scale. If you have one team of 5 engineers, a well-structured monolith will outperform microservices on every metric — developer velocity, debugging, latency, operational simplicity. The case for microservices becomes compelling when you have 5+ teams working on related features and their deployment pipelines are constantly blocking each other. The architecture should reflect the organisation you have, not the one you aspire to.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="monolith.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Monolith</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The starting point — when it's the right choice and when to move on.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The front door for microservices — auth, routing, rate limiting.</span>
+      </a>
+      <a href="circuit-breaker.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Circuit Breaker</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Stops cascading failures between microservices.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Distributed transactions without a global lock.</span>
+      </a>
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Async inter-service communication via events and queues.</span>
+      </a>
+      <a href="cqrs.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CQRS</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Separate read and write models inside a microservice.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replication — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="replication" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Replication</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Data <span>→</span> Replication</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1: PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Data</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Replication</h1>
+      <p class="page-subtitle">Keeping copies of the same data on multiple machines so reads scale, writes survive node failure, and the system stays available across regions.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Data</span>
+        <span class="tag">Databases</span>
+        <span class="tag">Distributed Systems</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2: DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a Google Doc shared with three colleagues. When you type a sentence, it instantly appears on everyone's screen. One person's laptop dies — no data is lost because the document lives on the other machines too. The original author is the "leader"; the others are "followers" who receive updates.</p>
+      <p>Replication is exactly that for databases: the same rows/documents exist on multiple server nodes, kept in sync so reads can come from any copy and writes survive hardware failure.</p>
+    </div>
+
+    <p>A single database node is a single point of failure. If it crashes, all writes are lost and the application is down until the node recovers. Replication solves this by maintaining identical (or near-identical) copies of the data on separate machines. It also enables reads to be spread across replicas, offloading the primary and reducing read latency for geographically distributed users.</p>
+
+    <p>Replication is not backup. Backups are point-in-time snapshots; replicas are live mirrors updated continuously. If a bug deletes a table, that deletion also replicates to all followers in seconds. Always have both.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3: THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A mid-sized SaaS company ran their entire product on a single PostgreSQL instance — 800 GB of data, 3,000 queries per second at peak. The database was on a single m5.4xlarge EC2 instance in us-east-1a. Engineers had alerts and a snapshot schedule, but no replica.
+      </div>
+      <div class="story-problem">
+        At 2:47 AM on a Tuesday, the EBS volume hosting the primary database suffered an unrecoverable I/O error. The instance went down. The last snapshot was 6 hours old. Recovery from snapshot took 4 hours and 22 minutes. The company lost 6 hours of transaction data — orders, support tickets, user activity — and was offline for nearly 5 hours. Customers churned. The CEO fielded calls all morning.
+      </div>
+      <div class="story-solution">
+        The engineering team set up PostgreSQL streaming replication: one synchronous standby in us-east-1b (same region, different AZ) and one asynchronous replica in us-west-2 for disaster recovery. They configured automatic failover using Patroni. The synchronous standby always had a transaction-complete copy of the data. Replica lag was monitored via <code>pg_stat_replication</code>; an alert fired if lag exceeded 100 ms.
+      </div>
+      <div class="story-outcome">
+        Eight months later, the primary node's disk showed early signs of failure via CloudWatch I/O metrics. Patroni promoted the synchronous standby in 11 seconds. No data was lost. Application connections recovered within 30 seconds via PgBouncer connection pooling. Total user-visible downtime: 28 seconds. The team then configured read queries to route to the async replica, cutting primary read load by 35%.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4: LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you keep your diary in a notebook. One copy. If that notebook burns, the diary is gone. Now imagine you write every entry in three notebooks at the same time. If one burns, you still have two. That's replication for databases.</p>
+          <p>In databases, the <strong>leader</strong> (or primary) is the notebook you write in first. The <strong>followers</strong> (or replicas) are the copies that receive every change. Reads can come from any copy — followers handle most of them, reducing the load on the leader.</p>
+          <p>The most important thing to know: replication gives you <strong>durability</strong> (data survives crashes) and <strong>availability</strong> (the system stays online when one node fails). Every production database should have at least one replica.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Leader / Primary</strong> — The node that accepts all writes. The single source of truth.</li>
+          <li><strong>Follower / Replica / Standby</strong> — A copy of the leader that receives and applies changes. Can serve reads.</li>
+          <li><strong>Replication lag</strong> — The delay between a write being committed on the leader and appearing on a follower. Usually milliseconds; can grow to minutes under heavy load.</li>
+          <li><strong>Failover</strong> — Promoting a follower to become the new leader when the current leader fails.</li>
+          <li><strong>WAL (Write-Ahead Log)</strong> — PostgreSQL's transaction log. Streaming replication works by shipping WAL records from leader to followers.</li>
+        </ul>
+
+        <h3 class="subsection-title">Leader-Follower Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    Client([Client]) -->|Write| Leader[(Leader\nPrimary)]
+    Leader -->|WAL stream| Follower1[(Follower 1\nReplica)]
+    Leader -->|WAL stream| Follower2[(Follower 2\nReplica)]
+    Client2([Client]) -->|Read| Follower1
+    Client3([Client]) -->|Read| Follower2
+    style Leader fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    style Follower1 fill:#10b981,color:#fff,stroke:#059669
+    style Follower2 fill:#10b981,color:#fff,stroke:#059669
+          </div>
+        </div>
+
+        <p>All writes go to the <strong>Leader</strong>. The leader ships changes (via WAL records in PostgreSQL, or binary log in MySQL) to every follower. Reads can come from followers, taking load off the leader. If the leader dies, one follower is promoted.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level the key concepts are the synchrony model, what replication lag means in practice, and how consistency guarantees relate to where you route reads.</p>
+
+        <h3 class="subsection-title">Synchronous vs. Asynchronous Replication</h3>
+        <p>This is the most important trade-off in replication configuration. It determines whether you can lose data on leader failure.</p>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>How it works</th>
+              <th class="good">Benefit</th>
+              <th class="bad">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Synchronous</strong></td>
+              <td>Leader waits for at least one follower to confirm it has written the change before acknowledging the client's write as committed.</td>
+              <td class="good">Zero data loss on leader crash — the promoted follower has every committed transaction.</td>
+              <td class="bad">Every write incurs an extra round-trip to the follower. Write latency increases by follower network RTT (typically 1–5 ms intra-region, 50–150 ms cross-region).</td>
+            </tr>
+            <tr>
+              <td><strong>Semi-synchronous</strong></td>
+              <td>One follower must ACK; others can be async. Used by MySQL Group Replication and PostgreSQL's <code>synchronous_standby_names</code>.</td>
+              <td class="good">Durability guarantee with one follower, without blocking all replicas.</td>
+              <td class="bad">If the synchronous follower is slow or unavailable, writes block or fall back to async.</td>
+            </tr>
+            <tr>
+              <td><strong>Asynchronous</strong></td>
+              <td>Leader acknowledges the write immediately without waiting for any follower. Changes stream to followers in the background.</td>
+              <td class="good">Lowest write latency. Cross-region replicas are always async (latency too high to block on).</td>
+              <td class="bad">If the leader crashes before a follower catches up, those committed transactions are lost. The promoted follower has a slightly stale view.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Replication Lag</h3>
+        <p>Even in asynchronous mode, followers are usually only milliseconds behind. But lag can grow:</p>
+        <ul>
+          <li><strong>Network congestion</strong> — the stream of WAL records is backpressured.</li>
+          <li><strong>Heavy write burst on leader</strong> — the follower can't apply changes as fast as the leader generates them.</li>
+          <li><strong>Long-running transactions on follower</strong> — in PostgreSQL, a long transaction on a replica can prevent old WAL segments from being recycled, causing the leader to retain them ("replication slot bloat").</li>
+        </ul>
+
+        <p>Monitor lag with:</p>
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- PostgreSQL: check follower lag from the leader
+SELECT
+  client_addr,
+  state,
+  sent_lsn,
+  write_lsn,
+  flush_lsn,
+  replay_lsn,
+  (sent_lsn - replay_lsn) AS replay_lag_bytes,
+  write_lag,
+  flush_lag,
+  replay_lag
+FROM pg_stat_replication;
+
+-- Alert if replay_lag > interval '100 milliseconds'</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Read-Your-Writes Consistency</h3>
+        <p>A classic bug: user updates their profile photo, is immediately redirected to their profile page, and sees the old photo. The write went to the leader; the read hit a follower that hasn't applied the update yet.</p>
+
+        <p><strong>Solutions:</strong></p>
+        <ul>
+          <li><strong>Route post-write reads to the leader</strong> — For one minute after a user writes, send their reads to the leader. Simple, but increases leader load.</li>
+          <li><strong>Track the client's write LSN</strong> — After a write, record the Log Sequence Number. On subsequent reads, only route to a replica whose <code>replay_lsn &gt;= client_write_lsn</code>. More complex but scalable.</li>
+          <li><strong>Always read from leader for user-visible writes</strong> — Profile, account settings, payment status — always leader. Analytics, timelines, feeds — can tolerate lag, use replicas.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Key Insight</span>
+          <p>Replication lag is a property of the system, not a bug. Design your application so that operations that must be consistent are always read from the leader, and operations that can tolerate eventual consistency route to replicas. The split is usually 90/10 in favour of replicas for read-heavy workloads.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>Beyond single-leader, two other topologies are used in production: multi-leader (active-active) and leaderless (Dynamo-style). Each trades consistency complexity for write availability.</p>
+
+        <h3 class="subsection-title">Multi-Leader Replication</h3>
+        <p>Multiple nodes accept writes simultaneously. Each leader replicates to all other leaders asynchronously. This is the topology used for multi-datacenter active-active setups: each datacenter has a leader, and writes in each datacenter are locally low-latency.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TB
+    subgraph DC1["Datacenter 1 (us-east-1)"]
+      L1[(Leader 1)]
+      F1a[(Follower 1a)]
+      F1b[(Follower 1b)]
+      L1 -->|local WAL| F1a
+      L1 -->|local WAL| F1b
+    end
+    subgraph DC2["Datacenter 2 (eu-west-1)"]
+      L2[(Leader 2)]
+      F2a[(Follower 2a)]
+      F2b[(Follower 2b)]
+      L2 -->|local WAL| F2a
+      L2 -->|local WAL| F2b
+    end
+    L1 <-->|cross-DC async replication| L2
+    style L1 fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    style L2 fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    style F1a fill:#10b981,color:#fff,stroke:#059669
+    style F1b fill:#10b981,color:#fff,stroke:#059669
+    style F2a fill:#10b981,color:#fff,stroke:#059669
+    style F2b fill:#10b981,color:#fff,stroke:#059669
+          </div>
+        </div>
+
+        <p><strong>The problem: write conflicts.</strong> Two users in different datacenters update the same row at the same time. Both writes are "committed" locally. When they replicate to each other, which wins?</p>
+
+        <p><strong>Conflict resolution strategies:</strong></p>
+        <ul>
+          <li><strong>Last-Write-Wins (LWW)</strong> — Each write is tagged with a timestamp. Higher timestamp wins. Simple, but silently loses data when clocks diverge (which they always do in distributed systems). CockroachDB and Cassandra use this by default. Dangerous for anything that matters financially.</li>
+          <li><strong>CRDTs (Conflict-free Replicated Data Types)</strong> — Mathematically defined data structures that guarantee all replicas converge to the same value regardless of the order operations are applied. A grow-only counter (G-Counter), a set that only allows adds (G-Set), or a more complex structure like a CRDT register. Used by Riak, some Redis data types, and collaborative tools like Figma.</li>
+          <li><strong>Application-level resolution</strong> — Conflicts are flagged and delivered to application code to merge. Amazon's shopping cart is the canonical example: the cart is a CRDT (items are only added; removal requires explicit action). The application merges concurrent carts. Most flexible; highest implementation cost.</li>
+          <li><strong>Avoid conflicts by routing</strong> — If each user's data is always written to the same leader (e.g., user shard → DC1), conflicts never occur. Only works if your data access pattern allows user-level partitioning.</li>
+        </ul>
+
+        <h3 class="subsection-title">Leaderless Replication (Dynamo-Style)</h3>
+        <p>Used by Apache Cassandra, Amazon DynamoDB, and Riak. There is no single leader; any node can accept writes. Consistency is achieved through quorums.</p>
+
+        <p>Given <strong>N</strong> total replicas, a write must be acknowledged by <strong>W</strong> nodes and a read must query <strong>R</strong> nodes. The invariant for strong consistency is: <strong>W + R &gt; N</strong>.</p>
+
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text">N = 3 replicas
+
+Strong consistency (W=2, R=2):
+  W + R = 4 > N=3 → reads always overlap with at least one write ✓
+  Write latency: wait for 2/3 nodes
+  Read latency:  query 2/3 nodes, take latest
+
+High availability writes (W=1, R=3):
+  W + R = 4 > N=3 → consistent reads ✓
+  But W=1 means only 1 node has the data before ACK — low durability
+
+High availability reads (W=3, R=1):
+  W + R = 4 > N=3 → consistent ✓
+  But W=3 blocks if any node is slow
+
+Eventual consistency (W=1, R=1):
+  W + R = 2 < N=3 → stale reads possible
+  Maximum availability: only 1 node needed for reads and writes</code></pre>
+        </div>
+
+        <p>Leaderless systems use <strong>read repair</strong> and <strong>anti-entropy</strong> to heal stale replicas over time. When a read discovers a replica has an old version, the coordinator writes the newer version back. A background process continually compares replicas using Merkle trees and syncs differences.</p>
+
+        <h3 class="subsection-title">Replication Topology Trade-offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Topology</th>
+              <th>Write Scalability</th>
+              <th>Consistency Model</th>
+              <th>Conflict Risk</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Single-Leader</strong></td>
+              <td>Leader is write bottleneck</td>
+              <td class="good">Strong (with sync replica)</td>
+              <td class="good">None — one writer</td>
+              <td>Most relational workloads, OLTP</td>
+            </tr>
+            <tr>
+              <td><strong>Multi-Leader</strong></td>
+              <td class="good">Each DC writes locally</td>
+              <td class="bad">Eventual; conflicts possible</td>
+              <td class="bad">Yes — requires resolution strategy</td>
+              <td>Multi-region active-active, offline clients</td>
+            </tr>
+            <tr>
+              <td><strong>Leaderless</strong></td>
+              <td class="good">Any node accepts writes</td>
+              <td>Tunable (quorum W+R&gt;N)</td>
+              <td class="bad">Yes — version vectors required</td>
+              <td>High-write NoSQL: Cassandra, DynamoDB</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>Multi-leader replication is often the wrong default. It looks attractive for geo-distribution but conflict resolution complexity is severely underestimated. Most teams building multi-region systems are better served by single-leader-per-region with a clear primary/secondary region designation and application-level fallback, rather than accepting the operational complexity of active-active writes with conflict resolution.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>Expert-level replication topics cover consensus algorithms, cross-region replication strategy, and the operational realities of running replicated systems at scale.</p>
+
+        <h3 class="subsection-title">Raft Consensus — How Leaders Are Elected</h3>
+        <p>Single-leader replication requires a mechanism to elect a new leader when the current one fails. In distributed systems, this is a consensus problem. <strong>Raft</strong> is the most widely implemented consensus algorithm (used by etcd, CockroachDB, TiDB, YugabyteDB, and Consul).</p>
+
+        <p><strong>Raft in three parts:</strong></p>
+        <ul>
+          <li><strong>Leader election</strong> — Nodes start as followers. A follower that doesn't hear from a leader within a random timeout (150–300 ms) starts an election by incrementing its term and requesting votes. A candidate wins if it receives votes from a majority of nodes. One leader per term.</li>
+          <li><strong>Log replication</strong> — The leader receives client writes, appends them to its log, and replicates the entries to followers. A log entry is <em>committed</em> only once the leader has confirmed a majority of followers have written it. Committed entries are durable across leader changes.</li>
+          <li><strong>Safety</strong> — A new leader must have the most up-to-date log of any candidate. Raft enforces this: a follower only votes for a candidate whose log is at least as up-to-date as its own. This prevents a stale node from being elected and overwriting committed entries.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text">Raft Election Example (5-node cluster):
+
+Term 1: Node A is leader
+  - Node A sends AppendEntries heartbeats every 50ms
+  - Nodes B, C, D, E reset their election timers on receipt
+
+Node A crashes at t=200ms
+
+Term 2: Election begins
+  - Node B's timer (170ms) fires first
+  - B increments term to 2, votes for itself, sends RequestVote
+  - C, D receive RequestVote — B's log is up to date → grant vote
+  - B wins with 3/5 votes (majority), becomes leader for term 2
+  - B sends AppendEntries (empty heartbeat) to assert leadership
+  - E (partitioned) will reject term 2 writes if it starts its own election
+    (term 3 → no majority → no leader elected in the minority partition)
+
+Node A recovers at t=500ms
+  - A receives AppendEntries from B with term=2
+  - A sees a higher term → reverts to follower, updates its term to 2
+  - A syncs its log from B (any uncommitted entries from term 1 are overwritten)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Conflict Resolution Deep Dive</h3>
+        <p><strong>Version vectors</strong> (not vector clocks) are the correct tool for tracking causality in leaderless or multi-leader systems. Each replica maintains a counter per node. A write's version vector is the set of counters at write time. On read, if version vector A is not dominated by version vector B (neither "happened before" the other), they are concurrent and require resolution.</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Simplified version vector conflict detection
+from typing import Dict
+
+VersionVector = Dict[str, int]  # node_id → counter
+
+def dominates(a: VersionVector, b: VersionVector) -> bool:
+    """Returns True if 'a' causally succeeds 'b' (a happened-after b)."""
+    nodes = set(a) | set(b)
+    return all(a.get(n, 0) >= b.get(n, 0) for n in nodes) and a != b
+
+def concurrent(a: VersionVector, b: VersionVector) -> bool:
+    """Returns True if a and b are concurrent (conflict!)."""
+    return not dominates(a, b) and not dominates(b, a)
+
+# Example
+write_1 = {"node-A": 3, "node-B": 2}  # Write on node-A
+write_2 = {"node-A": 2, "node-B": 3}  # Concurrent write on node-B
+
+print(concurrent(write_1, write_2))  # True → conflict, must resolve
+print(dominates({"node-A": 4, "node-B": 3}, write_1))  # True → 4,3 after 3,2</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multi-Region Replication Architecture</h3>
+        <p>Cross-region replication is always asynchronous (inter-region latency is 50–200 ms; no production system can block writes on that). The architectural question is how to handle reads in secondary regions and how to trigger a regional failover.</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># PostgreSQL multi-region replication topology (declarative config)
+primary:
+  region: us-east-1
+  instance: db.r6g.4xlarge
+  synchronous_standby_names: "standby-us-east-1b"   # intra-region sync
+
+standbys:
+  - name: standby-us-east-1b
+    region: us-east-1
+    az: us-east-1b
+    mode: synchronous          # blocks writes; zero data loss on primary failure
+    lag_alert_ms: 100
+
+  - name: replica-eu-west-1
+    region: eu-west-1
+    mode: asynchronous         # cross-region; never blocks primary
+    lag_alert_seconds: 30      # broader tolerance for cross-region
+    read_eligible: true        # app routes EU reads here
+
+  - name: replica-ap-southeast-1
+    region: ap-southeast-1
+    mode: asynchronous
+    lag_alert_seconds: 30
+    read_eligible: true
+
+failover:
+  tool: patroni
+  dcs: etcd                   # distributed consensus store for leader election
+  ttl: 30s                    # leader lease duration
+  loop_wait: 10s
+  promote_standby: standby-us-east-1b   # always promote sync standby first</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Replication Slot Hazard</h3>
+        <p>PostgreSQL replication slots prevent WAL segments from being deleted until the subscriber has consumed them. If a replica goes offline for hours, WAL accumulates on the primary. This can fill the primary's disk and cause a full outage — a cascading failure.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Check replication slot WAL retention
+SELECT
+  slot_name,
+  plugin,
+  active,
+  pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal,
+  restart_lsn,
+  confirmed_flush_lsn
+FROM pg_replication_slots
+ORDER BY restart_lsn;
+
+-- DANGER: If retained_wal > available disk space, primary will crash.
+-- Mitigation: Set wal_keep_size + monitor + drop inactive slots promptly.
+-- Production rule: Never leave a replication slot inactive for > 1 hour.
+SELECT pg_drop_replication_slot('stale_slot_name');  -- emergency recovery</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Expert Pattern</span>
+          <p>In Raft-based NewSQL databases (CockroachDB, YugabyteDB), replication and consensus are unified: every range (shard) has its own Raft group of 3 or 5 peers. There is no separate "primary" for the whole database. Writes to a range go to that range's Raft leader, which may be on any node. This removes the single-writer bottleneck of traditional single-leader replication and enables horizontal write scaling without multi-leader conflict complexity — at the cost of higher baseline latency (every write needs a Raft quorum round-trip, minimum 1 RTT to majority).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5: ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">GitHub — PostgreSQL WAL-Based Streaming Replication at Scale</span>
+      <p><strong>Context:</strong> GitHub migrated from MySQL to PostgreSQL in stages starting in 2018. By 2022 they were running 1.5+ TB PostgreSQL clusters handling millions of repository operations per day. Replication was central to their architecture for availability, read scaling, and zero-downtime schema migrations.</p>
+      <p><strong>Setup:</strong> Each PostgreSQL cluster uses WAL-based streaming replication: one primary, one synchronous hot standby (same datacenter, different rack), and one or more asynchronous replicas used for read traffic and analytics. The synchronous standby uses <code>synchronous_commit = on</code>, ensuring every write is durable before the client receives an ACK. Cross-datacenter replicas use <code>synchronous_commit = remote_write</code> — the WAL is written to the replica's OS buffer but not fsynced, which is a middle ground between full sync and pure async.</p>
+      <p><strong>Read distribution:</strong> GitHub's application layer (a combination of Ruby on Rails and Go services) uses a custom database connection router that sends read-only queries to replicas. When a user pushes code, subsequent reads related to that push are routed to the primary for 10 seconds (read-your-writes window), then fall back to replicas. This keeps the primary at ~30% of total query volume, with replicas handling the rest.</p>
+      <p><strong>Lag monitoring:</strong> <code>pg_stat_replication</code> is scraped by Prometheus every 10 seconds. An alert fires at 100 ms replica lag (PagerDuty, on-call). At 500 ms lag, automatic throttling kicks in: the application reduces the fraction of reads routed to that replica. The replica is removed from rotation at 5 s lag. This prevents stale reads from becoming a user-visible consistency issue during heavy write bursts (e.g., a large merge or mass CI run).</p>
+      <p><strong>Failover:</strong> GitHub uses orchestrator (later Patroni) for automated failover. On primary loss, orchestrator detects the failure via heartbeat timeout (&lt; 30 s), confirms with Zookeeper quorum, and promotes the synchronous standby. DNS is updated automatically. Total promotion time: 10–20 seconds. Application connections reconnect via PgBouncer, which buffers new connections during the brief failover window. In two years of this setup, no single primary failure caused a customer-visible outage longer than 45 seconds.</p>
+      <p><strong>Schema migrations:</strong> Online schema changes (OSC) run against the primary. Because replication is WAL-based, DDL changes stream to replicas automatically. Long-running migrations are validated on a replica first to confirm they don't cause excessive replication lag before running on the primary.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6: COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Reading From Replicas Without Accounting for Lag</span>
+      <p>The most frequent application-level bug: a user updates their profile (write to primary), is immediately redirected to their profile page (read from replica), and sees stale data. The replica hasn't applied the write yet — it's 200 ms behind.</p>
+      <p><strong>Why it happens:</strong> Teams correctly add replicas for read scaling, route all reads to replicas without exception, then wonder why users see stale data.</p>
+      <p><strong>Fix:</strong> Implement read-your-writes consistency. After a user performs a write, track the LSN and route their subsequent reads to the primary (or only to replicas confirmed to have replayed past that LSN) for a short window. PgBouncer and ProxySQL can handle LSN-aware read routing without application changes.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Never Testing Automated Failover</span>
+      <p>Teams configure Patroni or MySQL orchestrator, set up alerts, and never actually trigger a failover in production or staging. When the primary crashes at 3 AM, they discover the failover script had a bug, the DNS update took 5 minutes instead of 10 seconds, or the application didn't honour the connection timeout correctly. What should be a 20-second recovery becomes a 3-hour incident.</p>
+      <p><strong>Fix:</strong> Schedule quarterly chaos engineering exercises. Deliberately kill the primary in a staging environment and measure end-to-end recovery time. Every component in the failover path — heartbeat detection, promotion script, DNS update, connection pool reconnect — must be validated against your RTO. Netflix's Chaos Monkey for databases: terminate a primary randomly and verify the SLO is met.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Treating a Promoted Replica as Identical to the Original Primary</span>
+      <p>When a primary fails and a replica is promoted, the new primary may be missing the last few seconds of committed transactions (in async replication). Application code that assumes "the data I just wrote is always there" will break on the promoted replica — it might be querying for rows that were committed on the old primary but not yet replicated.</p>
+      <p><strong>Fix:</strong> Applications must be designed to handle idempotency and gracefully retry operations after a failover. Use idempotency keys for financial transactions. For async replication setups, accept that a small amount of data may be lost on primary failure and design workflows to detect and reprocess missing records (via event sourcing, audit logs, or idempotent re-sends from the client).</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7: INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Replication keeps identical copies of data on multiple nodes so that reads scale horizontally, writes survive node failure, and the system can serve traffic from multiple regions — with the core trade-off being how you manage consistency when followers lag behind the leader.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Replication means keeping copies of data on multiple machines. The standard pattern is single-leader: all writes go to one primary node, and changes stream asynchronously to followers via the transaction log. Followers handle reads and are promoted when the primary fails. The key design tension is synchrony: synchronous replication guarantees zero data loss on primary failure but adds write latency equal to the follower round-trip. Asynchronous replication gives low write latency but risks losing the last few committed writes on failover. In practice, most OLTP systems use a synchronous intra-region standby for durability and async cross-region replicas for read offload and disaster recovery. The application-level challenge is read-your-writes consistency: after a write, subsequent reads must reach a replica that has applied that write, or be routed to the primary. I'd handle this by tracking LSN per request and routing reads to replicas confirmed to have replayed past that checkpoint."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between synchronous and asynchronous replication? When would you choose each?</li>
+        <li>How does a single-leader database elect a new leader after the primary fails?</li>
+        <li>What is replication lag and how do you handle it in application code?</li>
+        <li>Explain multi-leader replication. What is the key problem with it?</li>
+        <li>How does Cassandra's quorum system work? What are W, R, and N?</li>
+        <li>What is a replication slot in PostgreSQL and why can it be dangerous?</li>
+        <li>How would you design a system that needs to serve reads in both the US and Europe with low latency?</li>
+        <li>What is the difference between replication and sharding?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "just add more replicas" without discussing the consistency implications — interviewers want to hear about replication lag and read-your-writes.</li>
+        <li>Confusing replication (copies of the same data) with sharding (different data on different nodes) — they solve different problems and are often combined.</li>
+        <li>Forgetting that the promoted replica in async replication may be missing recent writes — treating "eventual consistency" as a free lunch without discussing what happens at the moment of failover.</li>
+        <li>Not mentioning Raft or consensus when asked about leader election — hand-waving "a new leader is elected" without explaining how is a red flag at senior level.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8: TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Durability</strong></td>
+          <td>Synchronous replica: zero data loss on primary crash</td>
+          <td>Write latency increases by follower RTT (~1–5 ms intra-region)</td>
+        </tr>
+        <tr>
+          <td><strong>Read Scalability</strong></td>
+          <td>Replicas serve reads; primary freed for writes; 5–10× read throughput</td>
+          <td>Replication lag means reads may be stale; requires read-your-writes logic</td>
+        </tr>
+        <tr>
+          <td><strong>Availability</strong></td>
+          <td>Automatic failover restores writes in &lt; 30 s; reads never stop</td>
+          <td>Async failover may lose last few committed writes; requires idempotent design</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-Region</strong></td>
+          <td>Low-latency reads globally; regional disaster recovery</td>
+          <td>Always async cross-region (50–200 ms RTT); complex failover orchestration</td>
+        </tr>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Single-leader: no write conflicts; simple consistency model</td>
+          <td>Multi-leader: conflict resolution required; LWW silently loses data</td>
+        </tr>
+        <tr>
+          <td><strong>Operational Complexity</strong></td>
+          <td>Managed services (RDS Multi-AZ, Cloud Spanner) handle most of it</td>
+          <td>Self-managed replication (Patroni, orchestrator) requires deep expertise</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9: RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="sharding.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Sharding</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Partitions data across nodes to scale writes horizontally.</span>
+      </a>
+      <a href="databases.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Databases</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Core storage engine concepts: indexing, transactions, durability.</span>
+      </a>
+      <a href="cap-theorem.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Distributed Systems</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CAP Theorem</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Why distributed systems must choose between consistency and availability during partitions.</span>
+      </a>
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Storing frequently read data in memory to reduce database load.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

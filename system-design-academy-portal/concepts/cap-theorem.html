@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAP Theorem — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="cap-theorem" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">CAP Theorem</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Architecture <span>→</span> CAP Theorem</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1 — PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Architecture</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">CAP Theorem</h1>
+      <p class="page-subtitle">Every distributed data store can guarantee at most two of three properties — Consistency, Availability, and Partition Tolerance — and you must choose which two when a network failure occurs.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Architecture</span>
+        <span class="tag">Distributed Systems</span>
+        <span class="tag">Databases</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2 — DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Imagine two bank branches that share account data over a phone line. If the phone line goes down (network partition), Branch A faces a choice: refuse to process any transactions until the line is restored (choose Consistency), or keep processing transactions and risk the two branches having different balances (choose Availability). You cannot have both a correct balance everywhere AND the ability to always process transactions when the line is down.</p>
+    </div>
+
+    <p>The CAP Theorem, formally proven by Eric Brewer in 2000 and proved by Gilbert and Lynch in 2002, states that a distributed system can provide at most two of three guarantees simultaneously:</p>
+    <ul>
+      <li><strong>Consistency (C)</strong> — Every read receives the most recent write or an error. All nodes see the same data at the same time. If you write a value to Node A and immediately read it from Node B, you get that same value.</li>
+      <li><strong>Availability (A)</strong> — Every request receives a response — not necessarily the most recent data, but always a non-error response. The system is always up and answering requests.</li>
+      <li><strong>Partition Tolerance (P)</strong> — The system continues operating even when network partitions occur — when some nodes cannot communicate with others.</li>
+    </ul>
+    <p>The critical insight is that <strong>partition tolerance is not optional</strong> in real distributed systems. Networks fail. Cables get cut. Data centers lose connectivity. Because you cannot eliminate partitions in practice, the real choice is: when a partition happens, do you sacrifice Consistency (AP) or Availability (CP)?</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3 — THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A global e-commerce company — call them ShopFast — operated a shopping cart service backed by a distributed database with nodes in us-east-1, eu-west-1, and ap-southeast-1. The team chose a strongly consistent database to ensure cart totals were always accurate. Their SLA promised 99.9% availability.
+      </div>
+      <div class="story-problem">
+        On Black Friday at peak load, a BGP routing incident caused a 90-second network partition between us-east-1 and eu-west-1. The consistent database, true to its design, began refusing writes to protect data integrity. European users received errors when attempting to add items to their carts. 14,000 failed cart operations. €200,000 in abandoned purchases. Support calls flooded in. The database was behaving exactly as designed — and it was the wrong design for this use case.
+      </div>
+      <div class="story-solution">
+        The team re-evaluated their choice. For the shopping cart — where a user adding an item and seeing it disappear for 90 seconds is far less harmful than a user being completely blocked — they migrated to an AP system. They adopted Amazon DynamoDB with eventual consistency for cart operations. When a partition occurs, users can still add items. Carts might briefly diverge between regions, but are reconciled automatically within seconds of the partition healing. For order finalization and payment, they kept a CP system — refusing to process payments during a partition is acceptable; processing the same payment twice is catastrophic.
+      </div>
+      <div class="story-outcome">
+        The next major traffic event saw zero cart-related errors during two separate brief network incidents. Cart abandonment dropped 23%. The key lesson: CAP is not a system-wide property — different services within the same application make different CP vs AP choices based on the cost of inconsistency versus the cost of unavailability for their specific use case.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4 — LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- ── BEGINNER PANEL ── -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Think of three friends — Alice, Bob, and Charlie — who all keep a copy of your to-do list. The rule is: whenever you update the list, all three copies must match. But what happens when Alice and Bob can't talk to Charlie because the network between them breaks?</p>
+          <p>You have two bad choices: (1) Tell Alice and Bob to stop accepting updates until Charlie is reachable again — this keeps all copies consistent but makes the system unavailable. (2) Let Alice and Bob accept updates and update Charlie later — this keeps the system available but means Charlie has stale data for a while.</p>
+          <p>That's the CAP Theorem. You can't have all three — consistent copies, always available, and tolerant of network breaks — at the same time. In real distributed systems, networks break all the time. So the real question is always: <em>when the network breaks, do I stop accepting writes (CP) or do I accept writes and reconcile later (AP)?</em></p>
+        </div>
+
+        <h3 class="subsection-title">The Three Properties Simply Defined</h3>
+        <ul>
+          <li><strong>Consistency</strong> — Everyone sees the same data at the same time. If you write "5" to the database, every read from every node returns "5" immediately.</li>
+          <li><strong>Availability</strong> — The database always responds. It never says "I'm unavailable right now." It might return slightly old data, but it always responds.</li>
+          <li><strong>Partition Tolerance</strong> — The database keeps working even when some nodes can't talk to each other. This is not optional in real systems — networks fail.</li>
+        </ul>
+
+        <h3 class="subsection-title">The CAP Triangle</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+graph TD
+    C["⬡ Consistency<br/>(every read = latest write)"]
+    A["⬡ Availability<br/>(every request gets a response)"]
+    P["⬡ Partition Tolerance<br/>(survives network splits)"]
+
+    CP["CP Systems<br/>HBase · Zookeeper · etcd<br/>MongoDB (w:majority)"]
+    AP["AP Systems<br/>Cassandra · DynamoDB · DNS<br/>CouchDB"]
+    CA["CA Systems<br/>Single-node MySQL<br/>(no real partition tolerance)"]
+
+    C --- CP
+    P --- CP
+    C --- CA
+    A --- CA
+    A --- AP
+    P --- AP
+
+    style CP fill:#fff7ed,stroke:#f97316,color:#9a3412
+    style AP fill:#f0fdf4,stroke:#22c55e,color:#166534
+    style CA fill:#eff6ff,stroke:#3b82f6,color:#1e40af
+    style C fill:#1e293b,stroke:#64748b,color:#e2e8f0
+    style A fill:#1e293b,stroke:#64748b,color:#e2e8f0
+    style P fill:#1e293b,stroke:#64748b,color:#e2e8f0
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Real Database Examples</h3>
+        <ul>
+          <li><strong>CP (Consistent + Partition-Tolerant):</strong> HBase, Zookeeper, etcd, MongoDB with write concern majority. These refuse requests during a partition rather than risk inconsistency.</li>
+          <li><strong>AP (Available + Partition-Tolerant):</strong> Cassandra, DynamoDB (default), CouchDB, DNS. These always respond, but might return slightly stale data during a partition.</li>
+          <li><strong>"CA" (Consistent + Available):</strong> Single-node relational databases. There's no partition in a single machine, so the dilemma doesn't apply. But this doesn't scale horizontally.</li>
+        </ul>
+      </div>
+
+      <!-- ── INTERMEDIATE PANEL ── -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Understanding CAP at the intermediate level means being able to reason through what happens to your system during a real network partition, not just memorize which database belongs to which category.</p>
+
+        <h3 class="subsection-title">What a Network Partition Actually Looks Like</h3>
+        <p>A network partition happens when a group of nodes in your cluster cannot communicate with another group. This is not the same as a node going down entirely. Common real-world causes:</p>
+        <ul>
+          <li>A switch between data centers fails, cutting connectivity between zones</li>
+          <li>A network cable is physically severed during maintenance</li>
+          <li>A BGP routing misconfiguration causes traffic to black-hole</li>
+          <li>A firewall rule change accidentally blocks replication traffic</li>
+          <li>A cloud availability zone loses connectivity to others</li>
+        </ul>
+
+        <h3 class="subsection-title">CP System Behavior During Partition</h3>
+        <p>A CP system prioritizes correctness over availability. When a partition occurs and the system cannot verify that all nodes agree, it refuses requests that could produce inconsistent results.</p>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant N1 as Node 1 (Primary)
+    participant N2 as Node 2 (Replica)
+    Note over N1,N2: ✂ Network Partition ✂
+    C->>N1: Write "balance = 500"
+    N1--xN2: Cannot replicate (partition)
+    N1->>C: ERROR: Cannot achieve quorum
+    C->>N1: Read "balance"
+    N1->>C: ERROR: Read refused (unsafe during partition)
+    Note over N1,N2: Partition heals
+    C->>N1: Write "balance = 500"
+    N1->>N2: Replicate write
+    N2->>N1: ACK
+    N1->>C: OK: Write succeeded
+          </div>
+        </div>
+        <p><strong>Examples:</strong> Zookeeper (coordination service — wrong answer is catastrophic), etcd (Kubernetes config — stale leader election data would be dangerous), MongoDB with <code>w:majority</code>, HBase (built on HDFS, needs strong consistency for analytics).</p>
+
+        <h3 class="subsection-title">AP System Behavior During Partition</h3>
+        <p>An AP system prioritizes responsiveness over correctness. It continues accepting reads and writes on all reachable nodes, even knowing that different partitions may diverge.</p>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C1 as Client 1 (Region A)
+    participant N1 as Node 1 (Region A)
+    participant N2 as Node 2 (Region B)
+    participant C2 as Client 2 (Region B)
+    Note over N1,N2: ✂ Network Partition ✂
+    C1->>N1: Write "stock = 5"
+    N1->>C1: OK (accepted locally)
+    C2->>N2: Write "stock = 3"
+    N2->>C2: OK (accepted locally)
+    Note over N1,N2: Partition heals — conflict detected
+    N1->>N2: Sync writes (conflict: 5 vs 3)
+    Note over N1,N2: Resolve via last-write-wins or merge
+          </div>
+        </div>
+        <p><strong>Examples:</strong> Cassandra (shopping carts, user preferences — stale data briefly is acceptable), DynamoDB (AWS shopping cart was the original motivation — always-add beats never-add), DNS (stale DNS records for 30 seconds is fine; DNS being unavailable is catastrophic).</p>
+
+        <h3 class="subsection-title">Consistency Models (More Nuance than Just "Consistent")</h3>
+        <p>Consistency is not binary. There is a spectrum between "all nodes always agree instantly" and "nodes may diverge forever":</p>
+        <ul>
+          <li><strong>Strong Consistency (Linearizability)</strong> — Every operation appears to take effect instantaneously at some point between its start and completion. All reads reflect the latest write. Highest guarantee, highest latency cost.</li>
+          <li><strong>Sequential Consistency</strong> — All operations appear to execute in some sequential order that's consistent across all clients. Slightly weaker than linearizability; no real-time guarantee.</li>
+          <li><strong>Causal Consistency</strong> — Operations that are causally related are seen by all nodes in the same order. "You can see my reply only after you've seen the message I'm replying to."</li>
+          <li><strong>Eventual Consistency</strong> — If no new updates are made, all replicas will eventually converge to the same value. No bound on how long "eventually" takes. Used by DNS, Cassandra defaults, DynamoDB defaults.</li>
+          <li><strong>Read-Your-Writes</strong> — After you write a value, your subsequent reads from any node will return that value or a newer one. A practical subset of strong consistency that matters most for users.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">The Partition is the Trigger</span>
+          <p>CAP only describes what happens <em>during a partition</em>. Under normal operation (no partition), a well-designed distributed system can appear to offer all three. The theorem is about what you sacrifice when network failures occur — which they will.</p>
+        </div>
+      </div>
+
+      <!-- ── ADVANCED PANEL ── -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, you move from knowing which database is CP or AP to reasoning about the nuances of CAP, its limitations as a model, and its extension via PACELC.</p>
+
+        <h3 class="subsection-title">CP vs AP — Trade-Off Analysis</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>CP Systems</th>
+              <th>AP Systems</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>During partition</strong></td>
+              <td class="bad">Refuses requests, returns errors</td>
+              <td class="good">Continues serving requests</td>
+            </tr>
+            <tr>
+              <td><strong>Data correctness</strong></td>
+              <td class="good">Always consistent — no stale reads</td>
+              <td class="bad">May return stale data temporarily</td>
+            </tr>
+            <tr>
+              <td><strong>Write latency (normal ops)</strong></td>
+              <td class="bad">Higher — must await quorum/consensus</td>
+              <td class="good">Lower — write to local node, replicate async</td>
+            </tr>
+            <tr>
+              <td><strong>Conflict handling</strong></td>
+              <td class="good">No conflicts — single source of truth</td>
+              <td class="bad">Must handle write conflicts on reconciliation</td>
+            </tr>
+            <tr>
+              <td><strong>Horizontal scalability</strong></td>
+              <td class="bad">Harder — consensus overhead grows with nodes</td>
+              <td class="good">Easier — local writes, async replication</td>
+            </tr>
+            <tr>
+              <td><strong>Use cases</strong></td>
+              <td>Payments, inventory, leader election, config</td>
+              <td>Shopping carts, user profiles, DNS, analytics</td>
+            </tr>
+            <tr>
+              <td><strong>Examples</strong></td>
+              <td>HBase, Zookeeper, etcd, MongoDB (w:majority)</td>
+              <td>Cassandra, DynamoDB (default), CouchDB, DNS</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">The PACELC Extension</h3>
+        <p>Daniel Abadi (2012) argued that CAP is incomplete because it only describes system behavior during partitions — which are relatively rare. Most of the time, networks are healthy. PACELC adds the latency dimension:</p>
+        <div class="architect-note">
+          <span class="architect-note-label">PACELC Definition</span>
+          <p><strong>If there is a Partition (P)</strong>, a system must trade off between Availability (A) and Consistency (C) — just like CAP.</p>
+          <p><strong>Else (E)</strong>, when operating normally without a partition, a system must trade off between Latency (L) and Consistency (C).</p>
+          <p>Strong consistency requires synchronous replication — waiting for all nodes to acknowledge a write before confirming it. This adds latency. Eventual consistency allows async replication — confirm immediately, replicate later — which reduces latency. You cannot have both low latency <em>and</em> strong consistency in a distributed system, even when the network is healthy.</p>
+        </div>
+
+        <h3 class="subsection-title">PACELC Classification of Real Databases</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>During Partition</th>
+              <th>Normal Ops</th>
+              <th>PACELC</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>DynamoDB</strong></td>
+              <td>Choose Availability</td>
+              <td>Choose Latency</td>
+              <td class="bad">PA/EL</td>
+              <td>Eventual consistency default, strong reads optional (+latency cost)</td>
+            </tr>
+            <tr>
+              <td><strong>Cassandra</strong></td>
+              <td>Choose Availability</td>
+              <td>Choose Latency</td>
+              <td class="bad">PA/EL</td>
+              <td>Tunable via consistency level (ONE/QUORUM/ALL)</td>
+            </tr>
+            <tr>
+              <td><strong>Google Spanner</strong></td>
+              <td>Choose Consistency</td>
+              <td>Choose Consistency</td>
+              <td class="good">PC/EC</td>
+              <td>TrueTime GPS clocks minimize latency penalty; still higher than AP</td>
+            </tr>
+            <tr>
+              <td><strong>MySQL/PostgreSQL</strong></td>
+              <td>Choose Consistency</td>
+              <td>Choose Consistency</td>
+              <td class="good">PC/EC</td>
+              <td>Single-node has no partition; multi-node replication adds latency</td>
+            </tr>
+            <tr>
+              <td><strong>MongoDB (default)</strong></td>
+              <td>Choose Consistency</td>
+              <td>Choose Latency</td>
+              <td>PC/EL</td>
+              <td>Primary reads are consistent; secondary reads are eventual</td>
+            </tr>
+            <tr>
+              <td><strong>CouchDB</strong></td>
+              <td>Choose Availability</td>
+              <td>Choose Latency</td>
+              <td class="bad">PA/EL</td>
+              <td>Multi-master with conflict resolution via revision history</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When CAP Doesn't Fully Apply</h3>
+        <p>CAP has important limitations that experienced engineers should know:</p>
+        <ul>
+          <li><strong>CAP assumes binary properties</strong> — In reality, systems operate on a spectrum. "Availability" in CAP means 100% uptime, but real SLAs are 99.9% or 99.99%. A system that fails 0.1% of requests during partitions may be "unavailable" by CAP but fully acceptable in practice.</li>
+          <li><strong>CAP ignores network latency under normal conditions</strong> — This is exactly what PACELC fixes. A database that adds 20ms to every write for synchronous replication is "consistent" per CAP but may be unacceptable for a high-frequency trading system.</li>
+          <li><strong>CAP is about a single data object</strong> — CAP is formally proven for a single register (key-value pair). Multi-object transactions, cross-shard consistency, and distributed transactions add complexity that CAP alone doesn't fully address.</li>
+          <li><strong>Single-node systems don't have partitions</strong> — A single PostgreSQL instance cannot partition against itself. CAP doesn't constrain single-node systems. The constraint emerges from distribution.</li>
+        </ul>
+
+        <h3 class="subsection-title">How Quorum Systems Work</h3>
+        <p>Many databases use quorum-based replication to tune their CP/AP position. With N replicas, a write quorum W, and a read quorum R:</p>
+        <ul>
+          <li>If <code>W + R &gt; N</code> → strong consistency (read and write quorums overlap, always see latest write)</li>
+          <li>If <code>W + R &lt;= N</code> → eventual consistency (possible to read stale data)</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="example">
+          <pre><code class="language-plaintext"># Cassandra Consistency Level Examples
+# N = 3 replicas (RF=3)
+
+Consistency Level ONE:
+  W=1, R=1 → W+R=2, not > N=3 → Eventual consistency
+  Latency: lowest (fastest node responds)
+  Availability: highest (only 1 node needed)
+
+Consistency Level QUORUM:
+  W=2, R=2 → W+R=4, > N=3 → Strong consistency
+  Latency: medium (wait for 2 of 3 nodes)
+  Availability: medium (2 nodes must be up)
+
+Consistency Level ALL:
+  W=3, R=3 → W+R=6, > N=3 → Strong consistency
+  Latency: highest (wait for ALL nodes)
+  Availability: lowest (all 3 nodes must be up)
+
+# Best practice: QUORUM for both reads and writes
+# gives strong consistency without sacrificing all availability</code></pre>
+        </div>
+      </div>
+
+      <!-- ── EXPERT PANEL ── -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>Expert-level CAP reasoning involves tunable consistency design, multi-region architecture decisions, and understanding the practical implications for large-scale production systems.</p>
+
+        <h3 class="subsection-title">Cassandra's Tunable Consistency in Practice</h3>
+        <p>Cassandra's consistency model is among the most flexible in the industry. The same cluster can serve CP and AP workloads simultaneously by varying the consistency level per operation. This is the key architectural insight: <em>CP vs AP is a per-request decision, not a per-database decision</em>.</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">from cassandra.cluster import Cluster
+from cassandra.policies import ConsistencyLevel
+from cassandra import ConsistencyLevel as CL
+
+cluster = Cluster(['cassandra-node-1', 'cassandra-node-2', 'cassandra-node-3'])
+session = cluster.connect('ticketflow')
+
+# AP behavior — shopping cart add (stale data acceptable, availability critical)
+# If a partition occurs, the write still succeeds on the local replica
+stmt_ap = session.prepare("UPDATE carts SET items = items + ? WHERE user_id = ?")
+stmt_ap.consistency_level = CL.ONE  # W=1, eventual consistency
+
+session.execute(stmt_ap, [new_item, user_id])
+
+# CP behavior — payment deduction (must be accurate, unavailability during partition acceptable)
+# If a partition occurs and quorum can't be achieved, this raises an exception
+stmt_cp = session.prepare("UPDATE accounts SET balance = balance - ? WHERE account_id = ?")
+stmt_cp.consistency_level = CL.QUORUM  # W=2 of RF=3, strong consistency
+
+try:
+    session.execute(stmt_cp, [amount, account_id])
+except NoHostAvailable:
+    # Quorum not available — partition in progress
+    # Return 503, do NOT retry with lower consistency
+    raise PaymentUnavailableError("Payment system temporarily unavailable")
+
+# Expert pattern: read repair
+# Read at QUORUM ensures all replicas that responded are updated
+stmt_read = session.prepare("SELECT balance FROM accounts WHERE account_id = ?")
+stmt_read.consistency_level = CL.QUORUM  # Triggers read repair on stale replicas
+
+result = session.execute(stmt_read, [account_id])
+balance = result.one().balance</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multi-Region Architecture Decisions</h3>
+        <p>When your system spans multiple geographic regions (e.g., us-east-1, eu-west-1, ap-southeast-1), the CAP tradeoff becomes a latency reality:</p>
+        <ul>
+          <li><strong>Strong consistency across regions</strong> — Every write must be acknowledged by all regions before confirming to the client. Round-trip latency between us-east-1 and eu-west-1 is ~80ms. Your P99 write latency is now 80ms+ just for replication overhead. For most applications, this is unacceptable.</li>
+          <li><strong>Eventual consistency across regions</strong> — Write to the local region, replicate asynchronously. Write latency is local (~1ms). Reads in other regions may be stale for 80–200ms. For most user-facing data, this is invisible to users. For financial transactions, this is dangerous.</li>
+          <li><strong>Region-scoped strong consistency</strong> — The practical middle ground. Strong consistency within a region (sub-millisecond replication between AZs). Eventual consistency across regions. Different data types are anchored to a home region (user's order history is "owned" by the region they registered in).</li>
+        </ul>
+
+        <h3 class="subsection-title">DynamoDB's Consistency Model in Depth</h3>
+        <p>DynamoDB's implementation of AP/CP tradeoffs is a production-tested reference design:</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import boto3
+from botocore.exceptions import ClientError
+
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+table = dynamodb.Table('TicketFlowOrders')
+
+# AP — Eventual Consistency Read (default)
+# Returns response in ~1ms, but data may be up to ~1 second stale
+# During partition: still returns data (possibly stale)
+# Cost: $0.25 per million reads
+response = table.get_item(
+    Key={'order_id': 'ORD-12345'},
+    ConsistentRead=False  # Default — AP behavior
+)
+cart = response.get('Item', {})
+
+# CP — Strong Consistency Read
+# Returns response in ~2ms (must check all replicas)
+# During partition: returns error rather than stale data
+# Cost: $0.50 per million reads (2x cost)
+response = table.get_item(
+    Key={'order_id': 'ORD-12345'},
+    ConsistentRead=True  # CP behavior — use for order status, inventory
+)
+order = response.get('Item', {})
+
+# Best practice: conditional writes for inventory deduction
+# This is optimistic concurrency — AP write that detects conflicts
+try:
+    table.update_item(
+        Key={'item_id': 'TICKET-999'},
+        UpdateExpression='SET stock = stock - :decr',
+        ConditionExpression='stock >= :decr',
+        ExpressionAttributeValues={':decr': 1}
+    )
+except ClientError as e:
+    if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+        # Stock was 0 — cannot purchase
+        raise OutOfStockError("Ticket sold out")
+
+# Anti-pattern: using eventual consistency for financial data
+# BAD — balance might be stale, leading to overdraft
+stale_balance = table.get_item(
+    Key={'account_id': 'ACC-123'},
+    ConsistentRead=False  # WRONG for financial data
+)['Item']['balance']
+
+# CORRECT — strong consistency for anything financial
+accurate_balance = table.get_item(
+    Key={'account_id': 'ACC-123'},
+    ConsistentRead=True  # 2x cost, but correct
+)['Item']['balance']</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Conflict Resolution Strategies for AP Systems</h3>
+        <p>When two nodes in an AP system accept concurrent writes to the same key, they diverge. When the partition heals, the conflict must be resolved:</p>
+        <ul>
+          <li><strong>Last-Write-Wins (LWW)</strong> — Timestamp the writes; the most recent one wins. Simple. Problem: clocks drift. One node being 100ms ahead will always "win" even if its write arrived first in wall-clock time. Used by Cassandra default.</li>
+          <li><strong>Vector Clocks</strong> — Each write carries a vector clock tracking causality across nodes. If two writes are causally unrelated (concurrent), the system knows a true conflict exists and surfaces it to the application. Used by DynamoDB, Riak.</li>
+          <li><strong>CRDTs (Conflict-free Replicated Data Types)</strong> — Data structures that are mathematically designed to merge without conflict. A G-Counter (grow-only counter) can be incremented on any node; the merged result is always the max of each node's counter. No conflicts possible. Used by Riak, Redis cluster for specific types.</li>
+          <li><strong>Application-level merge</strong> — The application receives both versions of the data and decides how to merge them. Amazon's shopping cart famously used this — the cart was always the union of both diverged versions (you might see items you removed, but you never lost items you added).</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Production Pattern</span>
+          <p>In high-traffic distributed systems, the most robust pattern is <strong>segregation by consistency requirement</strong>: run separate database clusters for CP and AP data, backed by the appropriate technology. User profile data (AP, Cassandra), order state machine (CP, PostgreSQL with optimistic locking), session tokens (AP, Redis), payment records (CP, CockroachDB or Spanner). Mixing CP and AP requirements in a single database forces you to the weakest option or imposes the highest cost on all operations.</p>
+        </div>
+
+        <h3 class="subsection-title">Practical Decision Framework</h3>
+        <p>Use this decision tree when choosing CP vs AP for a new service:</p>
+        <div class="code-wrapper" data-lang="decision">
+          <pre><code class="language-plaintext">What happens if two users read different versions of this data?
+├── Could cause financial loss, duplicate actions, or safety issues?
+│   └── → Choose CP (strong consistency)
+│       Examples: payments, inventory, medical records, leader election
+│
+└── Just looks slightly stale for a moment (user doesn't notice)?
+    └── → Choose AP (eventual consistency)
+        Examples: social feeds, shopping carts, user preferences, analytics
+
+Can this operation fail during a network partition?
+├── Yes, failure during partition is acceptable (better than wrong data)
+│   └── → CP. Return 503, let clients retry when partition heals
+│
+└── No, must always respond even if slightly stale
+    └── → AP. Return best available data with possible stale flag
+
+How often do concurrent writes to the same key occur?
+├── Rare (one owner per data item, e.g., user updates their own profile)
+│   └── → AP with last-write-wins is fine
+│
+└── Frequent (multiple writers, e.g., inventory counter)
+    └── → CP with optimistic locking, or CRDTs for AP</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5 — ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Amazon DynamoDB — CAP Tradeoffs at 100M+ Requests/Second</span>
+      <p><strong>Context:</strong> Amazon's shopping cart was the original motivating example for AP design. Werner Vogels and the Dynamo team published the landmark 2007 Dynamo paper describing a key-value store explicitly designed to prioritize availability over consistency. The insight: it is better for a user to see an extra item in their cart (stale read) than to see "cart unavailable" when they want to shop. The business cost of unavailability exceeded the business cost of brief inconsistency.</p>
+      <p><strong>DynamoDB's CAP Choices:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Default reads use <strong>eventual consistency</strong> — responses come from any of the three replicas, at ~1ms latency. Data may be 1–2 seconds stale. Cost: $0.25 per million read units.</li>
+        <li>Optional <strong>strongly consistent reads</strong> return only after checking the primary replica — data is guaranteed current. Latency ~2ms. Cost: $0.50 per million read units (2× more expensive). Use for order status, payment verification.</li>
+        <li>During a network partition, the AP default means <strong>cart operations always succeed</strong>. A partition never causes a 503 error on "add to cart." The system reconciles diverged writes when connectivity is restored.</li>
+        <li><strong>Conflict resolution</strong> uses last-write-wins via timestamps, with the application able to use conditional writes (<code>ConditionExpression</code>) to detect and handle conflicts explicitly.</li>
+      </ol>
+      <p><strong>Numbers:</strong> DynamoDB serves over 100 million requests per second across all AWS customers. At peak Amazon Prime Day 2023, it processed over 126 million requests per second. Strong consistency across all those reads at that volume would require synchronous multi-replica coordination — the latency and throughput cost would make the service economically nonviable at global scale.</p>
+      <p><strong>Where Amazon uses CP instead:</strong> Payment processing (must not double-charge), inventory reservation for limited-stock items (must not oversell), order state machine transitions (cannot be in two states simultaneously). These flows use either DynamoDB with strong consistent reads + conditional writes, or separate CP systems like RDS Aurora.</p>
+      <p><strong>Key engineering lesson:</strong> Amazon segments its data by consistency requirement at design time, not at query time. The data model explicitly separates "cart data" (AP, high volume, low consistency requirement) from "order data" (CP, lower volume, high consistency requirement). This segregation is architectural — enforced in code, not just in database configuration.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6 — COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Claiming a System Can Guarantee All Three</span>
+      <p>This is the most fundamental error — and more common than you'd expect in interviews. "Our database provides consistency, availability, AND partition tolerance." The CAP Theorem formally proves this is impossible during a network partition. When you see a vendor claim all three, read the fine print: they are defining one of the terms differently (often claiming "high availability" which means "available most of the time" rather than the CAP definition of "always responds"). In an interview, confidently stating that partition tolerance is non-negotiable in distributed systems and therefore the real choice is CP vs AP shows deep understanding.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Ignoring PACELC — Treating CAP as the Complete Story</span>
+      <p>CAP only addresses behavior during partitions, which are relatively rare events. It completely ignores the latency vs consistency tradeoff that exists during normal operation — which affects <em>every single request</em>. Choosing a strongly consistent database (CP) doesn't just mean "you get errors during partitions" — it means every write has higher latency due to synchronous replication overhead, even when the network is perfectly healthy. A system handling 10,000 writes/second at 5ms each operates very differently than the same system at 50ms each. PACELC captures this reality. Always mention it when discussing database tradeoffs.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Applying CAP to Single-Node or Non-Distributed Systems</span>
+      <p>CAP is a theorem about distributed systems where data is replicated across multiple nodes. A single-node PostgreSQL database has no network partition because there is only one node — the data lives in one place. CAP does not constrain it. The mistake is taking a single-database application, reading about CAP, and then trying to choose between CP and AP for a system that doesn't distribute data at all. The real constraint for single-node systems is vertical scalability, backup/recovery time, and single-point-of-failure risk — not CAP tradeoffs. CAP becomes relevant the moment you replicate data to a second node.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7 — INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        The CAP Theorem states that a distributed system can guarantee at most two of Consistency, Availability, and Partition Tolerance — and since network partitions are inevitable, the real architectural decision is whether to sacrifice consistency (AP) or availability (CP) when a partition occurs.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "The CAP Theorem tells us that in any distributed system, we can only guarantee two of three properties: Consistency — every read returns the most recent write; Availability — every request always gets a response; and Partition Tolerance — the system keeps working when network failures split nodes apart. The critical insight is that partition tolerance is not optional — networks fail in production, so you're always choosing between C and A during a partition. CP systems like Zookeeper or etcd refuse requests rather than risk inconsistency — they're used for leader election and coordination where wrong answers are catastrophic. AP systems like Cassandra and DynamoDB always respond even if the data is slightly stale — they're used for shopping carts and user feeds where brief inconsistency is invisible to users. I'd also mention PACELC, which extends CAP to cover the latency-consistency tradeoff during normal operation — strong consistency always costs latency, even without a partition. In practice, the best architectures segment data by consistency requirement: financial data on CP systems, user preference data on AP systems."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>Can you give me an example of a real system that chose AP and explain why?</li>
+        <li>What is eventual consistency and how does it relate to AP?</li>
+        <li>If CAP says you can only have 2 of 3, why do databases advertise strong consistency AND high availability?</li>
+        <li>What is PACELC and why does it matter more than CAP in practice?</li>
+        <li>How does Cassandra's tunable consistency relate to CAP?</li>
+        <li>You're designing a payment service. CP or AP? Justify your choice.</li>
+        <li>How do you handle write conflicts in an AP system?</li>
+        <li>What's the difference between strong consistency and linearizability?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "we can achieve all three" — immediately signals you don't understand the theorem.</li>
+        <li>Only memorizing which databases are CP/AP without being able to explain <em>why</em> and what that means for behavior during a partition.</li>
+        <li>Not mentioning that partition tolerance is non-optional — framing the choice as "pick any two" implies you could drop P, which misses the core point.</li>
+        <li>Forgetting about PACELC — demonstrates CAP knowledge is surface-level. Senior engineers expect you to know the latency dimension.</li>
+        <li>Giving a blanket recommendation ("always use AP" or "always use CP") without understanding that the choice depends on the specific data and its business cost of inconsistency vs unavailability.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8 — TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Choose CP</th>
+          <th>Choose AP</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Payment processing</strong></td>
+          <td>✓ Yes</td>
+          <td></td>
+          <td>Double-charging or invalid transactions are catastrophic. Temporary unavailability is acceptable — a 503 is recoverable, a duplicate charge is not.</td>
+        </tr>
+        <tr>
+          <td><strong>Shopping cart</strong></td>
+          <td></td>
+          <td>✓ Yes</td>
+          <td>A cart item being stale for 2 seconds is invisible to users. Cart being completely unavailable during a partition costs real revenue.</td>
+        </tr>
+        <tr>
+          <td><strong>Inventory / stock count</strong></td>
+          <td>✓ Yes</td>
+          <td></td>
+          <td>Overselling (two users buy the last item) creates fulfillment failures. Use CP with optimistic locking or conditional writes.</td>
+        </tr>
+        <tr>
+          <td><strong>User profile / settings</strong></td>
+          <td></td>
+          <td>✓ Yes</td>
+          <td>Seeing a slightly stale profile picture or theme setting is harmless. Always-available preferences improve UX.</td>
+        </tr>
+        <tr>
+          <td><strong>Leader election / coordination</strong></td>
+          <td>✓ Yes</td>
+          <td></td>
+          <td>Two leaders claiming leadership simultaneously causes split-brain — a correctness disaster. Use Zookeeper or etcd (CP systems).</td>
+        </tr>
+        <tr>
+          <td><strong>Social media feed / timeline</strong></td>
+          <td></td>
+          <td>✓ Yes</td>
+          <td>A post appearing 2 seconds late is imperceptible to users. Feed unavailability is highly visible and affects engagement metrics.</td>
+        </tr>
+        <tr>
+          <td><strong>DNS resolution</strong></td>
+          <td></td>
+          <td>✓ Yes</td>
+          <td>DNS being unavailable is catastrophic for the entire internet. Stale DNS records for TTL duration (30–300s) is the designed behavior.</td>
+        </tr>
+        <tr>
+          <td><strong>Config / feature flags</strong></td>
+          <td>✓ Yes</td>
+          <td></td>
+          <td>Config management systems like etcd need consensus — deploying different config to different nodes creates undefined behavior.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9 — RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="replication.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Replication</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Keeping copies of data on multiple nodes for reliability and scale.</span>
+      </a>
+      <a href="databases.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Databases</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">How different database engines handle storage, consistency, and scale.</span>
+      </a>
+      <a href="sharding.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Sharding</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Horizontally partitioning data across multiple database nodes.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Managing distributed transactions across services without two-phase commit.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

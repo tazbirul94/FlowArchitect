@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saga Pattern — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="saga" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Saga Pattern</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Architecture <span>→</span> Saga Pattern</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1 — PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Architecture</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Saga Pattern</h1>
+      <p class="page-subtitle">Manages long-running distributed transactions across microservices using a sequence of local transactions with compensating rollbacks — no locking, no blocking, eventual consistency.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Architecture</span>
+        <span class="tag">Microservices</span>
+        <span class="tag">Distributed Transactions</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2 — DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Booking a holiday through a travel agent: the agent reserves your flight, then hotel, then car rental — three separate bookings with three separate companies. If the car rental falls through, the agent calls back the hotel and cancels it, then cancels the flight. Each step is independent; the "undo" chain is the saga compensation.</p>
+      <p>A <strong>saga</strong> is that coordinated sequence of bookings-and-cancellations, applied to microservices.</p>
+    </div>
+
+    <p>In a monolithic system, a single database transaction with ACID guarantees means all-or-nothing: every step commits together or all roll back automatically. In microservices, each service owns its own database. There is no shared transaction manager. Trying to span a single ACID transaction across service boundaries requires Two-Phase Commit (2PC), which introduces distributed locking, coordinator single points of failure, and poor scalability under high load.</p>
+
+    <p>The <strong>Saga pattern</strong> solves this by decomposing a business transaction into a <em>sequence of local transactions</em>. Each local transaction updates one service's database and publishes an event or message to trigger the next step. If any step fails, the saga executes <strong>compensating transactions</strong> — explicit undo operations — for all previously completed steps, restoring the system to a consistent state.</p>
+
+    <p>Sagas trade strong consistency for availability and partition tolerance. The system is <em>eventually consistent</em>: for a brief window during execution, some services may reflect a partial state. For most business workflows — orders, payments, bookings — this is acceptable and preferable to blocking locks that kill throughput.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3 — THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A food-delivery startup built their order flow as a monolith: place order → deduct inventory → charge payment → notify kitchen — all in one database transaction. It worked perfectly until they split into microservices. Suddenly each step touched a different service with a different database. They tried Two-Phase Commit to keep ACID guarantees. Under Black Friday load, the distributed lock coordinator became the bottleneck. At 500 concurrent orders/sec, lock timeouts cascaded. 30% of orders failed. Revenue evaporated.
+      </div>
+      <div class="story-problem">
+        The core problem: 2PC requires every participating service to hold a lock through the entire prepare + commit round-trip. With network latency between services and 8 participating microservices, lock hold times averaged 120ms. At high concurrency this created contention so severe the coordinator itself crashed, leaving thousands of orders in an undefined "prepared but not committed" limbo — requiring manual reconciliation over three days.
+      </div>
+      <div class="story-solution">
+        The team replaced the 2PC flow with an orchestration-based saga. A dedicated OrderSaga service was introduced as the state machine. It called each downstream service in sequence: Reserve Inventory → Charge Payment → Notify Kitchen. Each call was idempotent with a unique saga ID. If Charge Payment failed, the orchestrator called Release Inventory with the same saga ID (compensation). No distributed locks. Each service held a lock only for its own local transaction — milliseconds, not seconds.
+      </div>
+      <div class="story-outcome">
+        Order throughput went from 500 to 4,000 concurrent orders/sec. Lock-related failures dropped to zero. Failed payments triggered clean compensation — inventory was always released. The compensation path was tested explicitly in CI with chaos injection. Reconciliation jobs that used to run weekly became unnecessary. The saga state machine also gave ops a single dashboard showing where every in-flight order was stuck, dramatically reducing incident response time.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4 — LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're building a Lego set that requires steps in order: attach the base, build the walls, add the roof. Each step is separate. If you finish the walls and then realize you used the wrong colour bricks, you have to dismantle the walls (compensation) before you can fix the base.</p>
+          <p>A <strong>saga</strong> is the same idea for software. When an online order involves multiple systems — stock warehouse, payment provider, delivery scheduler — you can't do them all at once with a magic "undo" button. Instead, you do them one at a time. If one fails, you send explicit cancellation messages to undo the previous steps.</p>
+          <p>The key insight: <strong>compensating transactions</strong> are just normal business operations that reverse a previous step. "Charge card" is forward. "Refund card" is the compensation. Both are ordinary API calls — no special magic.</p>
+        </div>
+
+        <h3 class="subsection-title">Orchestration Saga — Happy Path &amp; Compensation</h3>
+        <p>In an <strong>orchestration saga</strong>, one central coordinator (the saga orchestrator) is in charge. It calls each service one at a time and reacts to success or failure. Here is what both paths look like:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant O as OrderSaga (Orchestrator)
+    participant I as InventoryService
+    participant P as PaymentService
+    participant N as NotificationService
+
+    Note over O: Happy Path
+    O->>I: ReserveInventory(orderId)
+    I-->>O: OK — inventory reserved
+    O->>P: ChargePayment(orderId)
+    P-->>O: OK — payment charged
+    O->>N: NotifyKitchen(orderId)
+    N-->>O: OK — kitchen notified
+    Note over O: Saga COMPLETED
+
+    Note over O: Failure Path (payment fails)
+    O->>I: ReserveInventory(orderId2)
+    I-->>O: OK — inventory reserved
+    O->>P: ChargePayment(orderId2)
+    P-->>O: FAILED — card declined
+    O->>I: ReleaseInventory(orderId2)
+    I-->>O: OK — inventory released
+    Note over O: Saga FAILED (compensated)
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Local transaction</strong> — A single-service database operation. Fast, no cross-service locking.</li>
+          <li><strong>Compensating transaction</strong> — The explicit "undo" operation for a completed step.</li>
+          <li><strong>Saga orchestrator</strong> — The central service that drives the saga sequence and handles failures.</li>
+          <li><strong>Eventual consistency</strong> — The system will be consistent once all steps (or compensations) complete, but not necessarily at every moment in between.</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>There are two implementation styles for sagas: <strong>choreography</strong> and <strong>orchestration</strong>. They represent different trade-offs between decoupling and observability.</p>
+
+        <h3 class="subsection-title">Choreography-Based Saga</h3>
+        <p>In choreography, there is no central coordinator. Each service listens for events and publishes the next event when it completes its step. The overall workflow "emerges" from event reactions across services.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Choreography: each service reacts to events independently
+
+// InventoryService — listens for order.created
+orderCreatedQueue.subscribe(async (event) => {
+  const { orderId, items } = event;
+  try {
+    await db.reserveInventory(orderId, items);
+    await eventBus.publish('inventory.reserved', { orderId });
+  } catch (err) {
+    await eventBus.publish('inventory.failed', { orderId, reason: err.message });
+  }
+});
+
+// PaymentService — listens for inventory.reserved
+inventoryReservedQueue.subscribe(async (event) => {
+  const { orderId } = event;
+  try {
+    const order = await orderService.getOrder(orderId);
+    await paymentGateway.charge(order.customerId, order.amount);
+    await eventBus.publish('payment.charged', { orderId });
+  } catch (err) {
+    // Publish failure — InventoryService must listen and compensate
+    await eventBus.publish('payment.failed', { orderId, reason: err.message });
+  }
+});
+
+// InventoryService — also listens for payment.failed (compensation)
+paymentFailedQueue.subscribe(async (event) => {
+  const { orderId } = event;
+  await db.releaseInventory(orderId);    // Compensating transaction
+  await eventBus.publish('inventory.released', { orderId });
+});</code></pre>
+        </div>
+
+        <p><strong>Choreography pros:</strong> No single point of failure for coordination. Services are fully decoupled — InventoryService doesn't know PaymentService exists, only its events. Easy to add new steps by adding new listeners.</p>
+        <p><strong>Choreography cons:</strong> Tracing the overall saga state requires correlating events across many services and logs. Compensation chains are implicit — you must manually ensure every possible failure path has a corresponding compensation listener. Cyclic event dependencies can create hard-to-debug feedback loops.</p>
+
+        <h3 class="subsection-title">Orchestration-Based Saga</h3>
+        <p>In orchestration, a dedicated saga orchestrator holds the state machine and explicitly calls each service in order. The orchestrator knows the full workflow and manages all compensation.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Orchestration: central OrderSaga manages all steps
+
+class OrderSaga {
+  async execute(orderId) {
+    const saga = await SagaState.create({ orderId, state: 'PENDING' });
+
+    // Step 1: Reserve inventory
+    try {
+      await inventoryService.reserveInventory({ sagaId: saga.id, orderId });
+      await saga.transition('INVENTORY_RESERVED');
+    } catch (err) {
+      await saga.transition('FAILED');
+      return; // Nothing to compensate yet
+    }
+
+    // Step 2: Charge payment
+    try {
+      await paymentService.chargePayment({ sagaId: saga.id, orderId });
+      await saga.transition('PAYMENT_CHARGED');
+    } catch (err) {
+      // Compensate step 1
+      await inventoryService.releaseInventory({ sagaId: saga.id, orderId });
+      await saga.transition('FAILED');
+      return;
+    }
+
+    // Step 3: Notify kitchen
+    try {
+      await notificationService.notifyKitchen({ sagaId: saga.id, orderId });
+      await saga.transition('COMPLETED');
+    } catch (err) {
+      // Compensate steps 1 and 2
+      await paymentService.refundPayment({ sagaId: saga.id, orderId });
+      await inventoryService.releaseInventory({ sagaId: saga.id, orderId });
+      await saga.transition('FAILED');
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Idempotency is Non-Negotiable</h3>
+        <p>Every step and every compensating transaction <em>must be idempotent</em>. The orchestrator may retry a call if it times out — the downstream service must handle receiving the same <code>sagaId</code> twice without double-charging or double-releasing.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Idempotent charge — uses sagaId as idempotency key
+async function chargePayment({ sagaId, orderId }) {
+  // Check if we already processed this saga step
+  const existing = await db.findTransaction({ sagaId, type: 'CHARGE' });
+  if (existing) {
+    return existing; // Already done — return same result
+  }
+
+  const charge = await paymentGateway.charge(order.amount, {
+    idempotencyKey: `saga-${sagaId}-charge`,
+  });
+
+  await db.saveTransaction({ sagaId, type: 'CHARGE', chargeId: charge.id });
+  return charge;
+}</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Design Principle</span>
+          <p>Never design a saga step without designing its compensating transaction at the same time. If you can't define a reliable compensation for a step, the step may not be suitable for a saga — consider making it the last step (no compensation needed) or using a different consistency strategy for that service boundary.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">Saga vs Two-Phase Commit (2PC)</h3>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Saga</th>
+              <th>Two-Phase Commit (2PC)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Consistency model</strong></td>
+              <td class="good">Eventual consistency (AP in CAP)</td>
+              <td class="bad">Strong consistency (CP in CAP)</td>
+            </tr>
+            <tr>
+              <td><strong>Locking</strong></td>
+              <td class="good">No cross-service locks — each local transaction is short-lived</td>
+              <td class="bad">Distributed locks held across all participants for the full prepare+commit cycle</td>
+            </tr>
+            <tr>
+              <td><strong>Availability under failure</strong></td>
+              <td class="good">One service failure doesn't block others — saga compensates asynchronously</td>
+              <td class="bad">Coordinator failure leaves all participants blocked in "prepared" state</td>
+            </tr>
+            <tr>
+              <td><strong>Scalability</strong></td>
+              <td class="good">Scales horizontally — no coordination bottleneck</td>
+              <td class="bad">Coordinator becomes a bottleneck at high concurrency</td>
+            </tr>
+            <tr>
+              <td><strong>Complexity</strong></td>
+              <td class="bad">Must design explicit compensating transactions for every step</td>
+              <td class="good">Database engine handles rollback — developers write less code</td>
+            </tr>
+            <tr>
+              <td><strong>Intermediate visibility</strong></td>
+              <td class="bad">Partial state is visible to other services during execution</td>
+              <td class="good">No partial state visible — isolation is maintained until commit</td>
+            </tr>
+            <tr>
+              <td><strong>Cross-DB support</strong></td>
+              <td class="good">Works across any combination of databases and message brokers</td>
+              <td class="bad">Requires XA-compatible drivers — not supported by most cloud databases</td>
+            </tr>
+            <tr>
+              <td><strong>Best for</strong></td>
+              <td>Microservices, high-throughput business workflows, polyglot persistence</td>
+              <td>Monoliths, same-RDBMS transactions, low-throughput critical-path ops</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Saga State Machine States</h3>
+        <p>A well-implemented orchestration saga tracks every transition explicitly. This enables monitoring, retries, and debugging.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+stateDiagram-v2
+    [*] --> PENDING : Order received
+    PENDING --> INVENTORY_RESERVED : reserveInventory() OK
+    PENDING --> FAILED : reserveInventory() failed (nothing to compensate)
+    INVENTORY_RESERVED --> PAYMENT_PROCESSING : chargePayment() called
+    PAYMENT_PROCESSING --> PAYMENT_CHARGED : chargePayment() OK
+    PAYMENT_PROCESSING --> COMPENSATING : chargePayment() FAILED
+    COMPENSATING --> FAILED : releaseInventory() OK (compensation done)
+    PAYMENT_CHARGED --> COMPLETED : notifyKitchen() OK
+    PAYMENT_CHARGED --> COMPENSATING_FULL : notifyKitchen() FAILED
+    COMPENSATING_FULL --> FAILED : refund + releaseInventory done
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Failure Mode Analysis</h3>
+        <p>Three primary failure modes require specific handling strategies:</p>
+
+        <ul>
+          <li>
+            <strong>Compensating transaction fails:</strong> The compensation itself (e.g., <code>releaseInventory</code>) fails due to network error or service downtime. Strategy: retry with exponential backoff and dead-letter queue. Compensations must be idempotent — retrying must be safe. Alert operations if compensation is stuck after N retries.
+          </li>
+          <li>
+            <strong>Orchestrator crashes mid-saga:</strong> The saga orchestrator restarts and must resume from the last known persisted state. Strategy: persist every state transition to durable storage (database or Kafka) before making the next service call. On restart, load all in-flight sagas and replay from last known good state.
+          </li>
+          <li>
+            <strong>Partial completion with one non-compensatable step:</strong> Some operations cannot be undone (e.g., sending a confirmation email). These are called <em>pivot transactions</em>. Design your saga so the pivot is the last step, placed after all compensatable steps. If it fails, you don't need to undo it — the data state is already consistent.
+          </li>
+        </ul>
+
+        <h3 class="subsection-title">Choreography vs Orchestration: When to Choose</h3>
+
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Factor</th>
+              <th>Choose Choreography</th>
+              <th>Choose Orchestration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Team ownership</strong></td>
+              <td>Each service owned by a separate team — teams want full autonomy</td>
+              <td>Central platform team owns the business workflow end-to-end</td>
+            </tr>
+            <tr>
+              <td><strong>Saga complexity</strong></td>
+              <td>2–3 steps, simple linear flow</td>
+              <td>4+ steps, branching logic, complex error handling</td>
+            </tr>
+            <tr>
+              <td><strong>Observability requirement</strong></td>
+              <td>Distributed tracing sufficient for debugging</td>
+              <td>Need single dashboard showing all saga states at a glance</td>
+            </tr>
+            <tr>
+              <td><strong>Coupling tolerance</strong></td>
+              <td>Zero coupling between services preferred</td>
+              <td>Acceptable to have orchestrator coupled to service APIs</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Uber Trip Saga — Production Scale</h3>
+        <p>Uber processes millions of trips per day. Each trip is a saga spanning 6+ microservices. A simplified view of the trip lifecycle saga:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A[trip.requested] --> B[driver.assigned]
+    B --> C[trip.started]
+    C --> D[trip.completed]
+    D --> E[payment.charged]
+    E --> F[receipt.sent]
+    F --> G([SAGA COMPLETED])
+
+    E -->|payment fails| H[trip.cancelled]
+    H --> I[driver.notified]
+    I --> J[fare.voided]
+    J --> K([SAGA FAILED — compensated])
+
+    style G fill:#166534,color:#fff
+    style K fill:#991b1b,color:#fff
+          </div>
+        </div>
+
+        <p>At Uber scale (millions of trips/day), key engineering decisions were:</p>
+        <ul>
+          <li><strong>Every step stored in Cadence/Temporal workflow engine:</strong> Temporal persists the full event history of every saga, enabling replay after any failure. If a worker crashes mid-trip, Temporal replays from the last checkpoint automatically.</li>
+          <li><strong>Idempotency via trip ID:</strong> All downstream service calls carry the <code>tripId</code> as the idempotency key. Payment charged twice for the same tripId returns the first result, not a double charge.</li>
+          <li><strong>Compensation retries with alerting:</strong> If <code>fare.voided</code> compensation fails, it retries up to 10 times with exponential backoff. If all retries fail, a PagerDuty alert fires and a reconciliation job processes it within 1 hour.</li>
+          <li><strong>Saga timeout:</strong> A trip saga that stays in any non-terminal state for more than 2 hours is automatically escalated for manual review. This catches edge cases like network partitions during driver assignment.</li>
+        </ul>
+
+        <h3 class="subsection-title">Saga with Temporal (Code Pattern)</h3>
+
+        <div class="code-wrapper" data-lang="typescript">
+          <pre><code class="language-typescript">// Temporal workflow — durable saga with automatic replay
+import { proxyActivities, sleep } from '@temporalio/workflow';
+import type * as activities from './activities';
+
+const { reserveInventory, chargePayment, notifyKitchen,
+        releaseInventory, refundPayment } = proxyActivities&lt;typeof activities&gt;({
+  startToCloseTimeout: '30 seconds',
+  retry: { maximumAttempts: 3 },
+});
+
+export async function orderSagaWorkflow(orderId: string): Promise&lt;void&gt; {
+  let inventoryReserved = false;
+  let paymentCharged = false;
+
+  try {
+    await reserveInventory(orderId);
+    inventoryReserved = true;
+
+    await chargePayment(orderId);
+    paymentCharged = true;
+
+    await notifyKitchen(orderId);
+    // Saga complete
+  } catch (err) {
+    // Compensation: undo in reverse order
+    if (paymentCharged) {
+      await refundPayment(orderId);   // idempotent — safe to retry
+    }
+    if (inventoryReserved) {
+      await releaseInventory(orderId); // idempotent — safe to retry
+    }
+    throw err; // Mark workflow as failed
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Outbox Pattern — Guaranteed Event Publishing</h3>
+        <p>A critical reliability concern: after a local transaction commits, the event publish to the message broker might fail. This leaves the saga stalled with no trigger for the next step. The <strong>Outbox Pattern</strong> solves this by writing the event to a local database table (the outbox) within the same transaction, then having a separate polling process relay it to the broker atomically.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Transactional outbox: event stored atomically with business data
+BEGIN;
+
+INSERT INTO inventory_reservations (order_id, items, status)
+  VALUES ($1, $2, 'RESERVED');
+
+INSERT INTO outbox_events (aggregate_id, event_type, payload, created_at)
+  VALUES ($1, 'inventory.reserved', $3, NOW());
+
+COMMIT;
+
+-- A separate relay process polls outbox and publishes to Kafka
+-- SELECT * FROM outbox_events WHERE published_at IS NULL ORDER BY created_at LIMIT 100;
+-- After publish: UPDATE outbox_events SET published_at = NOW() WHERE id = ANY($ids);</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Observability: What to Monitor</h3>
+        <ul>
+          <li><strong>Saga completion rate:</strong> Percentage of sagas reaching COMPLETED vs FAILED state. Drop below 99% should trigger alert.</li>
+          <li><strong>Saga p99 duration:</strong> End-to-end time from saga start to COMPLETED. Sudden increase signals downstream service degradation.</li>
+          <li><strong>Compensation rate:</strong> Number of sagas entering compensation per minute. Spike indicates a failing service (e.g., payment gateway outage).</li>
+          <li><strong>Stuck sagas:</strong> Sagas in non-terminal state older than N minutes. These require investigation — often indicate a bug in the state machine or a dead-letter queue not being processed.</li>
+          <li><strong>Idempotency key collisions:</strong> If a compensation is retried, the idempotency check should fire. Track these — a high rate indicates saga replay loops.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Expert Insight</span>
+          <p>The hardest part of the saga pattern is not the forward path — it is ensuring your compensation logic is as robust as your primary logic. Test compensation paths with the same rigour as happy paths. Use chaos engineering (kill a service after step N) in staging to verify compensations actually execute correctly. Teams that skip compensation testing discover their gaps in production, usually at the worst possible moment.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5 — ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Amazon — Order Fulfillment Saga at 1M+ orders/day</span>
+      <p><strong>Context:</strong> Amazon's order fulfillment pipeline involves at minimum: fraud check, inventory reservation across multiple warehouses, payment authorization, warehouse pick-pack-ship assignment, carrier integration, and buyer notification. Each step is a separate domain with its own service and database. A single order may touch 12+ microservices. The system must handle 1M+ orders per day with sub-5-second checkout confirmation.</p>
+      <p><strong>Architecture decisions:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Orchestration-based saga with a dedicated OrderOrchestrator service per business domain (checkout saga, fulfillment saga, shipping saga — chained but independent sagas).</li>
+        <li>Each saga step is persisted before the call is made — if the orchestrator restarts, it replays only unconfirmed steps.</li>
+        <li>Payment authorization is treated as a <em>pivot transaction</em>: placed last among the compensatable steps. All inventory reservations happen before payment. If payment fails, inventory compensations are triggered.</li>
+        <li>The outbox pattern ensures events are never lost even if the service crashes between the DB commit and the Kafka publish.</li>
+        <li>Every compensating transaction retries indefinitely with capped exponential backoff — compensations are expected to eventually succeed. If a compensation cannot succeed after 1 hour, a human-review queue is populated automatically.</li>
+      </ol>
+      <p><strong>Business Impact:</strong> Before sagas: 2PC-based checkout had 0.8% failure rate at peak load and required a distributed lock coordinator that became the bottleneck during Prime Day (they ran 10x normal load). After saga adoption: failure rate at peak dropped to 0.02%. Prime Day throughput handled 8x normal without degradation. Payment double-charges (caused by 2PC lock timeouts creating ambiguous state) eliminated entirely — saving an estimated $40M/year in refund processing and customer trust recovery costs.</p>
+      <p><strong>Lessons learned:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Design for compensation from day one:</strong> Retrofitting compensation logic onto existing services is far more expensive than building it in from the start. Every API that a saga calls must expose an idempotent undo endpoint from the beginning.</li>
+        <li><strong>Saga visibility is a product requirement:</strong> Customer service agents need to see exactly which step an order is stuck on. Build a saga dashboard into your ops tooling — not as an afterthought, but as a core deliverable of the saga implementation.</li>
+        <li><strong>Choreography becomes unmaintainable at 10+ steps:</strong> Amazon shifted from choreography (simpler to start) to orchestration as sagas grew in complexity. The tipping point was when tracing a failed order required correlating events across 7 services and nobody could tell at a glance what had happened.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6 — COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Compensating Transaction Defined</span>
+      <p>The most dangerous mistake: implementing the forward path of a saga step without defining its compensating transaction. If <code>ReserveInventory</code> has no corresponding <code>ReleaseInventory</code> and a later step fails, the inventory stays reserved forever. The system accumulates "ghost reservations" that silently drain available stock. Customers see items as out-of-stock when they are not. This is a data consistency nightmare that may go undetected for days.</p>
+      <p><strong>Fix:</strong> Treat each saga step as a pair — forward and backward — designed simultaneously. Make the compensating endpoint a hard acceptance criterion before any saga step can be merged. If a step genuinely cannot be reversed (e.g., sending an SMS), document it explicitly and position it as the final step in the saga, after all compensatable operations.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Compensating Transactions Are Not Idempotent</span>
+      <p>The orchestrator may call <code>ReleaseInventory</code> and get a timeout — it does not know if the call succeeded. It retries. If <code>ReleaseInventory</code> is not idempotent, the inventory is released twice. The same problem applies to refunds: a non-idempotent <code>RefundPayment</code> called twice issues two refunds. This is a real-money bug that has cost companies millions in duplicate refunds and stock mismatches.</p>
+      <p><strong>Fix:</strong> Every compensating transaction must accept an idempotency key (typically the <code>sagaId</code> + step name) and return the same result if called multiple times. Check the key at the start of the handler — if already processed, return the previous result immediately without re-executing the side effect.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Too Many Steps in One Saga (10+ Steps)</span>
+      <p>Engineering teams sometimes model an entire business process as a single saga. An order saga with 12 steps means up to 12 compensation steps if the last step fails. The compensation logic grows quadratically in complexity — step N must know which of the previous N-1 steps completed. With 12 steps the state machine has 2^12 possible partial completion states to handle correctly. Testing this exhaustively is practically impossible, and production failures will reveal unhandled states.</p>
+      <p><strong>Fix:</strong> Decompose large business processes into a chain of smaller, independent sagas of 3–5 steps each. For example: checkout saga (fraud + inventory + payment), fulfilment saga (warehouse + carrier), notification saga (email + push). Each saga is independently reliable and testable. Compose them by having the successful completion of one saga trigger the start of the next.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7 — INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A saga is a sequence of local transactions where each step publishes an event or message to trigger the next step, and compensating transactions are used to undo completed steps if any step fails — achieving distributed consistency without distributed locking.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "The saga pattern solves the distributed transaction problem in microservices. In a monolith you have one database so you can wrap everything in an ACID transaction. In microservices each service has its own database, so a single ACID transaction is impossible without Two-Phase Commit — which blocks all participants with distributed locks and becomes a bottleneck and single point of failure at scale. A saga replaces this with a sequence of local transactions. Each step commits locally and triggers the next step via event or direct call. If any step fails, previously completed steps are reversed by compensating transactions — explicit undo operations. There are two implementations: choreography, where each service reacts to events autonomously, and orchestration, where a central saga manager drives the sequence and manages compensations. The key trade-off is that sagas are eventually consistent — there is a brief window where the system is in a partial state. For most business transactions like orders and payments this is acceptable and far preferable to locking the entire system."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is the difference between choreography and orchestration sagas, and when would you choose each?</li>
+        <li>Why must every saga step be idempotent? What goes wrong if it isn't?</li>
+        <li>How do you handle a compensating transaction that itself fails?</li>
+        <li>What is a pivot transaction in a saga? Can you give an example?</li>
+        <li>How does the Outbox Pattern relate to sagas? What problem does it solve?</li>
+        <li>How would you test a saga's compensation path in CI?</li>
+        <li>What monitoring would you set up for a saga in production?</li>
+        <li>Compare saga to 2PC — what consistency guarantees does each provide?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "sagas give you ACID consistency" — sagas give you eventual consistency, not ACID. Interviewers will immediately probe this.</li>
+        <li>Confusing choreography with orchestration, or treating them as equivalent — they have very different observability and coupling trade-offs.</li>
+        <li>Ignoring compensation entirely and describing only the happy path — the entire value of the saga pattern is in reliable compensation. An answer without compensation is incomplete.</li>
+        <li>Not mentioning idempotency — it is the foundation that makes retries safe. Missing this signals unfamiliarity with distributed systems fundamentals.</li>
+        <li>Saying "use sagas for everything" — sagas add significant complexity. If you are not crossing service boundaries, a simple database transaction is always preferable.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8 — TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Achieves distributed consistency across services without cross-service locks</td>
+          <td>Only eventual consistency — partial state visible between steps</td>
+        </tr>
+        <tr>
+          <td><strong>Availability</strong></td>
+          <td>One service failure does not block all participants — saga compensates asynchronously</td>
+          <td>Business process may be interrupted and require compensation path to complete</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>No distributed coordinator bottleneck — each service scales independently</td>
+          <td>Orchestrator service must itself be highly available and stateful</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>Explicit workflow logic — easy to observe, monitor, and debug the orchestration path</td>
+          <td>Must design, implement, test, and operate compensating transactions for every step</td>
+        </tr>
+        <tr>
+          <td><strong>Testability</strong></td>
+          <td>Each step is a simple, isolated unit; compensation paths can be tested independently</td>
+          <td>Full end-to-end failure scenarios require complex chaos testing to cover all failure modes</td>
+        </tr>
+        <tr>
+          <td><strong>Observability</strong></td>
+          <td>Orchestration sagas provide a single place to see all in-flight workflow states</td>
+          <td>Choreography sagas require distributed tracing across many services to reconstruct flow</td>
+        </tr>
+        <tr>
+          <td><strong>Coupling</strong></td>
+          <td>Choreography sagas allow zero direct coupling between services</td>
+          <td>Orchestration sagas introduce an orchestrator that is coupled to every participant's API</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9 — RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="cqrs.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CQRS</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Separate read and write models to scale and optimise independently.</span>
+      </a>
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Services communicate via events — the backbone of choreography sagas.</span>
+      </a>
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Durable async delivery — ensures saga step events are never lost.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The architectural context that makes the saga pattern necessary.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

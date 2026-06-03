@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Message Queues — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="message-queues" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Message Queues</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Messaging <span>→</span> Message Queues</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Messaging</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Message Queues</h1>
+      <p class="page-subtitle">Decouple producers from consumers so services can communicate asynchronously, absorb traffic spikes, and recover gracefully from failures.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Messaging</span>
+        <span class="tag">Async</span>
+        <span class="tag">Reliability</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a restaurant order ticket system. When you order, the waiter writes your order on a ticket and clips it to a rail in the kitchen window. The waiter walks away immediately — they don't stand there waiting for the chef to cook. The chef picks up tickets at their own pace. If the restaurant gets slammed with customers, tickets pile up on the rail but nothing breaks. When the rush dies down, the kitchen works through the backlog.</p>
+      <p>A <strong>message queue</strong> is that kitchen rail. The producer (waiter) drops a message and moves on. The consumer (chef) processes messages at its own speed. The queue buffers the gap between them.</p>
+    </div>
+
+    <p>In distributed systems, when Service A needs to tell Service B to do something, the naive approach is a direct HTTP call. But if B is slow, A blocks. If B is down, A fails. If 10,000 events arrive at once, B gets overwhelmed. A message queue fixes all three: A drops the message and moves on, B processes when ready, and the queue absorbs burst traffic. This is the foundation of resilient async architectures.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A food-delivery startup's checkout flow worked great at low traffic. When an order was placed, the order service synchronously called the notification service to send a confirmation email, then called the payment service to process the charge, then called the inventory service to reserve stock — all in one HTTP chain before returning a response to the user.
+      </div>
+      <div class="story-problem">
+        On the day they launched a promotion, order volume spiked 20x. The email service, taxed by bulk sends, started responding in 8 seconds instead of 200ms. Every checkout request now blocked for 8+ seconds. Users hammered the "Place Order" button. Orders were duplicated. The payment service received a cascade of retries it couldn't handle. At peak, the entire checkout pipeline fell over and returned 503s. The company lost $340K in GMV in 90 minutes.
+      </div>
+      <div class="story-solution">
+        The team spent two weeks refactoring. The order service now validates and accepts the order in under 100ms, then drops three messages onto separate queues: one for payment processing, one for email notification, one for inventory reservation. Each downstream service consumes its queue independently at its own pace. A Dead Letter Queue captures any messages that fail after 3 retries for manual review.
+      </div>
+      <div class="story-outcome">
+        The next promotion handled 40x normal order volume without degradation. Checkout latency dropped from 3–10 seconds to under 100ms. When the email service had a 20-minute outage, zero orders were lost — the notification queue accumulated 15,000 messages and drained automatically when the service recovered. The team's on-call alerts went from nightly to once a month.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you work at a post office. People drop off letters (messages) in a mailbox (the queue). You pick up the letters at your own pace and deliver them. The person who dropped the letter doesn't have to wait for you to deliver it — they go on with their day immediately after dropping it in the box.</p>
+          <p>That's exactly what a message queue does in software. Service A (the producer) drops a message into the queue. Service B (the consumer) picks it up and processes it whenever it's ready. They never have to talk to each other directly.</p>
+          <p><strong>Why does this help?</strong> If service B crashes overnight, all the messages sit safely in the queue. When B comes back up in the morning, it processes everything it missed. Without the queue, all those messages would be lost forever.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Producer</strong> — The service that creates and sends messages into the queue.</li>
+          <li><strong>Consumer</strong> — The service that reads and processes messages from the queue.</li>
+          <li><strong>Message</strong> — A discrete unit of data (JSON, bytes, text) sent through the queue.</li>
+          <li><strong>Queue</strong> — The buffer that holds messages until they are consumed.</li>
+          <li><strong>Dead Letter Queue (DLQ)</strong> — A special queue where failed messages land after the consumer gives up retrying them.</li>
+        </ul>
+
+        <h3 class="subsection-title">Basic Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    A[Producer\nOrder Service] -->|send message| B[(Queue)]
+    B -->|consume message| C[Consumer\nEmail Service]
+    B -->|failed after 3 retries| D[(Dead Letter Queue)]
+    D -->|manual review| E[Engineer]
+          </div>
+        </div>
+
+        <h3 class="subsection-title">FIFO vs Priority Queues</h3>
+        <ul>
+          <li><strong>FIFO (First-In, First-Out)</strong> — Messages are processed in the order they arrive. Like a checkout line at a supermarket. Most queues default to this.</li>
+          <li><strong>Priority Queue</strong> — Higher-priority messages jump ahead in line. Like an emergency room where critical patients get seen before mild cases. Useful when some tasks are more time-sensitive than others (e.g., payment failure alerts should process before marketing emails).</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Understanding message queues at this level means knowing the three delivery guarantees, how visibility timeouts work, and what the most common products offer.</p>
+
+        <h3 class="subsection-title">The Three Delivery Guarantees</h3>
+        <ul>
+          <li><strong>At-most-once</strong> — Fire and forget. The producer sends the message and never checks if it was received. The message may be lost if the consumer crashes before processing it. Fast, zero overhead. Used for: metrics, analytics events where losing an occasional data point is acceptable.</li>
+          <li><strong>At-least-once</strong> — The queue keeps retrying delivery until the consumer acknowledges (acks) the message. The consumer might process the same message multiple times. This is the default for most production queues. <em>Consumers must be idempotent</em> — processing the same message twice must produce the same result as processing it once.</li>
+          <li><strong>Exactly-once</strong> — The message is delivered and processed precisely once. Requires distributed transactions or idempotency keys at the queue and consumer level. Expensive and complex. Used for: financial transactions, inventory deduction where duplicates cause real-world problems.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>Most teams choose at-least-once and design idempotent consumers. Exactly-once adds significant complexity and latency overhead. The industry rule: design for at-least-once, implement idempotency at the consumer, never trust exactly-once guarantees without understanding their fine print.</p>
+        </div>
+
+        <h3 class="subsection-title">Visibility Timeout — How Retries Work in SQS</h3>
+        <p>When a consumer picks up a message from SQS, the message becomes invisible to other consumers for a configurable period (the visibility timeout, default 30 seconds). If the consumer processes and acks the message in time, SQS deletes it. If the consumer crashes or takes too long, the visibility timeout expires and the message reappears for another consumer to pick up. After <code>maxReceiveCount</code> failures, the message moves to the DLQ.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant P as Producer
+    participant Q as Queue (SQS)
+    participant C as Consumer
+    participant D as Dead Letter Queue
+
+    P->>Q: send(message)
+    C->>Q: receive()
+    Q-->>C: message (now invisible for 30s)
+    Note over C: Processing...
+    alt Success
+        C->>Q: delete(message)
+    else Consumer crashes / timeout
+        Note over Q: Visibility timeout expires
+        Q-->>C: message reappears
+        Note over Q: After maxReceiveCount retries
+        Q->>D: move to DLQ
+    end
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Common Code: Producer and Consumer (Python + boto3)</h3>
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python">import boto3
+import json
+import uuid
+
+sqs = boto3.client('sqs', region_name='us-east-1')
+QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/order-processing'
+
+# --- PRODUCER: send a message ---
+def place_order(order_data: dict):
+    """Accept order and enqueue for async processing."""
+    message = {
+        "order_id": str(uuid.uuid4()),
+        "user_id": order_data["user_id"],
+        "items": order_data["items"],
+        "total": order_data["total"],
+        "timestamp": order_data["timestamp"]
+    }
+    response = sqs.send_message(
+        QueueUrl=QUEUE_URL,
+        MessageBody=json.dumps(message),
+        # MessageDeduplicationId only needed for FIFO queues
+        MessageAttributes={
+            'order_type': {
+                'DataType': 'String',
+                'StringValue': order_data.get('type', 'standard')
+            }
+        }
+    )
+    print(f"Enqueued order {message['order_id']} → MessageId: {response['MessageId']}")
+    return message['order_id']  # Return immediately — don't wait for processing
+
+
+# --- CONSUMER: poll and process messages ---
+def process_orders():
+    """Long-poll queue and process messages."""
+    while True:
+        response = sqs.receive_message(
+            QueueUrl=QUEUE_URL,
+            MaxNumberOfMessages=10,    # batch up to 10 messages
+            WaitTimeSeconds=20,        # long-polling — waits up to 20s for messages
+            VisibilityTimeout=60       # 60s to process before retry
+        )
+        messages = response.get('Messages', [])
+        if not messages:
+            continue
+
+        for msg in messages:
+            receipt_handle = msg['ReceiptHandle']
+            body = json.loads(msg['Body'])
+            try:
+                handle_order(body)  # idempotent handler
+                # Only delete AFTER successful processing
+                sqs.delete_message(QueueUrl=QUEUE_URL, ReceiptHandle=receipt_handle)
+                print(f"Processed and deleted order {body['order_id']}")
+            except Exception as e:
+                print(f"Failed to process {body['order_id']}: {e}")
+                # Do NOT delete — let visibility timeout expire for retry
+
+
+def handle_order(order: dict):
+    """Idempotent order handler — safe to call multiple times."""
+    # Check if already processed (idempotency key)
+    if order_already_processed(order['order_id']):
+        print(f"Duplicate message for order {order['order_id']} — skipping")
+        return
+    # ... process payment, reserve inventory, etc.
+    mark_order_processed(order['order_id'])
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Product Comparison</h3>
+        <ul>
+          <li><strong>RabbitMQ</strong> — Open-source, AMQP protocol. Uses exchanges and routing keys for flexible message routing. Supports fanout (one message → many queues), topic routing (pattern-matched routing), and direct routing. Throughput: 20K–50K messages/sec per node. Best for: complex routing logic, on-premise deployments.</li>
+          <li><strong>AWS SQS</strong> — Fully managed, unlimited scale, no servers to run. Standard queues: nearly unlimited throughput, at-least-once, best-effort ordering. FIFO queues: exactly-once processing, strict ordering, 3,000 messages/sec (or 30,000 with batching). Message size limit: 256 KB. Best for: AWS-native workloads, zero-ops preference.</li>
+          <li><strong>ActiveMQ</strong> — JMS (Java Message Service) compliant, enterprise features. Strong fit for Java-heavy shops and legacy enterprise integrations. Supports both queue and topic (pub/sub) semantics. Best for: Java enterprise environments, JMS compatibility requirements.</li>
+        </ul>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At this level the conversation shifts from "should I use a queue?" to "what guarantees can I actually rely on, and at what cost?"</p>
+
+        <h3 class="subsection-title">Delivery Guarantee Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Guarantee</th>
+              <th>Pros</th>
+              <th>Cons</th>
+              <th>Typical Use Case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>At-most-once</strong></td>
+              <td class="good">Zero overhead, lowest latency, simplest consumer</td>
+              <td class="bad">Messages can be lost — no retry, no persistence guarantee</td>
+              <td>Telemetry, click tracking, non-critical metrics</td>
+            </tr>
+            <tr>
+              <td><strong>At-least-once</strong></td>
+              <td class="good">No data loss, battle-tested in every major queue product, consumer failure safe</td>
+              <td class="bad">Duplicate delivery possible — consumer must be idempotent</td>
+              <td>Order processing, email sending, inventory updates (with idempotency key)</td>
+            </tr>
+            <tr>
+              <td><strong>Exactly-once</strong></td>
+              <td class="good">True deduplication — no business logic needed to handle duplicates</td>
+              <td class="bad">2–5x higher latency, complex implementation, vendor lock-in, rarely truly end-to-end</td>
+              <td>Financial ledger entries, double-charge prevention</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Queue vs Direct HTTP — When to Use Each</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Direct HTTP Call</th>
+              <th>Message Queue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Latency</strong></td>
+              <td class="good">Synchronous, immediate response</td>
+              <td class="bad">Adds async delay (ms to seconds)</td>
+            </tr>
+            <tr>
+              <td><strong>Coupling</strong></td>
+              <td class="bad">Tight — producer waits for consumer</td>
+              <td class="good">Loose — producer fires and forgets</td>
+            </tr>
+            <tr>
+              <td><strong>Consumer availability</strong></td>
+              <td class="bad">Consumer must be up; failure = request loss</td>
+              <td class="good">Consumer can be down; messages wait safely</td>
+            </tr>
+            <tr>
+              <td><strong>Traffic spikes</strong></td>
+              <td class="bad">Consumer overwhelmed; cascading failure risk</td>
+              <td class="good">Queue absorbs the spike; consumer drains at own pace</td>
+            </tr>
+            <tr>
+              <td><strong>Observability</strong></td>
+              <td class="good">Request/response tracing is straightforward</td>
+              <td class="bad">Async flow harder to trace end-to-end; requires correlation IDs</td>
+            </tr>
+            <tr>
+              <td><strong>Debugging</strong></td>
+              <td class="good">Synchronous stack traces, direct error propagation</td>
+              <td class="bad">Errors surface later and in separate service; DLQ investigation required</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When NOT to Use a Message Queue</h3>
+        <ul>
+          <li><strong>When you need an immediate response</strong> — If the user is waiting on a screen for the result (e.g., validating a coupon code), async queuing adds awkward polling complexity. Use synchronous calls.</li>
+          <li><strong>For simple two-service communication with similar SLAs</strong> — If both services are internal, always available, and have comparable throughput, the added complexity of a queue isn't justified. Direct gRPC or HTTP is simpler.</li>
+          <li><strong>When ordering guarantees conflict with your scaling model</strong> — FIFO queues with strict ordering often bottleneck horizontally. If you need high throughput AND strict ordering, you're in a difficult trade-off. Consider partitioned solutions (Kafka) instead of traditional queues.</li>
+          <li><strong>For request-reply patterns</strong> — Queues are naturally unidirectional. Implementing request-reply over queues (correlation IDs, reply queues) is complicated and fragile. Use synchronous RPC instead.</li>
+        </ul>
+
+        <h3 class="subsection-title">Dead Letter Queue — Architecture Pattern</h3>
+        <p>A DLQ is not optional in production. Every queue should have a DLQ configured. Failed messages go there after max retries. Without a DLQ:</p>
+        <ul>
+          <li>Messages that fail due to a bug in the consumer are silently discarded</li>
+          <li>You have no audit trail of what failed and why</li>
+          <li>You can never replay failed messages after a hotfix</li>
+        </ul>
+        <p>With a DLQ: failed messages accumulate with their original content and failure metadata. After fixing the consumer bug, you redrive the DLQ — replaying all failed messages through the fixed consumer. This is essential for production reliability.</p>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python">import boto3
+
+sqs = boto3.client('sqs', region_name='us-east-1')
+
+# --- Redrive DLQ messages back to main queue after bug fix ---
+def redrive_dlq(dlq_url: str, main_queue_url: str, batch_size: int = 10):
+    """
+    Re-process all messages in DLQ by sending them back to the main queue.
+    Call this after deploying a fix for the consumer bug.
+    """
+    redriven = 0
+    while True:
+        response = sqs.receive_message(
+            QueueUrl=dlq_url,
+            MaxNumberOfMessages=batch_size,
+            WaitTimeSeconds=5
+        )
+        messages = response.get('Messages', [])
+        if not messages:
+            print(f"DLQ drained. Total messages redriven: {redriven}")
+            break
+
+        entries = []
+        for msg in messages:
+            entries.append({
+                'Id': msg['MessageId'],
+                'MessageBody': msg['Body'],
+            })
+
+        # Batch send to main queue
+        sqs.send_message_batch(QueueUrl=main_queue_url, Entries=entries)
+
+        # Delete from DLQ
+        delete_entries = [
+            {'Id': msg['MessageId'], 'ReceiptHandle': msg['ReceiptHandle']}
+            for msg in messages
+        ]
+        sqs.delete_message_batch(QueueUrl=dlq_url, Entries=delete_entries)
+        redriven += len(messages)
+        print(f"Redriven {redriven} messages so far...")
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Consumer Scaling Strategies</h3>
+        <ul>
+          <li><strong>Polling consumers</strong> — Multiple consumer instances each poll the queue independently. SQS delivers each message to only one consumer. Scale consumers based on queue depth metric.</li>
+          <li><strong>Queue depth autoscaling</strong> — AWS Application Auto Scaling can scale ECS tasks or Lambda concurrency based on ApproximateNumberOfMessagesVisible. Set scale-out threshold at ~100 messages, scale-in at ~10.</li>
+          <li><strong>Batching</strong> — Consumers pull up to 10 messages per receive call (SQS). Processing in batches dramatically increases throughput vs. single-message processing.</li>
+        </ul>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>Expert-level concerns: exactly-once semantics in practice, compliance requirements, enterprise-scale queue architecture, and the hidden failure modes that only appear at 10M+ messages/day.</p>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Expert Considerations</span>
+          <span class="enterprise-card-company">Enterprise Queue Architecture at Scale</span>
+          <p><strong>Exactly-once in practice:</strong> No queue product delivers true end-to-end exactly-once processing without application cooperation. SQS FIFO with ContentBasedDeduplication deduplicates at the queue layer (5-minute deduplication window), but if your consumer crashes after processing but before deleting the message, SQS re-delivers it. The consumer must maintain an idempotency store (DynamoDB conditional writes, Redis SET NX) to achieve end-to-end exactly-once. This store adds ~5–10ms per message and requires TTL management.</p>
+          <p><strong>Ordering vs. throughput tension:</strong> SQS Standard queues offer ~unlimited throughput but best-effort ordering. FIFO queues guarantee ordering but cap at 3,000 msg/sec (30K with batching). At 500K msg/sec, neither works — you need Kafka partitioning. Architect the choice before you commit: changing queue semantics in production is painful.</p>
+          <p><strong>Compliance (PCI-DSS, HIPAA, GDPR):</strong> Messages containing PII or PAN (card data) must be encrypted at rest and in transit. SQS supports SSE-KMS. Message retention policies must align with data residency requirements — don't let PII sit in a queue for 14 days by default. Set visibility timeouts and retention periods explicitly. For GDPR right-to-erasure, DLQ messages containing PII need a cleanup process. Log all queue access in CloudTrail.</p>
+          <p><strong>Multi-region queue architecture:</strong> SQS is regional. For cross-region resilience, two patterns: (1) replicate messages to queues in two regions using Lambda, accept eventual consistency; (2) use Amazon EventBridge with cross-region event buses — higher operational overhead but built for global event routing. SNS + SQS fan-out patterns work well for multi-region consumer architectures.</p>
+          <p><strong>Message size limits:</strong> SQS max message size is 256 KB. For larger payloads (images, large JSON blobs), use the S3 pointer pattern: store payload in S3, send only the S3 key in the SQS message. Consumer fetches payload from S3. This also aids in TTL management — delete the S3 object when done.</p>
+          <p><strong>Cost model at scale:</strong> SQS Standard: $0.40/million requests. At 100M messages/day with 3 receive calls per message (long-polling pattern), that's ~$120/day ($3,600/month). Add DLQ, SNS fan-out, and data transfer costs. Self-managed RabbitMQ on EC2: ~$500/month for HA 3-node cluster + engineering overhead. For very high-throughput event streaming (1B+ events/day), Kafka on MSK becomes more cost-effective.</p>
+          <p><strong>Team ownership:</strong> Platform team owns queue provisioning (Terraform modules with sensible defaults: DLQ always on, retention 14 days, KMS encryption). Application teams request queues via PR to infrastructure repo. All queue metrics (depth, age of oldest message, DLQ depth) feed into central Grafana dashboard with PagerDuty alerts when DLQ depth &gt; 0 for &gt; 5 minutes.</p>
+        </div>
+
+        <h3 class="subsection-title">S3 Pointer Pattern (Large Payloads)</h3>
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python">import boto3
+import json
+import uuid
+
+s3 = boto3.client('s3')
+sqs = boto3.client('sqs', region_name='us-east-1')
+
+S3_BUCKET = 'ticketflow-queue-payloads'
+QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/123456789/large-jobs'
+
+# --- PRODUCER: store large payload in S3, send pointer ---
+def send_large_message(payload: dict):
+    """Send payloads >256KB via S3 pointer pattern."""
+    payload_bytes = json.dumps(payload).encode('utf-8')
+
+    if len(payload_bytes) > 250_000:  # Leave headroom under 256KB limit
+        # Upload payload to S3 with TTL-friendly prefix
+        key = f"queue-payloads/{uuid.uuid4()}.json"
+        s3.put_object(Bucket=S3_BUCKET, Key=key, Body=payload_bytes,
+                      ServerSideEncryption='aws:kms')
+        # Send only the pointer
+        message = {"s3_pointer": {"bucket": S3_BUCKET, "key": key}}
+    else:
+        message = {"inline": payload}
+
+    sqs.send_message(QueueUrl=QUEUE_URL, MessageBody=json.dumps(message))
+
+
+# --- CONSUMER: resolve pointer before processing ---
+def resolve_message(body: dict) -> dict:
+    """Fetch actual payload whether inline or S3-backed."""
+    if "s3_pointer" in body:
+        ref = body["s3_pointer"]
+        response = s3.get_object(Bucket=ref["bucket"], Key=ref["key"])
+        payload = json.loads(response["Body"].read())
+        # Clean up after processing (call after successful handle)
+        s3.delete_object(Bucket=ref["bucket"], Key=ref["key"])
+        return payload
+    return body["inline"]
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Production Alerting Checklist</h3>
+        <ul class="checklist">
+          <li>DLQ depth &gt; 0 for more than 5 minutes → PagerDuty alert (P2)</li>
+          <li>Main queue depth &gt; 10,000 messages → auto-scale consumers + alert</li>
+          <li>ApproximateAgeOfOldestMessage &gt; SLA threshold → consumer is stuck</li>
+          <li>Consumer error rate &gt; 1% over 5 minutes → alert before DLQ fills</li>
+          <li>All messages encrypted with customer-managed KMS key</li>
+          <li>DLQ configured for every production queue (no orphan queues)</li>
+          <li>Message retention period set explicitly (not default 4 days)</li>
+          <li>Queue access policies scoped to specific IAM roles (not wildcard)</li>
+          <li>All queue changes deployed via Terraform (no console changes)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Stripe — Payment Processing at $1 Trillion+ Annually</span>
+      <p><strong>Context:</strong> Stripe processes payments for millions of businesses globally. Every payment charge must be durable, retryable, and auditable. A single lost payment or duplicated charge at Stripe's scale is both a financial and reputational disaster. Their payment processing pipeline handles hundreds of thousands of charge attempts per second with strict ordering and idempotency requirements.</p>
+      <p><strong>How message queues are used:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>When a merchant initiates a charge, the request is validated synchronously (card exists, merchant is active) and a charge job is placed on a durable queue. The API returns immediately with a <code>charge.pending</code> status — the merchant's HTTP request doesn't block on bank communication.</li>
+        <li>Payment workers consume charge jobs from the queue, communicate with card networks (Visa, Mastercard), and update the charge status asynchronously. Retries on gateway timeout are handled by the queue visibility timeout — no custom retry loop needed in application code.</li>
+        <li>Failed charges (e.g., card declined by the bank) move to a state machine, not a DLQ — Stripe distinguishes between retriable infrastructure failures and terminal business failures (declined cards don't retry). Messages representing infrastructure failures go to DLQ for investigation.</li>
+        <li>Idempotency keys are mandatory on every charge API call. Duplicate requests with the same idempotency key return the original response without reprocessing. This is the exactly-once guarantee Stripe provides to merchants — implemented at the application layer, not the queue layer.</li>
+        <li>Webhook delivery (notifying merchants of payment events) is itself a queue-backed async system. Webhook delivery workers retry with exponential backoff for up to 72 hours. Merchants see events eventually even through brief outages.</li>
+      </ol>
+      <p><strong>Key numbers:</strong> Stripe's webhook delivery system alone processes tens of billions of events per year. The queue architecture enables each subsystem (card network communication, fraud scoring, risk evaluation, webhook delivery) to scale independently without any of them blocking the critical path of accepting a charge.</p>
+      <p><strong>Lesson for architects:</strong> Stripe's model separates the synchronous validation layer (fast, in-process, returns to caller immediately) from the async processing layer (queued, durable, retryable). This pattern — validate fast, process async — is universally applicable. Any operation that doesn't need to block the caller's response is a candidate for a queue.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Dead Letter Queue</span>
+      <p>The most common and most costly mistake: running a production queue without a DLQ configured. When a consumer encounters a message it can't process (malformed JSON, unexpected null field, downstream service permanently down), the message retries until it hits the max-receive-count — and then vanishes. No record, no alerting, no way to replay once you fix the bug.</p>
+      <p>Every production queue must have a DLQ. Every DLQ must have a CloudWatch alarm on <code>ApproximateNumberOfMessagesVisible &gt; 0</code>. DLQ depth increasing means you have a bug. No DLQ means bugs are invisible.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Unbounded Queue Growth (Consumer Too Slow)</span>
+      <p>A queue is a buffer, not a solution to a throughput mismatch. If your producer sends 5,000 messages/second and your consumer handles 500 messages/second, the queue grows by 4,500 messages every second. At this rate, you accumulate millions of unprocessed messages. Consumer memory usage climbs. Message age grows. Processing latency for the "last" message added could be hours behind real-time.</p>
+      <p>Monitor <code>ApproximateAgeOfOldestMessage</code>. If this metric grows continuously, your consumers can't keep up. Add more consumer instances. Use autoscaling based on queue depth. Identify whether the bottleneck is in the consumer's processing logic or its downstream dependencies.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Designing for Idempotency</span>
+      <p>At-least-once delivery is the default for every major queue. This means your consumer will receive the same message more than once — especially during deployments, consumer restarts, or network hiccups. If your consumer is not idempotent, duplicate processing causes real damage: customers charged twice, inventory decremented twice, duplicate emails sent.</p>
+      <p>The fix is always the same: use an idempotency key (the message's unique ID) to check whether a message has already been processed before acting on it. Store processed IDs in a fast store (Redis with TTL, DynamoDB conditional write). This check adds ~5ms and prevents entire categories of production incidents.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A message queue decouples producers from consumers by letting producers drop messages asynchronously, enabling independent scaling, absorbing traffic spikes, and making systems resilient to consumer downtime.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "A message queue sits between two services and lets the producer drop a message without waiting for the consumer to process it. It solves three problems: decoupling — producers don't need to know if consumers are running; buffering — during traffic spikes, messages accumulate in the queue rather than overwhelming the consumer; and resilience — if the consumer crashes, messages wait safely and are processed when it recovers. For example, when Stripe accepts a payment, the charge job is dropped into a queue immediately. The API returns to the merchant instantly, and payment workers consume and process the charge asynchronously. The key design decisions are which delivery guarantee to use — almost always at-least-once in practice — making consumers idempotent so duplicate delivery is safe, and always configuring a Dead Letter Queue so failed messages are captured, not silently lost."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between at-least-once and exactly-once delivery?</li>
+        <li>What is a Dead Letter Queue and when would you use one?</li>
+        <li>How would you handle a consumer that processes the same message twice?</li>
+        <li>What's the difference between a message queue and a pub/sub system?</li>
+        <li>When would you choose Kafka over SQS?</li>
+        <li>How would you scale consumers dynamically based on queue depth?</li>
+        <li>What happens to messages if the consumer crashes mid-processing?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "message queues guarantee exactly-once delivery" — most don't, and even those that claim to require application-level idempotency for true end-to-end guarantees.</li>
+        <li>Forgetting to mention the DLQ — interviewers specifically listen for whether you think about failure handling, not just happy path.</li>
+        <li>Confusing queues with pub/sub — in a queue, each message is consumed once by one consumer; in pub/sub, each message is delivered to all subscribers. Mixing these up signals shallow understanding.</li>
+        <li>Not knowing when NOT to use a queue — synchronous request-reply patterns, low-latency user-facing responses, simple two-service communication with equal SLAs are all cases where direct calls are better.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Latency</strong></td>
+          <td>Producer returns in &lt;10ms regardless of consumer speed</td>
+          <td>Consumer sees added processing delay (ms to minutes behind real-time)</td>
+        </tr>
+        <tr>
+          <td><strong>Resilience</strong></td>
+          <td>Consumer downtime doesn't drop data — messages wait in queue</td>
+          <td>Queue itself can become a SPOF without HA configuration</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Producer and consumer scale independently; queue absorbs spike delta</td>
+          <td>Queue depth can grow unbounded if consumer throughput &lt; producer rate</td>
+        </tr>
+        <tr>
+          <td><strong>Decoupling</strong></td>
+          <td>Producer has no runtime dependency on consumer availability</td>
+          <td>Async debugging is harder; requires correlation IDs and distributed tracing</td>
+        </tr>
+        <tr>
+          <td><strong>Delivery</strong></td>
+          <td>At-least-once guarantees no data loss under failure</td>
+          <td>Duplicates are possible — consumer must be idempotent</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>Cleanly separates concerns — producers and consumers evolve independently</td>
+          <td>Adds infra component to provision, monitor, and operate; DLQ strategy required</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="pub-sub.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Pub/Sub</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Broadcast one event to many subscribers simultaneously.</span>
+      </a>
+      <a href="kafka-streaming.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Kafka Streaming</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Distributed log for high-throughput event streaming at massive scale.</span>
+      </a>
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Design systems where services react to events rather than direct calls.</span>
+      </a>
+      <a href="retry-idempotency.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Retry &amp; Idempotency</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Safe retry strategies and designing operations that can run multiple times safely.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

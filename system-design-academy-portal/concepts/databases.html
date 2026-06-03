@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Databases — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="databases" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Databases</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Data <span>→</span> Databases</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Data</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Databases</h1>
+      <p class="page-subtitle">The persistent backbone of every application — choosing the right database is one of the most consequential architectural decisions you will ever make.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="tag">Data</span>
+        <span class="tag">Storage</span>
+        <span class="tag">ACID</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>A database is like a filing cabinet in a highly organized office. A relational database (SQL) is a cabinet with perfectly labelled folders, rigid dividers, and cross-referenced indexes — finding anything is blazing fast, and the cabinet refuses to accept misfiled paperwork. A NoSQL database is more like a big open shelf where boxes can hold any shape of contents — flexible to add new kinds of documents, but you need to know roughly where you put things.</p>
+    </div>
+
+    <p>Every application eventually needs to remember something between requests. Databases are the systems that store, retrieve, and manage that data reliably. The choice is not simply "SQL or NoSQL" — it is matching the database engine's data model, consistency guarantees, and scaling characteristics to the specific read/write patterns and reliability requirements of your service.</p>
+
+    <p>Understanding databases at the design level — ACID properties, indexing, connection pooling, read replicas — separates engineers who can build greenfield apps from engineers who can build systems that survive at scale.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        Instagram launched in October 2010 on a single PostgreSQL instance running on Amazon EC2. The app was a photo-sharing product; the team was three people. They chose PostgreSQL because it was rock-solid, well-understood, and could handle the initial workload without operational complexity.
+      </div>
+      <div class="story-problem">
+        Within 18 months Instagram had 27 million users. Their single PostgreSQL database was struggling — write throughput was hitting the ceiling, read queries for popular users' feeds were taking seconds, and every new follow/like/comment relationship required multiple table joins across hundreds of millions of rows. A single VACUUM run could lock the entire table for minutes. The engineering team had zero headroom for growth.
+      </div>
+      <div class="story-solution">
+        The team introduced read replicas to offload all read traffic from the primary write node. They added Redis as a caching layer in front of PostgreSQL for hot data (user profile lookups, follower counts). They sharded the user table horizontally across multiple PostgreSQL instances — each shard owned a range of user IDs. Critical counters (likes, follower counts) moved to Redis entirely, providing sub-millisecond reads with periodic flushing back to PostgreSQL for durability.
+      </div>
+      <div class="story-outcome">
+        Instagram scaled to over 1 billion monthly active users on an architecture still anchored by PostgreSQL — but with read replicas, connection pooling via PgBouncer, strategic Redis caching, and horizontal sharding. The lesson: start with a proven relational database, add specialized stores (Redis, Cassandra) only where the data model genuinely demands it, and scale with read replicas before reaching for a full rewrite.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Think of a database as a very smart spreadsheet that lives on a server. A <strong>relational database</strong> (like PostgreSQL or MySQL) is a collection of linked spreadsheets called "tables." Each row is one record. Each column is one field. The "relational" part means rows in different tables can link to each other — an order row links to a customer row, which links to an address row.</p>
+          <p>A <strong>NoSQL database</strong> (like MongoDB or Redis) stores data differently. MongoDB stores documents — like JSON objects — so one document can hold all the information about a customer including their orders and address, nested inside one record. Redis stores simple key-value pairs in memory and is extraordinarily fast because it never touches a disk during normal reads.</p>
+          <p>The fundamental question when choosing a database: <em>does your data have a fixed, well-known structure that benefits from relationships (use SQL), or is it flexible, document-shaped, or needs sub-millisecond speed (consider NoSQL)?</em></p>
+        </div>
+
+        <h3 class="subsection-title">The Four Database Types You'll Actually Use</h3>
+        <ul>
+          <li><strong>PostgreSQL</strong> — Relational, ACID-compliant, complex queries, joins, transactions. The right default for most applications.</li>
+          <li><strong>MongoDB</strong> — Document store. JSON-like documents. Flexible schema. Good for content, catalogues, user profiles with variable attributes.</li>
+          <li><strong>Redis</strong> — In-memory key-value store. Under 1ms reads. Used for caching, sessions, rate limiting, real-time counters.</li>
+          <li><strong>Cassandra</strong> — Wide-column store. Designed for write-heavy workloads at massive scale. Multi-region by default. Good for time-series, logs, IoT data.</li>
+        </ul>
+
+        <h3 class="subsection-title">Database Access Pattern Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    App[Application Server]
+    App -->|Writes| Primary[(PostgreSQL Primary)]
+    App -->|Cached Reads| Redis[(Redis Cache)]
+    App -->|Cache Miss Reads| Replica1[(Read Replica 1)]
+    App -->|Cache Miss Reads| Replica2[(Read Replica 2)]
+    Primary -->|Replication| Replica1
+    Primary -->|Replication| Replica2
+    Redis -.->|Cache miss → DB| Replica1
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Schema</strong> — The structure definition of a table: column names, data types, constraints.</li>
+          <li><strong>Index</strong> — A data structure (like a book index) that speeds up lookups on a specific column. Without one, every query scans every row.</li>
+          <li><strong>Primary key</strong> — A unique identifier for each row (e.g., <code>user_id</code>). Always indexed automatically.</li>
+          <li><strong>Foreign key</strong> — A column that references the primary key of another table, creating the "relationship."</li>
+          <li><strong>Transaction</strong> — A group of operations that either all succeed or all fail together (e.g., deducting money from one account and adding it to another).</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level, you need to understand how databases guarantee correctness (ACID), how indexes actually work (B-trees), and the patterns used to scale a single database before reaching for distributed systems.</p>
+
+        <h3 class="subsection-title">ACID Properties — What They Actually Mean</h3>
+        <p>ACID is the set of four guarantees that make relational databases trustworthy for financial and business-critical operations.</p>
+        <ul>
+          <li><strong>Atomicity</strong> — A transaction is all-or-nothing. If you transfer $100 from account A to account B and the server crashes after the debit but before the credit, the transaction rolls back entirely. No partial writes.</li>
+          <li><strong>Consistency</strong> — A transaction can only bring the database from one valid state to another. A row cannot violate a NOT NULL constraint, a foreign key cannot point to a non-existent record, and a balance cannot go below zero if a CHECK constraint prevents it.</li>
+          <li><strong>Isolation</strong> — Concurrent transactions cannot see each other's in-progress changes. If two users both try to book the last ticket simultaneously, isolation ensures only one succeeds. PostgreSQL supports multiple isolation levels: <code>READ COMMITTED</code> (default), <code>REPEATABLE READ</code>, and <code>SERIALIZABLE</code> (strictest).</li>
+          <li><strong>Durability</strong> — Once a transaction commits, it stays committed even if the server crashes immediately after. PostgreSQL achieves this via Write-Ahead Logging (WAL): every change is written to a log on disk before being applied to the data file.</li>
+        </ul>
+
+        <h3 class="subsection-title">How Indexes Work (B-Tree)</h3>
+        <p>A B-tree index is a balanced tree where each node holds sorted keys and pointers. Looking up <code>WHERE user_id = 12345</code> traverses the tree in O(log n) time instead of scanning all rows O(n). For a table with 10 million rows, that's the difference between checking ~24 nodes vs. 10,000,000 rows.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+<pre><code class="language-sql">-- Without index: full table scan (slow on millions of rows)
+SELECT * FROM tickets WHERE user_id = 42;
+
+-- Create a B-tree index on the queried column
+CREATE INDEX idx_tickets_user_id ON tickets (user_id);
+
+-- Now the same query uses the index (fast)
+SELECT * FROM tickets WHERE user_id = 42;
+
+-- Check which index is being used with EXPLAIN ANALYZE
+EXPLAIN ANALYZE SELECT * FROM tickets WHERE user_id = 42;
+-- Output will show: Index Scan using idx_tickets_user_id
+-- vs. Seq Scan (full table scan) without the index</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Connection Pooling with PgBouncer</h3>
+        <p>Each PostgreSQL connection consumes ~5–10 MB of memory and takes 20–40ms to establish. A web app with 500 concurrent requests cannot open 500 direct database connections — the database will run out of memory and reject connections. PgBouncer sits between your app and PostgreSQL, maintaining a small pool of real database connections (e.g., 50) and multiplexing thousands of application requests through them.</p>
+
+        <div class="code-wrapper" data-lang="pgbouncer.ini">
+<pre><code class="language-ini">[databases]
+# Map application database name to real PostgreSQL host
+ticketflow = host=postgres-primary.internal port=5432 dbname=ticketflow
+
+[pgbouncer]
+listen_addr = 0.0.0.0
+listen_port = 5432
+auth_type = md5
+auth_file = /etc/pgbouncer/userlist.txt
+
+# Pool mode: transaction (release connection after each transaction)
+# vs session (hold connection for full client session)
+pool_mode = transaction
+
+# Max connections to the actual PostgreSQL server
+server_pool_size = 50
+
+# Max client connections to PgBouncer (what the app connects to)
+max_client_conn = 1000
+
+# Timeout for idle server connections
+server_idle_timeout = 600</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Read Replicas</h3>
+        <p>PostgreSQL streaming replication sends WAL records from the primary to one or more read replicas in real time. Replicas are read-only copies of the primary. Application code must direct writes to the primary and reads to replicas. This is the first scaling step for read-heavy applications — Instagram's architecture ran 1 primary + multiple read replicas before needing sharding.</p>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python">import psycopg2
+
+# Primary: all writes go here
+primary_conn = psycopg2.connect(
+    host="postgres-primary.internal",
+    port=5432,
+    dbname="ticketflow",
+    user="app_user",
+    password="secret"
+)
+
+# Read replica: all reads go here
+replica_conn = psycopg2.connect(
+    host="postgres-replica.internal",
+    port=5432,
+    dbname="ticketflow",
+    user="app_user",
+    password="secret"
+)
+
+def create_ticket(event_id, user_id, seat):
+    """Writes always go to primary."""
+    with primary_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO tickets (event_id, user_id, seat) VALUES (%s, %s, %s) RETURNING id",
+            (event_id, user_id, seat)
+        )
+        primary_conn.commit()
+        return cur.fetchone()[0]
+
+def get_user_tickets(user_id):
+    """Reads go to replica — primary is not touched."""
+    with replica_conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, event_id, seat FROM tickets WHERE user_id = %s",
+            (user_id,)
+        )
+        return cur.fetchall()</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Replication Lag Warning</span>
+          <p>Read replicas introduce replication lag — typically 10–100ms on a healthy system, but can spike to seconds under high write load or network issues. If a user just created a ticket and immediately queries for their tickets via a read replica, they may not see it yet. Design around this: either read from primary for "read-your-own-writes" scenarios, or accept eventual consistency for non-critical reads.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, you're making database selection and scaling decisions for systems handling millions of operations per day. The right database choice depends on the specific access patterns, not just the data model.</p>
+
+        <h3 class="subsection-title">Database Selection Decision Framework</h3>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Strengths</th>
+              <th>Weaknesses</th>
+              <th>Use When</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>PostgreSQL</strong></td>
+              <td class="good">Full ACID, complex joins, mature ecosystem, JSONB for semi-structured data, PostGIS for geo</td>
+              <td class="bad">Horizontal write scaling requires manual sharding; VACUUM overhead at scale; connection overhead without pooler</td>
+              <td>Financial transactions, e-commerce orders, user accounts, anything requiring complex queries or ACID guarantees</td>
+            </tr>
+            <tr>
+              <td><strong>MongoDB</strong></td>
+              <td class="good">Flexible schema (no migrations for new fields), native document model, horizontal sharding built-in, Atlas free tier</td>
+              <td class="bad">No true multi-document ACID before v4.0; joins (lookups) are expensive; schema flexibility becomes a liability without discipline</td>
+              <td>Content management, product catalogues with variable attributes, event logging, prototyping</td>
+            </tr>
+            <tr>
+              <td><strong>Redis</strong></td>
+              <td class="good">Sub-millisecond reads/writes, built-in data structures (sorted sets, pub/sub, streams), TTL support, Lua scripting</td>
+              <td class="bad">Data limited by RAM; persistence is best-effort (AOF/RDB); not a primary database; cluster complexity</td>
+              <td>Session storage, caching, rate limiting, leaderboards, real-time pub/sub, distributed locks</td>
+            </tr>
+            <tr>
+              <td><strong>Cassandra</strong></td>
+              <td class="good">Linear write scaling, multi-region by default, no SPOF, excellent for time-series and wide rows, tunable consistency</td>
+              <td class="bad">No ad-hoc queries (must design tables around queries), no joins, eventual consistency by default, complex data modelling</td>
+              <td>IoT data, time-series metrics, activity feeds, messaging at massive scale, multi-region write requirements</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Query Planning — Using EXPLAIN ANALYZE</h3>
+        <p>The query planner decides how to execute your SQL. EXPLAIN ANALYZE shows you what it chose and how long it actually took. Reading this output is a core skill for database performance work.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+<pre><code class="language-sql">-- Run EXPLAIN ANALYZE to see the actual execution plan
+EXPLAIN ANALYZE
+SELECT t.id, t.seat, e.name, u.email
+FROM tickets t
+JOIN events e ON t.event_id = e.id
+JOIN users u ON t.user_id = u.id
+WHERE t.event_id = 1234
+  AND t.status = 'confirmed';
+
+-- Typical output to look for:
+--
+-- Nested Loop  (cost=0.43..1850.23 rows=42 width=89) (actual time=0.045..12.3 ms rows=38 loops=1)
+--   -> Index Scan using idx_tickets_event_id on tickets t
+--        (actual time=0.021..3.1 ms rows=38 loops=1)
+--        Index Cond: (event_id = 1234)
+--        Filter: (status = 'confirmed')
+--        Rows Removed by Filter: 2
+--   -> Index Scan using users_pkey on users u
+--        (actual time=0.21..0.22 ms rows=1 loops=38)
+--
+-- Key numbers to watch:
+-- - "Seq Scan" instead of "Index Scan" → missing index
+-- - "Rows Removed by Filter" very high → index not selective
+-- - actual time >> estimated time → stale statistics (run ANALYZE)
+-- - loops=N on inner join side → N×M problem (classic N+1)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">The N+1 Query Problem</h3>
+        <p>The most common performance mistake in ORM-heavy codebases. Fetching a list of N records, then executing one additional query per record = N+1 round trips to the database.</p>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># BAD: N+1 queries
+# 1 query to get all events, then 1 query per event to get ticket count
+events = db.query("SELECT * FROM events WHERE date = '2025-01-15'")  # 1 query
+for event in events:
+    # This runs once per event! 100 events = 100 additional queries
+    count = db.query(
+        "SELECT COUNT(*) FROM tickets WHERE event_id = %s",
+        (event['id'],)
+    )
+    event['ticket_count'] = count
+
+# GOOD: 2 queries total (or 1 with JOIN)
+events = db.query("SELECT * FROM events WHERE date = '2025-01-15'")
+event_ids = [e['id'] for e in events]
+
+# Fetch all counts in a single query
+counts = db.query("""
+    SELECT event_id, COUNT(*) as ticket_count
+    FROM tickets
+    WHERE event_id = ANY(%s)
+    GROUP BY event_id
+""", (event_ids,))
+
+counts_map = {row['event_id']: row['ticket_count'] for row in counts}
+for event in events:
+    event['ticket_count'] = counts_map.get(event['id'], 0)
+
+# BEST: Single JOIN query
+events = db.query("""
+    SELECT e.*, COUNT(t.id) as ticket_count
+    FROM events e
+    LEFT JOIN tickets t ON t.event_id = e.id
+    WHERE e.date = '2025-01-15'
+    GROUP BY e.id
+""")</code></pre>
+        </div>
+
+        <h3 class="subsection-title">When NOT to Use Each Database</h3>
+        <ul>
+          <li><strong>Don't use PostgreSQL</strong> when your write volume exceeds what a single node can sustain (roughly 50K+ writes/sec for complex transactions) and you're not willing to implement manual sharding.</li>
+          <li><strong>Don't use MongoDB</strong> as your primary store if your data has natural relationships requiring joins — you'll end up manually joining in application code, which is worse than SQL joins.</li>
+          <li><strong>Don't use Redis</strong> as your system of record. Redis persistence (AOF/RDB) can lose up to 1 second of data. It is a cache and secondary store, not a durable primary database.</li>
+          <li><strong>Don't use Cassandra</strong> for read-heavy OLTP workloads or when you need flexible ad-hoc queries — its data model is optimized for known access patterns at write scale.</li>
+        </ul>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, the database layer is where architecture complexity concentrates. Multi-region consistency, compliance, cost modelling, and operational overhead all intersect here.</p>
+
+        <h3 class="subsection-title">Multi-Region Database Strategies</h3>
+        <p>Multi-region databases present a fundamental tension defined by the CAP theorem: you can have Consistency or Availability across a network partition, not both simultaneously.</p>
+        <ul>
+          <li><strong>Active-Passive (one primary region, replicas elsewhere)</strong> — Strong consistency for writes (all writes go to primary). Read latency for other regions. Failover takes 30–120 seconds. Used by most systems that cannot tolerate stale reads for business-critical data.</li>
+          <li><strong>Active-Active (multi-master)</strong> — Writes accepted in any region. Conflict resolution required (last-write-wins, CRDTs, application-level merging). Used by systems that prioritize availability — social feeds, IoT data ingestion. CockroachDB and Google Spanner implement this with consensus protocols (Raft/Paxos).</li>
+          <li><strong>Regional isolation with event sync</strong> — Each region owns its data, changes propagate via event streams (Kafka). Eventual consistency. Used for GDPR compliance where EU data must not leave EU, with eventual sync to a global analytics store.</li>
+        </ul>
+
+        <h3 class="subsection-title">Compliance Considerations</h3>
+        <ul>
+          <li><strong>GDPR (EU)</strong> — Personal data of EU users must be stored in the EU or in countries with adequacy decisions. Database encryption at rest (AES-256) and in transit (TLS 1.2+). Right-to-erasure requires soft-delete + permanent purge pipeline. Data retention policies must be enforced at the database layer, not just application logic.</li>
+          <li><strong>PCI DSS</strong> — Cardholder data (PANs) must never be stored in plaintext. Database-level encryption + tokenization. All access to card tables must be logged. Database audit logs retained for 1 year minimum.</li>
+          <li><strong>HIPAA</strong> — PHI must be encrypted at rest and in transit. Access controls at row/column level (PostgreSQL row security policies). Audit trail of all accesses to PHI rows. Database backups must be encrypted.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="sql">
+<pre><code class="language-sql">-- PostgreSQL Row-Level Security for HIPAA compliance
+-- Patients can only see their own records; doctors see their patients
+
+-- Enable RLS on the table
+ALTER TABLE patient_records ENABLE ROW LEVEL SECURITY;
+
+-- Policy: patients see only their own records
+CREATE POLICY patient_self_access ON patient_records
+  FOR SELECT
+  USING (patient_id = current_setting('app.current_user_id')::INTEGER);
+
+-- Policy: doctors see records for their assigned patients
+CREATE POLICY doctor_patient_access ON patient_records
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM doctor_patient_assignments dpa
+      WHERE dpa.doctor_id = current_setting('app.current_user_id')::INTEGER
+        AND dpa.patient_id = patient_records.patient_id
+    )
+  );
+
+-- Audit log trigger: record every access to sensitive data
+CREATE OR REPLACE FUNCTION log_phi_access()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO phi_audit_log (table_name, record_id, accessed_by, accessed_at, operation)
+  VALUES (TG_TABLE_NAME, NEW.id, current_setting('app.current_user_id'), NOW(), TG_OP);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER phi_access_audit
+  AFTER SELECT OR INSERT OR UPDATE OR DELETE ON patient_records
+  FOR EACH ROW EXECUTE FUNCTION log_phi_access();</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Cost Model — Build vs Buy</h3>
+
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Self-Managed (EC2 + PostgreSQL)</th>
+              <th>Managed Cloud (AWS RDS / Aurora)</th>
+              <th>Serverless (PlanetScale / Neon)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Compute Cost</strong></td>
+              <td>~$0.10/hr for db.r6g.large equivalent</td>
+              <td>~$0.24/hr for db.r6g.large RDS</td>
+              <td>Consumption-based; ~$0/mo at idle</td>
+            </tr>
+            <tr>
+              <td><strong>Ops Overhead</strong></td>
+              <td>Full: patching, HA setup, backup scripts, monitoring</td>
+              <td>Low: automated backups, failover, minor version patches</td>
+              <td>Zero: fully managed including scaling</td>
+            </tr>
+            <tr>
+              <td><strong>HA / Failover</strong></td>
+              <td>Manual Patroni/repmgr setup; ~30s failover</td>
+              <td>Multi-AZ; ~30–60s failover; Aurora ~15s</td>
+              <td>Built-in; handled by provider</td>
+            </tr>
+            <tr>
+              <td><strong>Best For</strong></td>
+              <td>Teams with strong DBA expertise, cost-sensitive at high scale</td>
+              <td>Most production workloads; standard choice</td>
+              <td>Variable traffic, dev/staging, startups with low baseline load</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Connection pooler (PgBouncer or RDS Proxy) in front of all PostgreSQL instances</li>
+          <li>Indexes created for all columns that appear in WHERE, JOIN ON, or ORDER BY clauses on large tables</li>
+          <li>EXPLAIN ANALYZE run on all queries added during development</li>
+          <li>Automated backups enabled with point-in-time recovery; restore tested monthly</li>
+          <li>Read replicas for all read-heavy services; primary reserved for writes only</li>
+          <li>Replication lag alert configured (&gt;5 seconds triggers alert)</li>
+          <li>Slow query log enabled (log queries &gt;100ms); reviewed weekly</li>
+          <li>autovacuum monitored; table bloat alert configured</li>
+          <li>Database credentials rotated via secrets manager (not hardcoded in app config)</li>
+          <li>Column-level encryption for PII fields (name, email, phone) using pgcrypto or application-layer encryption</li>
+          <li>Database access audit log shipped to SIEM for compliance</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Instagram — 1 Billion Users on PostgreSQL + Redis + Cassandra</span>
+      <p><strong>Context:</strong> Instagram serves over 1 billion monthly active users. Every day, 100 million photos are uploaded, 4.2 billion likes are registered, and 500 million Stories are viewed. The data layer must sustain millions of writes per second, serve personalized feeds under 100ms, and maintain 99.99% availability globally.</p>
+      <p><strong>Architecture:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><strong>PostgreSQL (primary + read replicas, sharded)</strong> — The system of record for users, follows, media metadata. User table sharded by user_id across dozens of PostgreSQL clusters. Each shard has one primary (writes) and two replicas (reads). PgBouncer pools connections in front of every node.</li>
+        <li><strong>Redis Cluster</strong> — Follower/following counts, like counts, session tokens, feed assembly cache. Counts stored as Redis integers with atomic INCR — no locking, no write amplification. A like increments a Redis counter and enqueues a background job to flush to PostgreSQL. Result: sub-millisecond like registration under any load.</li>
+        <li><strong>Cassandra</strong> — Direct messaging storage. Wide-column model: partition key is the conversation_id, clustering key is message_timestamp. A query for "last 50 messages in conversation X" reads from a single Cassandra partition — one disk seek, deterministic latency. 13 billion rows in messaging at last public disclosure.</li>
+        <li><strong>Feed Fanout</strong> — When a user with 1 million followers posts a photo, Instagram writes a notification to Cassandra (timeline table) for each follower asynchronously via a distributed task queue. The feed is pre-computed and stored. Reading your feed is a fast Cassandra range query, not a real-time computation.</li>
+      </ol>
+      <p><strong>Business Impact:</strong> PostgreSQL's ACID guarantees ensure that follow/unfollow operations are consistent — you cannot simultaneously follow and not-follow someone. Redis ensures that likes, views, and follower counts respond under 1ms even during viral events. Cassandra ensures messaging remains available and consistent even when individual data centers have issues. The combination handles 10× traffic spikes (Super Bowl, product launches) without architectural changes.</p>
+      <p><strong>Lessons for architects:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Match the database to the access pattern</strong> — messaging (append-only, range reads) is a natural Cassandra workload. User relationships (complex joins, ACID) are a natural PostgreSQL workload. Using one database for both would have required either schema gymnastics or consistency trade-offs.</li>
+        <li><strong>Counters are not trivial at scale</strong> — a like counter that requires a SQL UPDATE + SELECT on 1 billion rows creates lock contention. Moving counters to Redis atomic increments with async persistence eliminated this bottleneck entirely.</li>
+        <li><strong>Caching is not optional at scale — it is the architecture</strong> — 95%+ of Instagram's reads are served from Redis. PostgreSQL handles less than 5% of reads at steady state. Your database schema and caching strategy are designed together, not independently.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Indexes on Queried Columns</span>
+      <p>The single most common cause of database performance problems in production. Adding a column to a WHERE clause without creating an index means every query does a full sequential scan — reading every row in the table. A table with 10 million rows and no index on <code>user_id</code> will scan all 10 million rows every time you look up a user's records.</p>
+      <p><strong>Symptom:</strong> Queries are fast in development (thousands of rows) and slow in production (millions of rows). EXPLAIN ANALYZE shows "Seq Scan" instead of "Index Scan."</p>
+      <p><strong>Fix:</strong> Run <code>EXPLAIN ANALYZE</code> on every query during development. Create indexes for every column that appears in WHERE, JOIN ON, ORDER BY, or GROUP BY clauses on large tables. Use <code>pg_stat_user_indexes</code> to find unused indexes (they consume write overhead for no benefit).</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">N+1 Queries — Fetching Rows in a Loop</span>
+      <p>Loading a list of parent records and then issuing one database query per record to fetch related data. 100 orders → 100 + 1 = 101 database round-trips. At 10ms per round-trip, that's 1 full second of database time for what could be a single 20ms query. This pattern is invisible in unit tests and devastating in production.</p>
+      <p><strong>Symptom:</strong> Page load times proportional to the number of records displayed. Database shows thousands of nearly identical queries per second. New Relic or Datadog shows high query count with low individual query time.</p>
+      <p><strong>Fix:</strong> Use JOIN or batch SELECT ... WHERE id IN (...) to fetch all related records in one round-trip. In ORMs, use eager loading (<code>include</code> in ActiveRecord, <code>select_related</code> in Django, <code>joinedload</code> in SQLAlchemy). Enable query logging in development and fail CI if a test issues more than N queries.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Single Database as Single Point of Failure</span>
+      <p>Running your entire application against a single database instance with no replication, no backups, or no failover is a single point of failure that will eventually result in data loss or extended downtime. A disk failure, OS crash, or runaway query can take down the entire application with no recovery path.</p>
+      <p><strong>Symptom:</strong> Any database-level incident (hardware failure, runaway migration, resource exhaustion) causes complete application downtime. Recovery from backup takes hours, not seconds.</p>
+      <p><strong>Fix:</strong> Always run at least one read replica, even in early production — it doubles as a warm standby for failover. Enable automated backups with point-in-time recovery. Test restore from backup monthly (untested backups are not backups). Use managed database services (AWS RDS Multi-AZ, Google Cloud SQL with failover replica) that automate failover.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A database persistently stores and retrieves structured data. SQL databases (PostgreSQL, MySQL) provide ACID guarantees and relational joins, best for transactional workloads. NoSQL databases (Redis, Cassandra, MongoDB) trade some of those guarantees for specific performance or scaling characteristics suited to specific access patterns.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "When choosing a database I start with the access patterns. For transactional systems with complex relationships — user accounts, orders, financial data — I default to PostgreSQL because ACID guarantees prevent data corruption and complex joins are handled natively. As read traffic grows I add read replicas and put PgBouncer in front for connection pooling. For sub-millisecond caching and session storage I add Redis — it's not a primary database, it's a fast layer in front of the primary. If I have write-heavy time-series data or need multi-region writes with no single master, Cassandra becomes the right tool. The key is that a production system often uses multiple databases — each for the workload it's best at, not one database for everything."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What does ACID stand for and why does it matter?</li>
+        <li>How does a B-tree index speed up a query?</li>
+        <li>What is the difference between a primary key and a foreign key?</li>
+        <li>When would you choose MongoDB over PostgreSQL?</li>
+        <li>What is connection pooling and why do you need it?</li>
+        <li>How do read replicas work and what are their limitations?</li>
+        <li>What is the N+1 query problem and how do you fix it?</li>
+        <li>How would you scale a database that's hitting write throughput limits?</li>
+        <li>What is replication lag and when does it matter?</li>
+        <li>How does Redis differ from a traditional database?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "I'd use MongoDB because SQL is too rigid" — without explaining what specific access patterns justify schema flexibility over ACID guarantees.</li>
+        <li>Treating Redis as a primary database — Redis persistence can lose data. Always clarify it's a cache/secondary store backed by a durable primary.</li>
+        <li>Not mentioning indexes when asked about slow database queries — the answer to "how do you fix a slow query" almost always starts with "check if the relevant columns are indexed."</li>
+        <li>Forgetting that read replicas have replication lag — this matters for read-your-own-writes consistency and real-time applications.</li>
+        <li>Conflating sharding with replication — sharding splits data horizontally for write scale; replication copies data for read scale and fault tolerance. They solve different problems.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>SQL (PostgreSQL)</th>
+          <th>Document (MongoDB)</th>
+          <th>In-Memory (Redis)</th>
+          <th>Wide-Column (Cassandra)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Strong (ACID)</td>
+          <td>Strong (single-doc ACID); eventual for multi-doc</td>
+          <td>Best-effort (data can be lost on restart without persistence config)</td>
+          <td>Tunable (eventual by default; QUORUM for stronger)</td>
+        </tr>
+        <tr>
+          <td><strong>Query Flexibility</strong></td>
+          <td>Excellent — full SQL, joins, aggregations, CTEs</td>
+          <td>Good — MQL, aggregation pipeline; poor at joins</td>
+          <td>Limited — key-based lookups and data-structure operations only</td>
+          <td>Very limited — must design tables around known access patterns</td>
+        </tr>
+        <tr>
+          <td><strong>Write Throughput</strong></td>
+          <td>Good — ~10K–50K txn/sec per node</td>
+          <td>Good — ~50K–100K ops/sec per node</td>
+          <td>Excellent — 1M+ ops/sec per instance</td>
+          <td>Excellent — linear scale with nodes; designed for write-heavy</td>
+        </tr>
+        <tr>
+          <td><strong>Horizontal Scale</strong></td>
+          <td>Requires manual sharding (complex)</td>
+          <td>Built-in auto-sharding</td>
+          <td>Redis Cluster for sharding; operationally complex</td>
+          <td>Native, automatic — add nodes to increase capacity</td>
+        </tr>
+        <tr>
+          <td><strong>Schema</strong></td>
+          <td>Strict — migrations required for changes</td>
+          <td>Flexible — new fields added without migrations</td>
+          <td>Schemaless — key maps to any value type</td>
+          <td>Semi-rigid — column families defined; wide rows allowed</td>
+        </tr>
+        <tr>
+          <td><strong>Read Latency</strong></td>
+          <td>1–10ms (indexed), 100ms+ (unindexed)</td>
+          <td>1–5ms (indexed)</td>
+          <td>&lt;1ms — memory-speed</td>
+          <td>1–5ms per read (local); designed for high-throughput not low-latency reads</td>
+        </tr>
+        <tr>
+          <td><strong>Best Use Case</strong></td>
+          <td>Transactional systems, OLTP, financial, user accounts</td>
+          <td>Content, flexible-schema entities, rapid prototyping</td>
+          <td>Caching, sessions, rate limiting, pub/sub, real-time counters</td>
+          <td>IoT, time-series, messaging, write-heavy with known access patterns</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Speed up reads by storing results in fast in-memory stores like Redis.</span>
+      </a>
+      <a href="sql-vs-nosql.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">SQL vs NoSQL</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Deep dive into when each database paradigm fits your data model.</span>
+      </a>
+      <a href="sharding.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Sharding</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Horizontal partitioning to scale write throughput beyond a single node.</span>
+      </a>
+      <a href="replication.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Replication</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Copying data across nodes for fault tolerance and read scale.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Circuit Breaker — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="circuit-breaker" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Circuit Breaker</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Reliability <span>→</span> Circuit Breaker</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Reliability</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate–Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Circuit Breaker</h1>
+      <p class="page-subtitle">Stops cascading failures dead in their tracks by detecting a failing downstream service and fast-failing all calls to it — saving threads, preserving system resources, and giving the dependency time to recover.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Reliability</span>
+        <span class="tag">Resilience</span>
+        <span class="tag">Microservices</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of the electrical circuit breaker in your home's fuse box. When a short circuit occurs, the breaker trips — cutting power to that circuit instantly — rather than letting electricity flow uncontrolled, overheating wires, and burning down the house. Once the electrician fixes the fault, you reset the breaker and power is restored.</p>
+      <p>In software, the Circuit Breaker pattern does the same thing: when a downstream service starts failing, it "trips" — immediately rejecting calls to that service without making the actual network request — instead of letting your threads pile up waiting for timeouts, exhausting resources, and bringing down your whole system.</p>
+    </div>
+
+    <p>In a distributed system, services depend on each other. When <code>payment-service</code> becomes slow, every service that calls it piles up threads waiting. Those threads hold memory. When memory fills up, the calling service crashes too. Now two services are down instead of one. This is a <strong>cascading failure</strong>. The circuit breaker is the primary pattern to stop this chain reaction.</p>
+
+    <p>A circuit breaker wraps calls to a downstream service and monitors the failure rate. When failures exceed a threshold, it "opens" — subsequent calls immediately return an error or a cached fallback response without touching the network. After a configured wait period, it enters a "half-open" probe state, lets a few test calls through, and decides whether to fully close again or remain open.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story — TicketFlow Platform</span>
+      <div class="story-scenario">
+        TicketFlow is a live event ticketing platform. The architecture has three services: <code>user-service</code> (Node.js), <code>ticket-service</code> (Spring Boot), and <code>payment-service</code> (Python). Each purchase flows through all three. On a Friday evening, a major concert goes on sale. Traffic jumps 20x in 90 seconds.
+      </div>
+      <div class="story-problem">
+        The payment-service is backed by a third-party payment processor that starts rate-limiting TicketFlow at 10:01 PM. Payment API calls begin timing out after 30 seconds. The ticket-service is configured to call payment-service synchronously on each purchase attempt. Within 2 minutes, 4,000 threads in ticket-service are blocked waiting for payment responses. The JVM heap exhausts. ticket-service starts returning HTTP 503. user-service, which calls ticket-service for every page render, now has 8,000 of its own threads blocked on 503 responses. user-service OOMs. The entire platform is down — not because of a payment error, but because of runaway thread exhaustion. Revenue impact: $1.4M in lost sales in 47 minutes.
+      </div>
+      <div class="story-solution">
+        The team wraps the payment-service HTTP client in a Resilience4j circuit breaker. Configuration: <code>failureRateThreshold=50%</code>, <code>waitDurationInOpenState=60s</code>, <code>permittedNumberOfCallsInHalfOpenState=5</code>. They also add a fallback: when the circuit is open, the payment attempt is queued asynchronously and the user sees "Your purchase is processing — we'll confirm by email." The circuit opens at the first sign of payment failures, killing further calls immediately. ticket-service threads are freed. user-service stays healthy. Revenue continues flowing through async queue.
+      </div>
+      <div class="story-outcome">
+        On the next major sale, payment processor throttling hits again. Circuit opens within 8 seconds of degradation starting. ticket-service thread pool never exceeds 12% utilization. user-service stays green. 97% of purchases succeed immediately; 3% fall into the async queue and complete within 4 minutes. Zero downtime. The platform now processes the same Friday evening traffic without incident.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're trying to call a friend. You dial, it rings for 2 minutes, nothing. You try again. And again. You're stuck on the phone, unable to do anything else, for 20 minutes — all because your friend isn't picking up. A smarter approach: after 3 failed calls in a row, just stop trying for an hour. Send a text instead. Do other things. Try calling again later.</p>
+          <p>That's exactly what a circuit breaker does for services that talk to each other over a network. Instead of your service sitting there waiting forever when another service is broken, the circuit breaker <em>gives up fast</em> and returns a safe default response immediately. Your service stays healthy. The broken service gets time to recover.</p>
+          <p>There are three states:</p>
+          <ul>
+            <li><strong>CLOSED</strong> — Everything is normal. Requests flow through to the downstream service.</li>
+            <li><strong>OPEN</strong> — Too many failures detected. The breaker has tripped. All requests fail immediately without making a network call. The downstream service gets a break.</li>
+            <li><strong>HALF-OPEN</strong> — After a cool-down period, a few test requests are allowed through to see if the downstream service has recovered. If they succeed, the breaker closes. If they fail, it opens again.</li>
+          </ul>
+        </div>
+
+        <h3 class="subsection-title">State Machine Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+stateDiagram-v2
+    [*] --> CLOSED
+    CLOSED --> OPEN : failure rate > threshold
+    OPEN --> HALF_OPEN : wait duration elapsed
+    HALF_OPEN --> CLOSED : probe calls succeed
+    HALF_OPEN --> OPEN : probe calls fail
+    CLOSED --> CLOSED : requests pass through
+    OPEN --> OPEN : fast-fail (no network call)
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Cascading failure</strong> — One broken service causes the services that depend on it to also break, like dominoes falling.</li>
+          <li><strong>Fast-fail</strong> — Returning an error immediately without waiting for a timeout. Saves time and threads.</li>
+          <li><strong>Fallback</strong> — The alternative response returned when the circuit is open: a cached value, a default, or a queued action.</li>
+          <li><strong>Failure rate threshold</strong> — The percentage of calls that must fail before the circuit opens (e.g., 50% of the last 100 calls).</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Understanding circuit breaker mechanics requires knowing what it actually counts and when.</p>
+
+        <h3 class="subsection-title">How States Work in Practice</h3>
+        <p><strong>CLOSED state</strong> — The circuit is healthy. Every call goes to the downstream service normally. The circuit breaker records the result of each call (success or failure). It tracks results in a sliding window — typically the last N calls (count-based) or the last N seconds (time-based). When the failure rate in the window crosses the threshold, the circuit opens.</p>
+        <p><strong>OPEN state</strong> — The circuit is tripped. Every call <em>immediately</em> throws a <code>CallNotPermittedException</code> (Resilience4j) without making a network connection. This is the key difference from a timeout: a timeout still sends the request and waits; a circuit breaker skips the call entirely, freeing threads instantly. After <code>waitDurationInOpenState</code> elapses, the circuit transitions to HALF-OPEN.</p>
+        <p><strong>HALF-OPEN state</strong> — A probe period. The circuit allows exactly <code>permittedNumberOfCallsInHalfOpenState</code> calls through. These probes are monitored. If enough succeed, the circuit closes. If too many fail, it reopens and the timer resets. This prevents recovery from being prematurely declared.</p>
+
+        <h3 class="subsection-title">Resilience4j Configuration (Spring Boot)</h3>
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml">resilience4j:
+  circuitbreaker:
+    instances:
+      paymentService:
+        # Count-based sliding window: evaluate last 100 calls
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 100
+        # Open circuit when 50% or more of calls fail
+        failureRateThreshold: 50
+        # Also open when 60% of calls are slow (>3s)
+        slowCallRateThreshold: 60
+        slowCallDurationThreshold: 3000ms
+        # Minimum calls before evaluating failure rate
+        minimumNumberOfCalls: 20
+        # Stay open for 60 seconds before probing
+        waitDurationInOpenState: 60s
+        # Allow 5 test calls in half-open state
+        permittedNumberOfCallsInHalfOpenState: 5
+        # Automatically transition from OPEN to HALF-OPEN
+        automaticTransitionFromOpenToHalfOpenEnabled: true</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Java Service Integration</h3>
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">@Service
+public class PaymentService {
+
+    private final CircuitBreaker circuitBreaker;
+    private final PaymentClient paymentClient;
+    private final PaymentQueueService queueService;
+
+    public PaymentService(CircuitBreakerRegistry registry,
+                          PaymentClient paymentClient,
+                          PaymentQueueService queueService) {
+        this.circuitBreaker = registry.circuitBreaker("paymentService");
+        this.paymentClient = paymentClient;
+        this.queueService = queueService;
+    }
+
+    public PaymentResult processPayment(PaymentRequest request) {
+        // Wrap the call — circuit breaker monitors this
+        return circuitBreaker.executeSupplier(
+            () -> paymentClient.charge(request),
+            throwable -> fallback(request, throwable)  // fallback on open/failure
+        );
+    }
+
+    private PaymentResult fallback(PaymentRequest request, Throwable t) {
+        if (t instanceof CallNotPermittedException) {
+            // Circuit is OPEN — queue for async processing
+            queueService.enqueue(request);
+            return PaymentResult.queued("Payment queued — will confirm by email");
+        }
+        // Other failure — surface the error
+        throw new PaymentException("Payment processing unavailable", t);
+    }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Timeout vs Circuit Breaker — Critical Difference</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Timeout Only</th>
+              <th>Circuit Breaker</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Thread behavior</strong></td>
+              <td class="bad">Thread blocks until timeout elapses (30s of waiting per call)</td>
+              <td class="good">Thread freed immediately when circuit is open (microseconds)</td>
+            </tr>
+            <tr>
+              <td><strong>Downstream load</strong></td>
+              <td class="bad">Every call still hits the struggling service, adding to its load</td>
+              <td class="good">No calls sent to struggling service — it gets breathing room</td>
+            </tr>
+            <tr>
+              <td><strong>Recovery awareness</strong></td>
+              <td class="bad">No — every timeout restarts the full wait</td>
+              <td class="good">Yes — half-open state probes recovery intelligently</td>
+            </tr>
+            <tr>
+              <td><strong>Thread pool exhaustion risk</strong></td>
+              <td class="bad">High — 100 slow calls = 100 threads blocked for 30s each</td>
+              <td class="good">Eliminated — open circuit fast-fails with no thread block</td>
+            </tr>
+            <tr>
+              <td><strong>Implementation complexity</strong></td>
+              <td class="good">Simple — just set a timeout config</td>
+              <td class="bad">Moderate — requires library + state + fallback design</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Use Both Together</span>
+          <p>Timeouts and circuit breakers complement each other. Configure a timeout so individual calls don't wait forever AND wrap the call in a circuit breaker so repeated failures don't exhaust your thread pool. A call that times out counts as a failure toward the circuit breaker threshold. Think of timeout as per-call protection and circuit breaker as aggregate protection.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">Bulkhead Pattern — Isolating Blast Radius</h3>
+        <p>A circuit breaker protects against cascading failures. A <strong>bulkhead</strong> limits how much of your system a single downstream dependency can consume in the first place. The name comes from ship design: watertight compartments so a hull breach in one section doesn't sink the entire vessel.</p>
+        <p>In practice, bulkheads mean giving each downstream dependency its own dedicated thread pool (thread pool bulkhead) or semaphore (semaphore bulkhead). If <code>payment-service</code> is slow, only its pool gets exhausted — the 50 threads reserved for <code>recommendation-service</code> are untouched and healthy.</p>
+
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">// Bulkhead configuration in Resilience4j
+@Bean
+public Bulkhead paymentBulkhead(BulkheadRegistry registry) {
+    BulkheadConfig config = BulkheadConfig.custom()
+        .maxConcurrentCalls(20)       // max threads to payment-service
+        .maxWaitDuration(Duration.ofMillis(100))  // wait before rejecting
+        .build();
+    return registry.bulkhead("paymentService", config);
+}
+
+// Combine circuit breaker + bulkhead
+public PaymentResult processPayment(PaymentRequest request) {
+    Supplier&lt;PaymentResult&gt; decoratedCall = Decorators
+        .ofSupplier(() -&gt; paymentClient.charge(request))
+        .withCircuitBreaker(circuitBreaker)
+        .withBulkhead(bulkhead)
+        .withFallback(List.of(BulkheadFullException.class, CallNotPermittedException.class),
+                      ex -&gt; fallback(request, ex))
+        .decorate();
+
+    return decoratedCall.get();
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Fallback Strategies</h3>
+        <p>A circuit breaker without a thoughtful fallback is incomplete. When the circuit opens, you have four options:</p>
+        <ul>
+          <li><strong>Cached response</strong> — Return the last known good response. Works well for non-critical reads like product recommendations, user preferences. Accept that data may be stale.</li>
+          <li><strong>Default value</strong> — Return a safe empty/neutral state. A recommendation widget shows "Popular items" instead of personalized picks. User-visible degradation is minimal.</li>
+          <li><strong>Async queue</strong> — Accept the request and fulfill it later. Ideal for writes like payments, order submissions. Requires idempotency and async notification (email, webhook).</li>
+          <li><strong>Fail fast with clear error</strong> — Return an error immediately with a clear message. Best when the operation is truly critical and cannot be deferred (e.g., fraud check during checkout).</li>
+        </ul>
+
+        <h3 class="subsection-title">Trade-offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Benefit</th>
+              <th>Cost / Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cascading failure prevention</strong></td>
+              <td class="good">Eliminates thread exhaustion from slow downstream calls</td>
+              <td class="bad">Requires careful threshold tuning or you get false positives</td>
+            </tr>
+            <tr>
+              <td><strong>Fast-fail latency</strong></td>
+              <td class="good">Open circuit responses in microseconds vs 30s timeouts</td>
+              <td class="bad">Requests that would have succeeded are now rejected</td>
+            </tr>
+            <tr>
+              <td><strong>Stale fallback data</strong></td>
+              <td class="good">System continues operating in degraded mode</td>
+              <td class="bad">Cached data may be stale; users see outdated info</td>
+            </tr>
+            <tr>
+              <td><strong>Complexity</strong></td>
+              <td class="good">Encapsulated in library (Resilience4j) — not custom code</td>
+              <td class="bad">State management, fallback design, threshold tuning all require expertise</td>
+            </tr>
+            <tr>
+              <td><strong>Recovery speed</strong></td>
+              <td class="good">Half-open state lets service recover without being overwhelmed</td>
+              <td class="bad">waitDurationInOpenState creates a minimum recovery gap even if service is instant</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When NOT to Use a Circuit Breaker</h3>
+        <ul>
+          <li><strong>Database calls within the same service</strong> — Use connection pooling and query timeouts instead. A circuit breaker around DB calls causes confusion about whether the DB or your circuit is the problem.</li>
+          <li><strong>Calls that must succeed for correctness</strong> — Fraud checks, compliance validations. A fallback that bypasses these has security implications. Better to fail the request honestly.</li>
+          <li><strong>Low-volume critical integrations</strong> — If you call a service twice a day, a threshold of 50% means 1 failure opens the circuit. Tune minimumNumberOfCalls high or don't use a circuit breaker at all.</li>
+          <li><strong>Idempotent operations with negligible cost</strong> — If retrying is safe and cheap (e.g., a config endpoint), a simple retry with backoff is simpler and sufficient.</li>
+        </ul>
+
+        <div class="production-tip">
+          <span class="production-tip-label">Threshold Tuning</span>
+          <p>Start with <code>failureRateThreshold=50</code>, <code>minimumNumberOfCalls=20</code>, <code>waitDurationInOpenState=30s</code>. Observe your baseline failure rate in production (it's never zero). If your service has a 2% baseline error rate and you set threshold to 5%, you'll get false trips during normal traffic spikes. Set thresholds at least 3–5× above your normal baseline. Use time-based sliding windows for services with variable traffic.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Distributed Circuit Breakers</h3>
+        <p>A per-instance circuit breaker (running in each JVM/process) has a fundamental problem at scale: if you have 50 instances of <code>ticket-service</code>, each has its own circuit breaker with its own state. Instance 1's circuit might be OPEN while Instance 12's is still CLOSED, happily hammering the struggling <code>payment-service</code>. The failing downstream service sees continued traffic from 49 of 50 instances even though "the circuit is open."</p>
+
+        <p>Distributed circuit breakers synchronize state across all instances via a shared store (Redis). Every failure recorded by any instance increments a shared counter. When the aggregate threshold is crossed, all instances simultaneously receive the OPEN signal.</p>
+
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">// Distributed circuit breaker with Redis state sync
+// Using resilience4j-spring-cloud-circuitbreaker + Redis
+@Configuration
+public class DistributedCircuitBreakerConfig {
+
+    @Bean
+    public ReactiveCircuitBreakerFactory circuitBreakerFactory(
+            RedissonClient redisson) {
+        return new ReactiveResilience4JCircuitBreakerFactory(
+            circuitBreakerRegistry(redisson)
+        );
+    }
+
+    private CircuitBreakerRegistry circuitBreakerRegistry(RedissonClient redisson) {
+        // Custom registry that publishes state to Redis
+        CircuitBreakerRegistry registry = CircuitBreakerRegistry.ofDefaults();
+
+        registry.getEventPublisher()
+            .onStateTransition(event -> {
+                String key = "cb:state:" + event.getCircuitBreakerName();
+                String newState = event.getStateTransition().getToState().name();
+                // Publish new state to Redis — all instances subscribe
+                redisson.getBucket(key).set(newState, 90, TimeUnit.SECONDS);
+            });
+
+        return registry;
+    }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Service Mesh Circuit Breaking (Istio)</h3>
+        <p>At the platform level, circuit breaking can move out of application code entirely into the service mesh. Istio's <code>DestinationRule</code> implements outlier detection — the equivalent of a circuit breaker — at the sidecar proxy (Envoy) level, transparently across all services, without any code changes.</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: payment-service-cb
+  namespace: ticketflow
+spec:
+  host: payment-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http2MaxRequests: 1000
+        pendingRequests: 50   # queue depth before rejecting
+        maxRetries: 3
+    outlierDetection:
+      # Eject host after 5 consecutive 5xx errors
+      consecutiveGatewayErrors: 5
+      # Evaluation interval
+      interval: 30s
+      # Keep ejected for 30s minimum
+      baseEjectionTime: 30s
+      # Eject at most 50% of hosts at once
+      maxEjectionPercent: 50
+      # Minimum health before considering ejection
+      minHealthPercent: 50</code></pre>
+        </div>
+
+        <p>The trade-off: Istio outlier detection is coarser than application-level circuit breakers. It operates on entire host ejection (remove that pod from load balancing), not per-circuit-state with half-open probing. For fine-grained fallback logic (returning cached data, queuing requests), you still need application-level circuit breakers. A mature architecture uses both: Istio for infrastructure-level protection, Resilience4j for business-logic-aware fallbacks.</p>
+
+        <h3 class="subsection-title">Observability — Circuit State Dashboards</h3>
+        <p>A circuit breaker that nobody monitors provides false comfort. Essential metrics to export and alert on:</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># Prometheus + Grafana alert rules for circuit breaker
+groups:
+  - name: circuit_breaker_alerts
+    rules:
+      # Alert when any circuit is OPEN
+      - alert: CircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} == 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker OPEN: {{ $labels.name }}"
+          description: >
+            Circuit {{ $labels.name }} has been open for >30s.
+            Downstream service {{ $labels.name }} is likely unavailable.
+            Fallback responses are being served.
+
+      # Alert on high fallback rate (circuit open causing user impact)
+      - alert: HighFallbackRate
+        expr: >
+          rate(resilience4j_circuitbreaker_not_permitted_calls_total[5m]) /
+          rate(resilience4j_circuitbreaker_calls_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High fallback rate on {{ $labels.name }}: {{ $value | humanizePercentage }}"</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Enterprise Scale: Netflix Hystrix Origin</h3>
+        <p>Netflix invented the circuit breaker pattern as a library (Hystrix) in 2011 following the AWS us-east-1 outage. At its peak, Netflix ran 100M+ subscribers through 30+ interdependent microservices. Without circuit breakers, a single slow EC2 instance could cause cascading failures visible to millions of users within minutes.</p>
+        <p>Hystrix has since been deprecated in favor of Resilience4j, which is functional, non-blocking, and better suited to reactive programming models. Netflix's own architecture has moved toward service mesh (Envoy) for infrastructure-level circuit breaking and selective application-level Resilience4j for business-critical paths. The Hystrix dashboard pattern — real-time visualization of circuit states across all services — remains the gold standard for reliability observability.</p>
+
+        <div class="checklist">
+          <li>Every external service call wrapped in a circuit breaker</li>
+          <li>Circuit state exposed as a Prometheus metric</li>
+          <li>Grafana dashboard showing circuit state per service in real time</li>
+          <li>PagerDuty/Opsgenie alert when any circuit stays OPEN &gt;60s</li>
+          <li>Fallback behavior tested in staging with injected failures (Chaos Monkey)</li>
+          <li>minimumNumberOfCalls set &gt;= 20 to avoid single-failure trips</li>
+          <li>failureRateThreshold set at least 3× above baseline error rate</li>
+          <li>Distributed state sync for services running &gt;10 instances</li>
+          <li>Runbook: who gets paged, what to do, how to manually open/close a circuit</li>
+          <li>Async queue consumer monitored for lag when circuit is open</li>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Netflix — Hystrix at 100M+ Subscribers</span>
+      <p><strong>Context:</strong> Netflix processes over 100 million daily active users across 30+ microservices. At peak (Friday evenings), they serve ~15 million concurrent streams. Each play request touches: authorization service, licensing service, content delivery service, personalization service, device validation, and A/B testing service. Any one of these can be slow or degraded at any time.</p>
+      <p><strong>The 2011 Problem:</strong> Before circuit breakers, a slow personalization service would cause the play request thread to block waiting for personalization data. At 15M concurrent users, even a 2% slow-call rate means 300,000 blocked threads. The JVM heap fills. API servers crash. Netflix's availability SLA (99.99% — about 53 minutes of downtime per year) was regularly violated during AWS partial outages.</p>
+      <p><strong>How Netflix uses it:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Every service call has a Hystrix (now Resilience4j) circuit breaker with a separate thread pool per dependency</li>
+        <li>Personalization service circuit: when OPEN, fallback serves the top 20 globally trending titles — users still get a valid home screen, just not personalized</li>
+        <li>A/B testing service circuit: when OPEN, fallback uses the control variant — no experiment data lost, test continues safely</li>
+        <li>The Hystrix Dashboard (now Vizceral) shows real-time circuit states across the entire fleet — on-call engineers can see in seconds which circuits are open and which services are degraded</li>
+        <li>During the famous 2012 Christmas Eve AWS outage, 99.5% of Netflix requests continued serving successfully because circuit breakers isolated the failing services and fallbacks kept the product usable</li>
+      </ol>
+      <p><strong>Numbers:</strong> Netflix reported that at peak load, roughly 99.5% of all service calls go through at least one circuit breaker. The remaining 0.5% are truly critical paths (payment, authentication) where no fallback is acceptable and the request must fail honestly. The pattern is credited with preventing an estimated 200+ complete outages over its first 5 years of deployment.</p>
+      <p><strong>Key lesson:</strong> Netflix's approach established the design principle that became industry standard — design every service assuming its dependencies will fail, and code the fallback path before the happy path. Circuit breakers enforced this discipline architecturally: you cannot use Hystrix without defining what happens when the circuit opens.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Thresholds Too Aggressive — Tripping on Normal Traffic Spikes</span>
+      <p>Setting <code>failureRateThreshold=5%</code> with <code>minimumNumberOfCalls=5</code> on a service that has a natural 1–2% baseline error rate means a single rough second can open the circuit. The circuit trips during a transient spike, fast-failing thousands of requests that would have succeeded if they'd been allowed through — actually making the incident worse than doing nothing.</p>
+      <p><strong>Fix:</strong> Measure your baseline p99 error rate in production. Set the threshold at 3–5× that baseline. Set <code>minimumNumberOfCalls</code> to at least 20 to require statistical significance before tripping. Use a time-based sliding window if your traffic is bursty.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Circuit Open = HTTP 500 — No Fallback Defined</span>
+      <p>Teams add a circuit breaker to protect against cascading failures but don't define a fallback. When the circuit opens, the library throws a <code>CallNotPermittedException</code> that propagates up uncaught and becomes an HTTP 500. Users see an error page. The circuit breaker has technically prevented thread exhaustion, but the user experience is identical to a full outage. The protection is only at the infrastructure level.</p>
+      <p><strong>Fix:</strong> Every circuit breaker must have a fallback strategy defined before it goes to production. Ask: "What should the user see when this service is unavailable?" Cached data, a degraded feature, an async queue, or a clear status message — any of these is better than a 500 error. The fallback is the most important part of the pattern.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Monitoring Circuit State — Silent Open Circuits</span>
+      <p>A circuit opens at 2 AM. Engineers are asleep. No alert fires. For the next 6 hours, users receive stale cached product data without anyone knowing the recommendation service has been down since midnight. The fallback is working — users aren't seeing errors — but the engineering team has no visibility that a major dependency is broken. When they discover it at 8 AM, the issue has been silent for 6 hours.</p>
+      <p><strong>Fix:</strong> Export circuit state as a metric (<code>resilience4j_circuitbreaker_state</code> in Prometheus) and set alerts: if any circuit stays OPEN for more than 60 seconds, page on-call. A circuit breaker state transition should generate an event in your observability platform. Treat an open circuit as an active incident, even if users aren't visibly impacted yet.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A circuit breaker monitors calls to a downstream service and, when the failure rate crosses a threshold, stops making those calls entirely — fast-failing immediately — to prevent cascading failures and preserve system resources, then probes for recovery.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "The circuit breaker pattern prevents cascading failures in distributed systems. When a downstream service starts failing — due to overload, network issues, or a deployment problem — without protection, the calling service's threads pile up waiting for timeouts. That can exhaust the thread pool and bring down the caller too. A circuit breaker wraps calls to the downstream service and tracks the failure rate. When failures exceed a threshold, say 50% over the last 100 calls, it 'opens' — every subsequent call immediately returns an error or a cached fallback without making a network request. This frees threads instantly. After a wait period, it enters half-open state, lets a few probe calls through, and closes again if they succeed. The critical difference from a timeout is that a timeout still blocks a thread for 30 seconds; an open circuit returns in microseconds. Netflix invented this pattern with Hystrix in 2011 and credits it with preventing hundreds of outages. In Java today, the standard library is Resilience4j with Spring Boot integration."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What are the three states of a circuit breaker and what triggers each transition?</li>
+        <li>What's the difference between a circuit breaker and a timeout? Can you use both?</li>
+        <li>What is the bulkhead pattern and how does it relate to the circuit breaker?</li>
+        <li>What happens to users when a circuit is open? What are your fallback options?</li>
+        <li>How would you choose the right failure rate threshold? What happens if it's too low?</li>
+        <li>How do circuit breakers work in a service mesh like Istio vs application-level libraries?</li>
+        <li>How would you handle distributed circuit breakers when running 50 instances of a service?</li>
+        <li>How do you test that your circuit breaker and fallback actually work in production?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Confusing circuit breaker with retry — retries make the problem worse when the service is down; circuit breakers stop calling it entirely.</li>
+        <li>Not mentioning fallback behavior — a circuit breaker without a fallback is incomplete; always explain what happens when the circuit opens.</li>
+        <li>Describing circuit breaker as a replacement for timeouts — they work together; use both.</li>
+        <li>Forgetting that the half-open state exists — many candidates describe only CLOSED and OPEN, missing the recovery mechanism entirely.</li>
+        <li>Not connecting it to observability — interviewers expect you to mention monitoring circuit state, not just implementing it.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+          <th>Mitigation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cascading Failure Prevention</strong></td>
+          <td>Stops thread exhaustion from blocking on slow dependencies</td>
+          <td>Correct threshold required or you trip on normal spikes</td>
+          <td>Baseline your error rate; set threshold 3–5× above it</td>
+        </tr>
+        <tr>
+          <td><strong>Fast-Fail Latency</strong></td>
+          <td>Open circuit responses in microseconds, not 30s timeouts</td>
+          <td>Requests that would have succeeded are rejected</td>
+          <td>Good fallback makes rejected requests recoverable</td>
+        </tr>
+        <tr>
+          <td><strong>Data Freshness</strong></td>
+          <td>Cached fallback keeps system operational during outage</td>
+          <td>Users may see stale data during open circuit period</td>
+          <td>TTL on cache; indicate "last updated" in UI</td>
+        </tr>
+        <tr>
+          <td><strong>Recovery Time</strong></td>
+          <td>Half-open probing prevents re-flooding a recovering service</td>
+          <td>waitDurationInOpenState creates minimum gap before recovery</td>
+          <td>Keep wait duration short (30–60s); monitor half-open transitions</td>
+        </tr>
+        <tr>
+          <td><strong>Operational Complexity</strong></td>
+          <td>Library-managed state machine (Resilience4j / Istio)</td>
+          <td>Threshold tuning, fallback design, distributed state at scale</td>
+          <td>Start with defaults; tune after observing production data</td>
+        </tr>
+        <tr>
+          <td><strong>Observability</strong></td>
+          <td>Explicit circuit state is more visible than mystery timeouts</td>
+          <td>Requires metric instrumentation and dashboard setup</td>
+          <td>Resilience4j auto-exposes Prometheus metrics with Spring Actuator</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. WHEN TO USE / NOT USE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="decision">When to Use</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Use Circuit Breaker?</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Synchronous HTTP calls to external/internal services</td>
+          <td><strong style="color:#22c55e;">Yes</strong></td>
+          <td>Primary use case — stops thread exhaustion from slow downstream</td>
+        </tr>
+        <tr>
+          <td>Third-party API with rate limits (payment processor, email provider)</td>
+          <td><strong style="color:#22c55e;">Yes</strong></td>
+          <td>Rate-limit failures will cascade; circuit breaker + async queue is standard</td>
+        </tr>
+        <tr>
+          <td>Database calls from the same service</td>
+          <td><strong style="color:#f97316;">Probably not</strong></td>
+          <td>Use connection pooling + query timeout. CB around DB adds confusion</td>
+        </tr>
+        <tr>
+          <td>Calls that absolutely must succeed (fraud check)</td>
+          <td><strong style="color:#ef4444;">No</strong></td>
+          <td>Fallback may have security implications; fail honestly instead</td>
+        </tr>
+        <tr>
+          <td>Infrequent calls (&lt;10/min) to a low-SLA service</td>
+          <td><strong style="color:#f97316;">Carefully</strong></td>
+          <td>Set minimumNumberOfCalls high or a single failure opens the circuit</td>
+        </tr>
+        <tr>
+          <td>Async message consumers (Kafka, RabbitMQ)</td>
+          <td><strong style="color:#f97316;">Different pattern</strong></td>
+          <td>Use dead-letter queues and consumer retry policies instead</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         9. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="retry-idempotency.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Retry &amp; Idempotency</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Retry with backoff complements circuit breakers — use both together.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Protects your service from being overwhelmed — inverse of circuit breaker.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Circuit breakers are essential in microservice architectures with many service calls.</span>
+      </a>
+      <a href="load-balancer.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Load Balancer</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Works with circuit breakers — LB routes around unhealthy hosts at the infra layer.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

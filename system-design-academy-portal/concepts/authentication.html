@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="authentication" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Authentication</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Security <span>→</span> Authentication</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Security</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner–Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Authentication</h1>
+      <p class="page-subtitle">Proving you are who you claim to be — the gatekeeper every system needs before granting access.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Security</span>
+        <span class="tag">Identity</span>
+        <span class="tag">Sessions</span>
+        <span class="tag">JWT</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Authentication is the bouncer at a club checking your ID. You hand over your driver's licence (your credentials). The bouncer verifies it is genuine and matches your face (the system validates your password against the stored hash). Once satisfied, you get a wristband for the night (a session cookie or token). From then on the bouncer waves you through based on the wristband alone — he doesn't re-check your ID every time you visit the bar.</p>
+    </div>
+
+    <p>Authentication answers a single question: <em>Who are you?</em> It is distinct from <strong>authorization</strong>, which asks: <em>What are you allowed to do?</em> You must authenticate before the system can decide what you are permitted to access. Without authentication, any caller could claim to be any user — there would be no basis for access control, audit logs, or billing.</p>
+
+    <p>Every meaningful system on the internet relies on authentication. Whether it's a username and password, an API key, a biometric scan, or a corporate SSO provider, the goal is always the same: establish the caller's identity with enough confidence to act on it.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fintech startup launched a mobile banking app. Authentication was straightforward: username and password, stored as MD5 hashes, sessions kept in a database table. The engineering team had shipped fast and the product was growing — 400,000 registered users after six months.
+      </div>
+      <div class="story-problem">
+        A data breach at a third-party vendor exposed a list of 2 million email/password pairs from an unrelated service. Attackers ran a credential-stuffing attack against the banking app's <code>/login</code> endpoint — 50,000 attempts per hour, no rate limiting in place. MD5 hashes were cracked overnight using rainbow tables. Within 72 hours, 12,000 accounts were compromised. Attackers transferred funds, changed contact details, and locked users out. Regulatory fines, reputational damage, and emergency incident response cost the company $4.3M.
+      </div>
+      <div class="story-solution">
+        Post-incident the team re-architected authentication from the ground up. Passwords were migrated to bcrypt with cost factor 12. Rate limiting (5 attempts per 15 minutes per IP) and CAPTCHA were added to the login endpoint. TOTP-based MFA became mandatory for all accounts with transaction capability. Sessions were replaced with short-lived JWTs (15-minute access tokens, 7-day refresh tokens stored HttpOnly). A breach detection service flagged credentials found in public dumps and prompted password resets proactively.
+      </div>
+      <div class="story-outcome">
+        The next credential-stuffing campaign — three months later — was neutralised in under four minutes. Rate limiting blocked 98% of attempts. The remaining 2% that guessed correct passwords were stopped by MFA. Zero accounts compromised. Incident response cost: $0. The engineering team estimates the upfront investment of two weeks of engineering time saved the company from a second $4M+ incident.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>When you log into a website, you type your email and password. The website checks whether the password you typed matches the one stored for your account. If it matches, you're <em>authenticated</em> — the system now knows who you are for the rest of your session.</p>
+          <p>But the website can't ask you for your password on every single page click — that would be terrible user experience. So after you log in, it gives you a small piece of data (a <strong>cookie</strong> or <strong>token</strong>) that your browser stores and sends along automatically with every request. The server reads that cookie/token to confirm who you are without needing your password again.</p>
+          <p>Think of it like checking into a hotel. You show your passport at the front desk (login). The receptionist verifies it and gives you a room key card (session cookie). For the rest of your stay you just tap your key card — you don't re-show your passport each time you use the lift.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Credentials</strong> — The proof you provide: usually username + password, but could be an API key, certificate, or biometric.</li>
+          <li><strong>Session</strong> — A period of activity tied to a verified identity. Sessions expire after inactivity or a fixed time.</li>
+          <li><strong>Cookie</strong> — A small piece of data the browser stores and sends with every request to the same domain.</li>
+          <li><strong>Token</strong> — A self-contained string (often a JWT) that encodes your identity and is sent in request headers.</li>
+          <li><strong>Authentication vs Authorization</strong> — Auth<em>entication</em> = who are you. Auth<em>orization</em> = what can you do.</li>
+        </ul>
+
+        <h3 class="subsection-title">Session-Based vs Token-Based Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C as Browser
+    participant S as Server
+    participant DB as Database
+
+    rect rgb(30,41,59)
+        Note over C,DB: Session-Based Auth (Stateful)
+        C->>S: POST /login {email, password}
+        S->>DB: Verify password hash
+        DB-->>S: Valid
+        S->>DB: Store session: {id: "abc123", userId: 42}
+        S-->>C: Set-Cookie: session=abc123
+        C->>S: GET /dashboard (Cookie: session=abc123)
+        S->>DB: Look up session "abc123"
+        DB-->>S: userId: 42
+        S-->>C: 200 Dashboard HTML
+    end
+
+    rect rgb(15,23,42)
+        Note over C,DB: Token-Based Auth (Stateless)
+        C->>S: POST /login {email, password}
+        S->>DB: Verify password hash
+        DB-->>S: Valid
+        S-->>C: { accessToken: "eyJ..." }
+        C->>S: GET /dashboard (Authorization: Bearer eyJ...)
+        S->>S: Verify JWT signature (no DB call)
+        S-->>C: 200 Dashboard HTML
+    end
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level, authentication is about understanding the mechanics of the two dominant approaches — session-based and token-based — and the security attributes that protect credentials in transit and at rest.</p>
+
+        <h3 class="subsection-title">Session-Based Authentication</h3>
+        <p>The server creates a session record in a datastore (Redis, database) when a user logs in. A session ID is sent to the browser as a cookie. On each subsequent request, the browser sends the cookie; the server looks up the session to identify the user.</p>
+        <ul>
+          <li><strong>Stateful</strong> — the server must persist session state. Horizontal scaling requires a shared session store (Redis).</li>
+          <li><strong>Easy revocation</strong> — deleting the session record immediately invalidates the user.</li>
+          <li><strong>CSRF risk</strong> — because cookies are sent automatically, forged cross-site requests can carry a valid session cookie.</li>
+        </ul>
+
+        <h3 class="subsection-title">Token-Based Authentication (JWT)</h3>
+        <p>A JSON Web Token is a base64url-encoded string with three dot-separated parts: header, payload, signature. The server signs the payload with a secret key. On each request, the client sends the JWT in the <code>Authorization: Bearer</code> header. The server verifies the signature — no database lookup needed.</p>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">// JWT Payload (decoded)
+{
+  "sub": "user_42",
+  "email": "alice@example.com",
+  "roles": ["user"],
+  "iat": 1717200000,
+  "exp": 1717200900
+}</code></pre>
+        </div>
+
+        <ul>
+          <li><strong>Stateless</strong> — no session store needed. Any server can verify the token with just the secret key.</li>
+          <li><strong>Hard to revoke</strong> — a signed JWT is valid until expiry. Revocation requires a token denylist (adds statefulness back).</li>
+          <li><strong>Access + refresh pattern</strong> — short-lived access token (15 min) + long-lived refresh token (7 days, HttpOnly cookie). Reduces exposure window without forcing frequent logins.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Node.js — issue JWT on login
+const jwt = require('jsonwebtoken');
+
+function issueTokens(userId) {
+  const accessToken = jwt.sign(
+    { sub: userId, type: 'access' },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+  const refreshToken = jwt.sign(
+    { sub: userId, type: 'refresh' },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: '7d' }
+  );
+  return { accessToken, refreshToken };
+}
+
+// Middleware — verify JWT on protected routes
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing token' });
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), process.env.JWT_SECRET);
+    req.user = payload;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Cookie Security Attributes</h3>
+        <p>When using cookies (for sessions or refresh tokens), three attributes are critical:</p>
+        <ul>
+          <li><strong>HttpOnly</strong> — Prevents JavaScript from accessing the cookie via <code>document.cookie</code>. Stops XSS attacks from stealing session cookies.</li>
+          <li><strong>Secure</strong> — Cookie only sent over HTTPS. Prevents interception on plain HTTP connections.</li>
+          <li><strong>SameSite=Strict</strong> — Cookie not sent on cross-site requests at all. Prevents CSRF. Use <code>Lax</code> for a slightly more permissive policy that still blocks most CSRF vectors while allowing top-level navigations.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Express — set a secure refresh token cookie
+res.cookie('refresh_token', refreshToken, {
+  httpOnly: true,    // No JS access
+  secure: true,      // HTTPS only
+  sameSite: 'Strict', // No cross-site sending
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  path: '/auth/refresh' // Restrict to refresh endpoint only
+});</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Password Hashing</h3>
+        <p>Passwords must never be stored in plaintext or with reversible encryption. Always use a slow, salted hashing algorithm designed specifically for passwords.</p>
+        <ul>
+          <li><strong>bcrypt</strong> — Industry standard. Cost factor 12 is the current baseline (takes ~250ms on modern hardware). Cost factor 14 for higher-value accounts.</li>
+          <li><strong>argon2id</strong> — Preferred in new systems. Winner of the Password Hashing Competition. Memory-hard, resistant to GPU cracking. Use argon2id with memory=64MB, iterations=3, parallelism=2.</li>
+          <li><strong>Never use</strong> MD5, SHA-1, SHA-256, or SHA-512 for passwords. They are fast by design — an attacker can try billions of guesses per second.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python"># Python — bcrypt hashing
+import bcrypt
+
+# Hash password at registration
+def hash_password(plaintext: str) -> str:
+    salt = bcrypt.gensalt(rounds=12)  # cost factor 12
+    return bcrypt.hashpw(plaintext.encode(), salt).decode()
+
+# Verify password at login
+def verify_password(plaintext: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plaintext.encode(), hashed.encode())</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multi-Factor Authentication (MFA)</h3>
+        <p>MFA requires a second proof of identity in addition to the password. The three common factors are:</p>
+        <ul>
+          <li><strong>Something you know</strong> — password, PIN</li>
+          <li><strong>Something you have</strong> — TOTP code from an authenticator app (Google Authenticator, Authy), hardware key (YubiKey)</li>
+          <li><strong>Something you are</strong> — biometric (fingerprint, Face ID)</li>
+        </ul>
+        <p><strong>TOTP (Time-based One-Time Password)</strong> — The server and user share a secret seed during setup. Every 30 seconds, both compute a 6-digit code from the seed + current time. Codes expire in 30 seconds, so intercepted codes are quickly useless.</p>
+        <p><strong>SMS MFA</strong> — Convenient but weaker. SIM swapping attacks, SS7 vulnerabilities, and SIM cloning can all intercept SMS codes. Acceptable for low-risk consumer apps; not acceptable for finance, healthcare, or admin accounts.</p>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, authentication is about choosing the right scheme for the threat model, understanding where each approach breaks down, and designing for operational security.</p>
+
+        <h3 class="subsection-title">SSO and Federation</h3>
+        <p><strong>Single Sign-On (SSO)</strong> allows a user to authenticate once with an <em>Identity Provider (IdP)</em> and access multiple <em>Service Providers (SPs)</em> without logging in again. Common in enterprise environments where employees use dozens of internal tools.</p>
+        <ul>
+          <li><strong>SAML 2.0</strong> — XML-based protocol. Older, widely adopted in enterprise. Identity assertion passed as a signed XML document. Used by Okta, Azure AD, Google Workspace with legacy apps.</li>
+          <li><strong>OIDC (OpenID Connect)</strong> — JSON/JWT-based protocol layered on top of OAuth 2.0. Modern, developer-friendly. Used by most consumer SSO ("Sign in with Google"). Returns an ID Token (identity) and optionally an Access Token (API access).</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="text">
+          <pre><code class="language-text">OIDC Authorization Code Flow:
+
+1. User clicks "Sign in with Google"
+2. App redirects to: accounts.google.com/o/oauth2/auth
+   ?client_id=xxx
+   &redirect_uri=https://app.example.com/callback
+   &response_type=code
+   &scope=openid email profile
+   &state=csrf_random_value
+3. User authenticates with Google
+4. Google redirects back: /callback?code=AUTH_CODE&state=csrf_random_value
+5. App verifies state (CSRF check)
+6. App POSTs code to Google's token endpoint
+7. Google returns: { id_token: "eyJ...", access_token: "..." }
+8. App verifies id_token signature with Google's public keys
+9. App extracts user identity from id_token claims</code></pre>
+        </div>
+
+        <h3 class="subsection-title">OAuth 2.0 vs OIDC</h3>
+        <p>This is one of the most commonly confused distinctions in authentication:</p>
+        <ul>
+          <li><strong>OAuth 2.0</strong> — An <em>authorization</em> framework. It grants a third-party app limited access to a resource on behalf of a user (e.g., "let this app read my Google Calendar"). It does <em>not</em> tell you who the user is — it grants access tokens, not identity tokens.</li>
+          <li><strong>OIDC</strong> — An <em>identity</em> layer built on top of OAuth 2.0. It adds the ID Token (a JWT) that carries who the user is. If you need to log users in via a third party, you need OIDC, not raw OAuth 2.0.</li>
+        </ul>
+
+        <h3 class="subsection-title">Brute-Force Protection</h3>
+        <p>Every authentication endpoint is a target. Without rate limiting, credential stuffing and brute-force attacks are trivial.</p>
+        <ul>
+          <li><strong>Rate limiting by IP</strong> — 5 failed attempts per 15 minutes per IP. Use a sliding window counter in Redis. Block or add exponential delay after threshold.</li>
+          <li><strong>Account lockout</strong> — Lock the account for 30 minutes after N consecutive failures. Risk: denial of service if an attacker locks out legitimate users by design — add exponential backoff with unlock via email instead.</li>
+          <li><strong>CAPTCHA</strong> — Add after 3 consecutive failures to distinguish humans from bots. reCAPTCHA v3 (invisible, score-based) is the modern approach.</li>
+          <li><strong>Breach detection</strong> — Check new passwords against the HaveIBeenPwned API (k-anonymity model — safe to query). Prompt users whose credentials appear in known breach datasets.</li>
+        </ul>
+
+        <h3 class="subsection-title">Authentication Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Pros</th>
+              <th>Cons</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Session + Cookie</strong></td>
+              <td class="good">Easy revocation; server-side control; well-understood</td>
+              <td class="bad">Requires shared session store for horizontal scaling; CSRF risk</td>
+              <td>Traditional web apps, admin panels</td>
+            </tr>
+            <tr>
+              <td><strong>JWT (stateless)</strong></td>
+              <td class="good">No session store; scales horizontally; works for APIs and SPAs</td>
+              <td class="bad">Hard to revoke; large payload in every request; secret key rotation is operationally complex</td>
+              <td>APIs, microservices, mobile apps</td>
+            </tr>
+            <tr>
+              <td><strong>API Keys</strong></td>
+              <td class="good">Simple for machine-to-machine; easy to scope and rotate</td>
+              <td class="bad">No expiry by default; easy to leak in logs or version control</td>
+              <td>Server-to-server, developer APIs</td>
+            </tr>
+            <tr>
+              <td><strong>OIDC/SSO</strong></td>
+              <td class="good">Single point of credential management; MFA centralised; audit log in IdP</td>
+              <td class="bad">IdP is a SPOF; complex setup; SAML is notoriously painful to debug</td>
+              <td>Enterprise, large organisations with many services</td>
+            </tr>
+            <tr>
+              <td><strong>Passkeys / WebAuthn</strong></td>
+              <td class="good">Phishing-resistant; no password to steal; biometric UX</td>
+              <td class="bad">Newer ecosystem; account recovery without password is complex; device dependency</td>
+              <td>Consumer apps prioritising security + UX, new greenfield products</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When NOT to Build Your Own Authentication</h3>
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>Building authentication from scratch is one of the highest-risk decisions in software engineering. The attack surface is wide, the failure modes are severe (account takeover, data breach, regulatory fines), and the subtle mistakes — wrong bcrypt cost factor, JWT "none" algorithm acceptance, CSRF token validation bypass — are easy to make and hard to catch in code review.</p>
+          <p>For most products, use a managed auth provider: <strong>Auth0</strong>, <strong>Cognito</strong>, <strong>Clerk</strong>, <strong>Supabase Auth</strong>, or <strong>Firebase Authentication</strong>. These handle password hashing, MFA, SSO, refresh token rotation, breach detection, and compliance (SOC2, GDPR) out of the box. The cost is trivial compared to a single security incident.</p>
+          <p>Build your own only when: (a) you have dedicated security engineering, (b) regulatory requirements preclude third-party identity providers, or (c) you need capabilities no provider offers.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, authentication is a platform capability with compliance obligations, multi-region concerns, and engineering ownership models.</p>
+
+        <h3 class="subsection-title">Enterprise Identity Architecture</h3>
+        <p>Large organisations run a federated identity model:</p>
+        <ul>
+          <li><strong>Central IdP</strong> (Okta, Azure AD, PingFederate) — the authoritative store for all identities. HR system provisions/de-provisions users via SCIM.</li>
+          <li><strong>OIDC / SAML federation</strong> — hundreds of internal and SaaS apps delegate authentication to the central IdP. One login; one logout; one password policy enforcement point.</li>
+          <li><strong>Just-in-time (JIT) provisioning</strong> — on first SSO login, the application auto-creates the user record from IdP-provided claims. No manual provisioning step.</li>
+          <li><strong>SCIM 2.0</strong> — System for Cross-domain Identity Management. Automates user provisioning and de-provisioning. When an employee is terminated in the HR system, SCIM propagates de-provision to all connected applications within minutes.</li>
+        </ul>
+
+        <h3 class="subsection-title">Compliance Obligations</h3>
+        <ul>
+          <li><strong>GDPR</strong> — Users have the right to erasure ("right to be forgotten"). Authentication systems must support account deletion including all PII. Passwords are not PII but email addresses, device fingerprints, and login history are. Audit logs of authentication events must be retained (typically 90 days), but must be anonymisable on request.</li>
+          <li><strong>HIPAA</strong> — Healthcare applications must enforce MFA for all users accessing PHI. Automatic session timeout after 15 minutes of inactivity. All authentication events must be logged with timestamp, user ID, success/failure, and source IP.</li>
+          <li><strong>SOC 2 Type II</strong> — Requires documented password policies, evidence of MFA enforcement, access review evidence (quarterly), and audit logs covering authentication events. Authentication system changes must be reviewed and tested before production deployment.</li>
+          <li><strong>PCI DSS</strong> — Payment system access requires MFA for all administrative access. Password complexity requirements (minimum 12 characters). Account lockout after 6 failed attempts. Session timeout after 15 minutes idle.</li>
+        </ul>
+
+        <h3 class="subsection-title">Multi-Region Authentication</h3>
+        <p>Session stores and token signing keys across regions require careful coordination:</p>
+        <ul>
+          <li><strong>Session store replication</strong> — Redis Cluster with cross-region replication (ElastiCache Global Datastore). Sessions created in us-east-1 must be readable in eu-west-1 for globally routed users. Replication lag of 50–100ms is acceptable; cache misses force re-authentication.</li>
+          <li><strong>JWT key rotation</strong> — Sign tokens with asymmetric keys (RS256 or ES256). Publish the public key at a JWKS endpoint (<code>/.well-known/jwks.json</code>). All regions serve the same JWKS endpoint (via CDN). Key rotation: generate new key pair, add new public key to JWKS while keeping old, rotate signing to new key, retire old key after max token lifetime has elapsed.</li>
+          <li><strong>Data residency</strong> — EU users' authentication data (email, password hash, session records) must not leave the EU. Route EU traffic to EU-region auth service. US traffic to US-region auth service. Shared OIDC provider can still federate across regions with careful token claim routing.</li>
+        </ul>
+
+        <h3 class="subsection-title">Cost Model at Scale</h3>
+        <p>At 10M monthly active users authenticating ~5 times/month:</p>
+        <ul>
+          <li><strong>Managed auth (Auth0 B2C)</strong>: ~$0.023/MAU = $230K/year. Includes MFA, SSO, breach detection, compliance features.</li>
+          <li><strong>Self-hosted (Keycloak on EKS)</strong>: 3× r6g.xlarge instances + Redis Cluster = ~$18K/year infra. But add 1.5 FTE security engineering to maintain, patch, certify = $180K/year total. Savings are illusory below 20M MAU.</li>
+          <li><strong>Cognito</strong>: $0.0055/MAU after first 50K (free tier) = $52K/year. Cheaper but less feature-rich than Auth0 for enterprise SSO scenarios.</li>
+        </ul>
+
+        <h3 class="subsection-title">Passkeys / WebAuthn — The Next Wave</h3>
+        <p>WebAuthn (FIDO2) eliminates passwords entirely. The authenticator (device biometric or hardware key) stores a private key. The server stores the public key. Login is a cryptographic challenge-response — phishing-resistant by design because the credential is scoped to the exact origin.</p>
+        <p>Apple, Google, and Microsoft have all shipped passkey sync across devices via their respective keychains (iCloud Keychain, Google Password Manager, Windows Hello). Major adoption tipping point: 2024–2025. If you are designing a new consumer authentication system in 2026, passkeys should be the primary flow with password as fallback.</p>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Expert Consideration</span>
+          <span class="enterprise-card-company">Authentication Platform Ownership Model</span>
+          <p>In a mature engineering organisation, authentication is owned by a <strong>Platform Security team</strong>, not individual product teams. Product teams integrate via a standard auth SDK — they should never touch raw JWT validation or password hashing directly.</p>
+          <p>The auth platform exposes: (1) a login/logout UI (centralised, themed), (2) a token verification library with automatic JWKS caching and rotation, (3) a user-service API for profile reads, (4) a SCIM endpoint for HR integration.</p>
+          <p>Changes to the auth platform go through a separate review and release process with dedicated security review gate. Every change to authentication code in production must have a corresponding runbook covering rollback procedure — because a misconfigured auth system locks everyone out.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Stripe — API Key Authentication + Webhook Signatures</span>
+      <p><strong>Context:</strong> Stripe processes over $1 trillion in payments annually across millions of businesses. Their API is the primary integration surface — almost all interactions are server-to-server, not user-browser. Stripe needs authentication that is simple for developers to implement correctly, extremely hard to misuse, and auditable for compliance.</p>
+      <p><strong>API Key Design:</strong> Stripe issues two categories of API key: <em>publishable keys</em> (<code>pk_live_xxx</code>) safe for client-side JavaScript (they can only initiate payments, not read account data), and <em>secret keys</em> (<code>sk_live_xxx</code>) for server-side only. Secret keys are prefixed to make them recognisable in code review and Git secrets scanning. Stripe's own GitHub Actions scanner runs on every push to flag any committed secret keys and auto-rotates them. In 2023 Stripe reported that 86% of leaked key incidents were caught and rotated before any malicious use — up from 62% in 2020.</p>
+      <p><strong>Restricted Keys:</strong> Instead of one master secret key, Stripe allows creation of restricted keys scoped to specific resources and operations (e.g., "read-only access to invoices for this account"). This follows the principle of least privilege — a billing service only needs read access to invoices, not the ability to create payouts.</p>
+      <p><strong>Webhook Signatures:</strong> When Stripe sends events to your server (e.g., <code>payment_intent.succeeded</code>), it signs the webhook payload with HMAC-SHA256 using a webhook secret unique per endpoint. Your server verifies the signature before processing the event. This prevents replay attacks (timestamp in signed payload), spoofed webhooks (only Stripe knows the secret), and man-in-the-middle tampering. Stripe requires the timestamp to be within 5 minutes of current time — expired webhooks are rejected.</p>
+      <div class="code-wrapper" data-lang="python">
+        <pre><code class="language-python">import stripe
+import os
+
+# Stripe webhook signature verification
+def handle_webhook(request):
+    payload = request.body
+    sig_header = request.headers['Stripe-Signature']
+    webhook_secret = os.environ['STRIPE_WEBHOOK_SECRET']
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+    except stripe.error.SignatureVerificationError:
+        # Reject: invalid signature or timestamp out of range
+        return 400
+
+    if event['type'] == 'payment_intent.succeeded':
+        payment_intent = event['data']['object']
+        fulfill_order(payment_intent['metadata']['order_id'])
+
+    return 200</code></pre>
+      </div>
+      <p><strong>Lessons:</strong> Stripe's authentication design teaches three architectural principles: (1) <em>Keys should be recognisable</em> — prefixes like <code>sk_live_</code> enable automated scanning. (2) <em>Least-privilege keys</em> reduce blast radius when a key leaks. (3) <em>Verify inbound payloads</em> cryptographically — never trust a webhook simply because it arrived at your endpoint. A system processing $1T in payments cannot afford to skip any of these.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Hashing Passwords with MD5 or SHA-1</span>
+      <p>MD5 and SHA-1 are cryptographic hash functions designed for speed — a modern GPU can compute 10 billion MD5 hashes per second. An attacker who obtains your password database can crack every common password (and many uncommon ones) within hours using rainbow tables or brute force. <strong>Never use MD5, SHA-1, SHA-256, or any general-purpose hash for passwords.</strong></p>
+      <p>Use bcrypt (cost factor 12+), argon2id (memory=64MB, iterations=3), or scrypt. These algorithms are intentionally slow — ~250ms per hash — making brute-force attacks computationally prohibitive. If your authentication code contains <code>md5(password)</code> or <code>sha1(password)</code>, treat it as a critical security vulnerability requiring immediate remediation.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Weak or Hardcoded JWT Secrets</span>
+      <p>A JWT signed with the secret <code>"secret"</code>, <code>"password"</code>, or any string under ~32 characters of entropy can be brute-forced in seconds using tools like <code>hashcat</code> with JWT-specific wordlists. Attackers who crack your JWT secret can forge tokens for any user — including admin accounts.</p>
+      <p>Generate JWT secrets with a cryptographically secure random number generator: at minimum 256 bits (32 bytes) of entropy. Use asymmetric keys (RS256 or ES256) for production systems — the signing key stays private, the verification key is public and can be shared safely. Store secrets in a secrets manager (AWS Secrets Manager, HashiCorp Vault) — never hardcode them in application code or commit them to version control.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Rate Limiting on the Login Endpoint</span>
+      <p>An unprotected <code>/login</code> endpoint is an open invitation for credential stuffing. Attackers use lists of millions of breached email/password pairs and test them automatically — often at thousands of requests per minute per IP, or distributed across botnets to evade IP-based limits. Without rate limiting, a 400,000-user database can be tested in under an hour.</p>
+      <p>Implement at minimum: (1) per-IP rate limiting (5 attempts per 15 minutes), (2) per-account rate limiting (10 failures before temporary lockout), (3) CAPTCHA after repeated failures. Use a distributed counter in Redis — in-memory per-process counters are bypassed by load-balanced deployments. Log all authentication failures with IP, timestamp, and account for anomaly detection.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Authentication verifies who a caller is — typically via credentials (password, token, or certificate) — and establishes an identity context for the duration of a session or request.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Authentication is the process of verifying identity — proving you are who you claim to be — before granting access. The two dominant patterns are session-based, where the server stores session state and gives the client a session ID cookie, and token-based, where the server issues a signed JWT that the client sends with each request and the server verifies cryptographically without any database lookup. Session-based is easier to revoke — you just delete the session — but requires a shared session store for horizontal scaling. JWTs scale better but are hard to invalidate before expiry, which is why most production systems pair short-lived access tokens with longer-lived refresh tokens. For password storage, I'd use bcrypt at cost factor 12 or argon2id — never MD5 or SHA because they're too fast to brute-force. For enterprise systems I'd federate to an IdP via OIDC rather than building auth from scratch — the blast radius of getting auth wrong is just too large."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is the difference between authentication and authorization?</li>
+        <li>How would you implement token revocation with JWTs?</li>
+        <li>What's the difference between OAuth 2.0 and OIDC?</li>
+        <li>How do you protect a login endpoint against brute force?</li>
+        <li>Why is bcrypt preferred over SHA-256 for passwords?</li>
+        <li>What cookie attributes prevent XSS from stealing session tokens?</li>
+        <li>How does TOTP MFA work mechanically?</li>
+        <li>How would you design authentication for a microservices system?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Confusing authentication with authorization — always clarify the distinction upfront.</li>
+        <li>Saying "store passwords as SHA-256 hash" — interviewers will immediately flag this as a security red flag.</li>
+        <li>Claiming JWTs are always better than sessions — each has trade-offs; the right choice depends on the system's revocation requirements and deployment topology.</li>
+        <li>Forgetting to mention rate limiting when asked about login security — it's the most commonly overlooked control.</li>
+        <li>Describing OAuth 2.0 as an "authentication protocol" — it's an authorization framework; OIDC adds the identity layer on top.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Session-Based</th>
+          <th>JWT (Stateless)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Requires shared session store (Redis) for horizontal scale</td>
+          <td>Any server verifies token — no shared state needed</td>
+        </tr>
+        <tr>
+          <td><strong>Revocation</strong></td>
+          <td>Immediate — delete session record</td>
+          <td>Hard — token valid until expiry; needs denylist for instant revocation</td>
+        </tr>
+        <tr>
+          <td><strong>CSRF risk</strong></td>
+          <td>Higher — cookies sent automatically; need SameSite + CSRF tokens</td>
+          <td>Lower — Authorization header not sent on cross-site requests automatically</td>
+        </tr>
+        <tr>
+          <td><strong>Token size</strong></td>
+          <td>Small cookie (session ID only)</td>
+          <td>Larger — payload in every request (typically 200–500 bytes)</td>
+        </tr>
+        <tr>
+          <td><strong>Operational complexity</strong></td>
+          <td>Simpler token format; complex session store HA</td>
+          <td>Simple infrastructure; complex key rotation and expiry management</td>
+        </tr>
+        <tr>
+          <td><strong>Best for</strong></td>
+          <td>Traditional web apps, admin tools, apps requiring instant logout</td>
+          <td>APIs, SPAs, mobile apps, microservices</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="authorization.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Authorization</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">What a verified identity is permitted to do — RBAC, ABAC, and policy engines.</span>
+      </a>
+      <a href="oauth.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">OAuth 2.0</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Delegated authorization — granting third-party apps limited access to your resources.</span>
+      </a>
+      <a href="jwt.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">JWT</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">JSON Web Tokens — structure, signing algorithms, and safe usage patterns.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Throttling requests to protect endpoints from abuse and brute-force attacks.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

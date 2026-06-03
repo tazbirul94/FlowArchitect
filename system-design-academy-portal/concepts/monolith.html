@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monolith — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="monolith" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Monolith</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Architecture <span>→</span> Monolith</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Architecture</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner–Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Monolith</h1>
+      <p class="page-subtitle">A single deployable unit containing all your application's functionality — and why that's not always the wrong answer.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-beginner">Beginner</span>
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Architecture</span>
+        <span class="tag">System Design</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>A monolith is like a Swiss Army knife — one tool that does everything. Every blade (feature) is contained in a single handle (deployable). You pick it up, unfold the blade you need, and it all works together. Compare this to a kitchen full of specialised knives: more versatile at scale, but far harder to manage, sharpen, and keep track of.</p>
+    </div>
+
+    <p>A monolith is an application where all functional components — user interface, business logic, data access — are packaged and deployed as one unit. When you deploy, you deploy the whole thing. When you scale, you scale the whole thing. When something breaks, the problem can be anywhere inside the one process.</p>
+
+    <p>The word carries a bad reputation in modern engineering culture, but that reputation is often undeserved. Monoliths are not inherently inferior. They are simpler to develop, test, and operate — especially early in a product's life. The real danger is not choosing a monolith; it is choosing the wrong <em>kind</em> of monolith, or refusing to evolve the architecture when the system's needs genuinely change.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A five-person startup built a B2B SaaS platform in 18 months. They chose a single Ruby on Rails monolith — one codebase, one database, one Heroku dyno. They iterated fast: a new feature shipped every two weeks. At month 18, they hit $1M ARR and started receiving enterprise inquiries.
+      </div>
+      <div class="story-problem">
+        A senior hire from a FAANG company joined and immediately pushed to "modernise" to microservices. The team spent six months splitting the monolith into eight services. Development velocity dropped by 70%. Every feature now required changes to three or four services and coordination across multiple PRs. Testing became a nightmare — local setup required running eight processes. Two engineers left. The startup missed a critical enterprise deal because a promised feature was delayed by infrastructure complexity.
+      </div>
+      <div class="story-solution">
+        The CTO paused the microservices migration and introduced a modular monolith instead. Rather than splitting into separate deployables, they enforced clear internal module boundaries inside the single codebase: <code>UserModule</code>, <code>BillingModule</code>, <code>ReportingModule</code>. Each module owned its domain logic and data layer. Modules communicated through defined interfaces, not direct class calls. The team resumed shipping weekly.
+      </div>
+      <div class="story-outcome">
+        Eighteen months later, the platform served 200 enterprise customers. One module — <code>BillingModule</code> — was handling PCI DSS compliance requirements that needed isolation. That single module was extracted into a microservice. Every other module remained in the modular monolith. The team of 12 engineers shipped faster than competitors with 40-person teams running full microservices. The key insight: the monolith was not the problem. Lack of internal structure was the problem.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>When you first build an app, everything lives in one place. One server, one codebase, one database. You run it, and it works. That is a monolith.</p>
+          <p>As a beginner, this is the right starting point. You do not have to worry about network calls between services, service discovery, or distributed tracing. You open one codebase, make a change, and see the result. You run one set of tests and they cover the whole system.</p>
+          <p>The challenge comes as the codebase grows. When everything is tangled together — a "Big Ball of Mud" — changing one part breaks another. The solution is not to immediately split into microservices. It is to organise the monolith better: put related code together, keep modules from reaching into each other's internals.</p>
+        </div>
+
+        <h3 class="subsection-title">Three Architecture Styles Compared</h3>
+        <p>There are three common patterns you will encounter. Think of them on a spectrum from simplest to most complex:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+graph TD
+    subgraph BOM["Big Ball of Mud (Tangled Monolith)"]
+      A1[UserController] <--> B1[PaymentService]
+      B1 <--> C1[EmailService]
+      A1 <--> C1
+      C1 <--> D1[ReportService]
+      A1 <--> D1
+      B1 <--> D1
+    end
+    subgraph MM["Modular Monolith (Single Deployment)"]
+      A2[User Module] --> B2[Billing Module]
+      A2 --> C2[Notification Module]
+      B2 --> C2
+      A2 & B2 & C2 --> DB2[(Shared DB)]
+    end
+    subgraph MS["Microservices (Multiple Deployments)"]
+      A3[User Service] -->|HTTP| B3[Billing Service]
+      A3 -->|HTTP| C3[Notification Service]
+      B3 -->|HTTP| C3
+      A3 --> DB3[(User DB)]
+      B3 --> DB4[(Billing DB)]
+      C3 --> DB5[(Notif DB)]
+    end
+          </div>
+        </div>
+
+        <ul>
+          <li><strong>Big Ball of Mud</strong> — All code in one place, but completely tangled. Any change is risky because dependencies are invisible. Common in fast-growing startups without architectural discipline.</li>
+          <li><strong>Modular Monolith</strong> — All code in one deployable, but clearly organised into modules with enforced boundaries. Fast to develop. Best of both worlds for most teams under 50 engineers.</li>
+          <li><strong>Microservices</strong> — Each module is its own deployable service with its own database. Maximum flexibility and independent scalability, but significant operational complexity. Appropriate when you have clear domain boundaries and a platform team to support them.</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <h3 class="subsection-title">Modular Monolith Patterns</h3>
+        <p>A modular monolith is not just a monolith with folders. It requires deliberate architectural rules:</p>
+
+        <ul>
+          <li><strong>Module boundaries are enforced</strong> — Module A cannot directly instantiate classes from Module B. It must call through a public API (interface or service layer). Violations caught in code review or via architecture linting tools like ArchUnit (Java) or Dependency Cruiser (Node.js).</li>
+          <li><strong>Shared database, but schema ownership</strong> — The database is shared (a single connection pool), but each module owns its tables. <code>UserModule</code> owns the <code>users</code> table. <code>BillingModule</code> cannot write to <code>users</code> directly — it must call the <code>UserModule</code> API.</li>
+          <li><strong>In-process communication</strong> — Modules call each other via function/method calls, not HTTP. No network overhead, no serialisation cost, no partial failure scenarios. This is a massive operational advantage over microservices.</li>
+        </ul>
+
+        <h3 class="subsection-title">Vertical Slice Architecture</h3>
+        <p>Most monoliths are organised horizontally by technical layer: all controllers together, all services together, all repositories together. This causes problems — a single feature change requires touching four different folders. <strong>Vertical slice architecture</strong> organises by feature instead:</p>
+
+        <div class="code-wrapper" data-lang="text">
+<pre><code class="language-plaintext"># Horizontal (layer-first) — common but problematic
+src/
+  controllers/
+    UserController.java
+    OrderController.java
+    PaymentController.java
+  services/
+    UserService.java
+    OrderService.java
+    PaymentService.java
+  repositories/
+    UserRepository.java
+    OrderRepository.java
+    PaymentRepository.java
+
+# Vertical (feature-first) — cohesive, easier to extract later
+src/
+  user/
+    UserController.java
+    UserService.java
+    UserRepository.java
+    User.java           ← domain model
+  order/
+    OrderController.java
+    OrderService.java
+    OrderRepository.java
+    Order.java
+  payment/
+    PaymentController.java
+    PaymentService.java
+    PaymentRepository.java
+    Payment.java</code></pre>
+        </div>
+
+        <p>Vertical slices make the codebase easier to navigate, reduce merge conflicts (features rarely touch the same files), and — critically — make future extraction into microservices much easier. Each vertical slice is a candidate service.</p>
+
+        <h3 class="subsection-title">When to Choose a Monolith</h3>
+        <ul>
+          <li><strong>Early-stage product</strong> — Domain boundaries are unknown. Decomposing early creates a <em>distributed monolith</em> (see Expert tab) — the worst outcome.</li>
+          <li><strong>Small team (&lt;10 engineers)</strong> — Microservices tax (service mesh, distributed tracing, container orchestration) is not worth paying when there are fewer engineers than services.</li>
+          <li><strong>Simple ops requirement</strong> — One deployment pipeline, one logging sink, one health check endpoint. Operational simplicity has real value.</li>
+          <li><strong>Latency-sensitive cross-cutting operations</strong> — In-process calls are orders of magnitude faster than network calls (0.001ms vs 1–10ms). If a single request touches many domains, microservices add latency budget overhead.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>The "microservices are always better" narrative is a FAANG cargo cult. Netflix, Uber, and Amazon decomposed at massive scale (thousands of engineers, millions of users). Their problems are not your problems. Start with a modular monolith. Extract services when you have a specific, concrete reason — compliance isolation, independent scaling needs, different language requirements — not because it "feels more professional".</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">Trade-offs: Monolith vs Microservices</h3>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Modular Monolith</th>
+              <th>Microservices</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Developer experience</strong></td>
+              <td class="good">One repo, one IDE, one debugger. Change &amp; see immediately.</td>
+              <td class="bad">10+ repos, complex local setup, distributed tracing needed to debug.</td>
+            </tr>
+            <tr>
+              <td><strong>Deployment complexity</strong></td>
+              <td class="good">One pipeline. One container. One rollback target.</td>
+              <td class="bad">Per-service pipelines. Coordination for multi-service releases. Version compatibility matrix.</td>
+            </tr>
+            <tr>
+              <td><strong>Testing</strong></td>
+              <td class="good">Integration tests run in-process. No service stubs needed.</td>
+              <td class="bad">Contract testing, service virtualisation, environment parity are ongoing challenges.</td>
+            </tr>
+            <tr>
+              <td><strong>Independent scaling</strong></td>
+              <td class="bad">Scale the entire app even if only one module needs more CPU.</td>
+              <td class="good">Scale only the services under load. Right-size instances per workload.</td>
+            </tr>
+            <tr>
+              <td><strong>Technology diversity</strong></td>
+              <td class="bad">Typically one language/framework. Adopting new tech requires migration.</td>
+              <td class="good">Each service can use the best technology for its use case.</td>
+            </tr>
+            <tr>
+              <td><strong>Fault isolation</strong></td>
+              <td class="bad">A bug in one module can crash the entire process. OOM in reporting kills checkout.</td>
+              <td class="good">A crashing service is isolated. Circuit breakers prevent cascading failure.</td>
+            </tr>
+            <tr>
+              <td><strong>Data transactions</strong></td>
+              <td class="good">ACID transactions across modules. Simple, consistent, no saga complexity.</td>
+              <td class="bad">Distributed transactions require Saga or 2PC. Eventual consistency is hard to reason about.</td>
+            </tr>
+            <tr>
+              <td><strong>Operational overhead</strong></td>
+              <td class="good">Low. Standard web app monitoring. One log stream, one metrics source.</td>
+              <td class="bad">Service mesh, distributed tracing, per-service alerting, on-call runbooks per service.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Strangler Fig Migration Pattern</h3>
+        <p>When a monolith genuinely needs to be broken apart, the worst approach is the "Big Bang rewrite" — stop everything, rebuild from scratch, and launch the new system on day X. This almost always fails. The correct approach is the <strong>Strangler Fig Pattern</strong>, named after a tree that grows around and eventually replaces a host tree:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant Router as HTTP Router / Proxy
+    participant Monolith
+    participant NewService as New Service
+
+    Note over Router,NewService: Phase 1 — Add router in front
+    Client->>Router: All requests
+    Router->>Monolith: All requests (pass-through)
+
+    Note over Router,NewService: Phase 2 — Extract first feature
+    Client->>Router: POST /payments
+    Router->>NewService: Route new feature
+    Router->>Monolith: All other routes
+
+    Note over Router,NewService: Phase 3 — Expand extracted surface
+    Client->>Router: GET /payments, POST /payments/refund
+    Router->>NewService: All payment routes
+    Router->>Monolith: Non-payment routes
+
+    Note over Router,NewService: Phase 4 — Monolith shrinks over time
+          </div>
+        </div>
+
+        <p>Key principles of the Strangler Fig:</p>
+        <ul>
+          <li><strong>Never touch the monolith's internals</strong> — The new service runs alongside, not by modifying the monolith.</li>
+          <li><strong>Route at the edge</strong> — A proxy (NGINX, API Gateway, or service mesh) routes traffic to either the monolith or the new service. The client is never aware of the transition.</li>
+          <li><strong>Anticorruption Layer (ACL)</strong> — The new service does not call the monolith's database or internal APIs directly. Instead, it uses an ACL adapter that translates between the monolith's domain model and the new service's domain model. This prevents the new service from inheriting the monolith's technical debt.</li>
+          <li><strong>Feature flags for cutover</strong> — Toggle traffic routing via config, not deployment. Makes rollback instant.</li>
+          <li><strong>Data migration last</strong> — Dual-write to both the monolith's DB and the new service's DB during transition. Once the new service is stable, migrate data and stop dual-writing.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="nginx">
+<pre><code class="language-nginx"># NGINX Strangler Fig routing config
+# Phase 2: extract /payments to new service
+
+upstream monolith {
+    server monolith-app:8080;
+}
+
+upstream payment_service {
+    server payment-svc:9000;
+}
+
+server {
+    listen 80;
+
+    # New service handles all payment routes
+    location /api/payments {
+        proxy_pass http://payment_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Everything else still goes to the monolith
+    location / {
+        proxy_pass http://monolith;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">The Distributed Monolith Antipattern</h3>
+
+        <div class="common-mistake">
+          <span class="common-mistake-label">Worst Outcome: Distributed Monolith</span>
+          <p>A <strong>distributed monolith</strong> is a system deployed as separate services but architecturally still a monolith. You have all the operational complexity of microservices (network calls, distributed tracing, container orchestration) with none of the benefits (independent deployability, fault isolation, independent scaling).</p>
+          <p><strong>Telltale signs:</strong></p>
+          <ul style="color: var(--text-secondary); margin-top: 0.5rem;">
+            <li>Service A cannot be deployed without also deploying Service B (tight coupling)</li>
+            <li>Two or more services share the same database tables (no data ownership)</li>
+            <li>A single logical operation requires synchronous calls across 5+ services (chatty network)</li>
+            <li>You can't run Service A in isolation because it hard-codes service B's URL without a stub</li>
+            <li>API contracts change frequently and break consumers (no versioning, no stability)</li>
+          </ul>
+        </div>
+
+        <p>The distributed monolith is what happens when a team applies microservices decomposition before understanding their domain. They split along technical boundaries ("a service per controller") rather than business boundaries ("a service per bounded context"). The coupling moves from in-process to over-the-wire, but it's still there — now it causes network latency and partial failure modes on top of the original design problems.</p>
+
+        <h3 class="subsection-title">Shopify at Scale — Modular Monolith in Practice</h3>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Expert Case Study</span>
+          <span class="enterprise-card-company">Shopify — Ruby on Rails Monolith at $100B+ GMV</span>
+          <p><strong>Scale:</strong> As of 2024, Shopify processes over $100B GMV annually, serves 2M+ active merchants, and handles peak loads of 40,000+ checkout requests per second during Black Friday. The core platform is still a Ruby on Rails monolith — affectionately called "the Monolith" internally.</p>
+          <p><strong>Architecture:</strong> Shopify uses what they call "component-based development." The Rails monolith is divided into vertical components (analogous to modules). Each component is a Rails Engine — a mini-application that packages its own models, controllers, and database migrations. Components communicate through public Ruby interfaces, not direct ActiveRecord cross-component queries.</p>
+          <p><strong>Pods:</strong> Shopify introduced "pods" — vertical slices of the monolith that own a subset of merchants. Pod A might serve merchants 1–100K, Pod B serves merchants 100K–200K. All pods run the same codebase. This gives independent scaling and fault isolation without the cost of a distributed system.</p>
+          <p><strong>When they do extract services:</strong> Shopify extracts a service only when there is a concrete, irreplaceable reason:
+            <ul style="color:#cbd5e1; margin-top: 0.5rem;">
+              <li><strong>Shopify Payments</strong> → Extracted for PCI DSS compliance isolation (cardholder data cannot co-reside with general application code)</li>
+              <li><strong>Shopify Shipping</strong> → Extracted because it needed separate deployment cadence and third-party carrier API management</li>
+              <li><strong>Shop Pay</strong> → Extracted for independent mobile SDK deployment</li>
+            </ul>
+          </p>
+          <p><strong>The lesson:</strong> Shopify does not extract services to "modernise." They extract services when a specific, named constraint demands it. The question is never "should we use microservices?" — it is "does this module have a concrete reason to be a separate deployable?" Most modules never reach that threshold.</p>
+        </div>
+
+        <h3 class="subsection-title">Migration Strategy — When to Actually Split</h3>
+        <p>The expert question is not whether to split, but <em>when</em> the evidence justifies the cost:</p>
+
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Signal</th>
+              <th>What It Means</th>
+              <th>Response</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>One module needs to scale 10x while others stay flat</td>
+              <td>Scaling the whole monolith is wasteful</td>
+              <td>Extract that module as a service</td>
+            </tr>
+            <tr>
+              <td>Compliance requirement (PCI, HIPAA, SOC2 scope reduction)</td>
+              <td>Data isolation is legally mandated</td>
+              <td>Extract the compliant module</td>
+            </tr>
+            <tr>
+              <td>Different release cadence needs (mobile SDK, external API)</td>
+              <td>Monolith deploy cycle creates blocked dependencies</td>
+              <td>Extract with versioned API contract</td>
+            </tr>
+            <tr>
+              <td>Different technology needs (ML inference, real-time streaming)</td>
+              <td>Python/Go/Rust genuinely better than the monolith's language</td>
+              <td>Sidecar or separate service with ACL</td>
+            </tr>
+            <tr>
+              <td>"We want to use microservices"</td>
+              <td>Fashion-driven, not evidence-driven</td>
+              <td>Enforce modular monolith discipline first</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Shopify — Ruby on Rails Modular Monolith serving $100B+ GMV</span>
+      <p><strong>Context:</strong> Shopify is one of the most successful examples of a monolith surviving at global scale. Their Ruby on Rails codebase — over 3 million lines of code — serves more than 2 million merchants globally, processes 40,000+ checkout requests per second during Black Friday peaks, and maintains 99.99% uptime SLAs. Despite constant industry pressure to "go microservices," Shopify has deliberately kept the monolith as their core architecture.</p>
+      <p><strong>How the modular monolith is structured:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>The codebase is divided into <strong>Rails Engines</strong> — each Engine is a self-contained component with its own models, controllers, migrations, and public API surface</li>
+        <li><strong>Shopify's "component" rule:</strong> no cross-component ActiveRecord associations. If Billing needs to know a merchant's email, it calls <code>MerchantComponent.find_email(merchant_id)</code> — it does not join the <code>merchants</code> table directly</li>
+        <li><strong>Pods architecture:</strong> multiple identical copies of the monolith serve disjoint merchant shards. Pod failure affects ~10K merchants, not all 2M</li>
+        <li><strong>Zero-downtime deploys:</strong> blue-green deployment across all pods. The monolith ships multiple times per day via GitHub Actions → containerised Rails → Kubernetes</li>
+        <li><strong>Observability:</strong> Despite being one process, Shopify tracks component-level metrics using custom middleware that tags Datadog traces with the owning component. Every slow DB query is attributed to the component that issued it</li>
+        <li><strong>Selective extraction:</strong> Only 4–5 services have been extracted in 15 years — each with a documented compliance or scaling reason, not architectural preference</li>
+      </ol>
+      <p><strong>Business Impact:</strong> Shopify engineering (a team of ~2,000 engineers) ships faster than most companies their size precisely because new engineers can clone one repo, run one command, and have a working local environment in under 10 minutes. Contrast with companies that moved to microservices prematurely: new engineers often take 4–8 weeks to understand the service topology well enough to make a feature change confidently.</p>
+      <p><strong>Lessons learned:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Modular discipline matters more than deployment architecture.</strong> Shopify's monolith works at scale because they invest heavily in component boundaries — static analysis, code review bots that flag cross-component violations, mandatory architecture reviews for new components.</li>
+        <li><strong>Pods beat horizontal scaling for multi-tenant apps.</strong> Sharding the monolith by merchant is more operationally simple than sharding a mesh of microservices.</li>
+        <li><strong>Extract services for compliance, not fashion.</strong> Every extraction costs months of engineering. Make sure the benefit — compliance, scaling, cadence — is concrete before paying that cost.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Dismissing Monolith as "Not Scalable"</span>
+      <p>The instinctive reaction to "monolith" is that it cannot scale. This is empirically false. Shopify scales to 40,000 req/sec with a Rails monolith. Stack Overflow serves billions of page views with a .NET monolith on a handful of servers. Basecamp, GitHub, and Notion all ran (or still run) on large monoliths at significant scale.</p>
+      <p>Monoliths scale vertically (larger machines) and horizontally (multiple instances behind a load balancer). The limit is not the deployment model — it is whether the internal design makes horizontal scaling possible (stateless application tier, externalised session storage, no local filesystem assumptions).</p>
+      <p><strong>The fix:</strong> Before assuming a monolith cannot scale, identify the specific bottleneck. Is it CPU? Memory? Database connections? I/O? Each bottleneck has a solution that does not require splitting the codebase into services.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Extracting Microservices Before Understanding Domain Boundaries</span>
+      <p>The most expensive architectural mistake in modern software is decomposing a system into microservices before the domain is well understood. Domain boundaries feel obvious — until you build against them. You discover that "Order" and "Inventory" are not cleanly separable: a checkout transaction must atomically reserve inventory and create an order. Splitting them creates distributed transaction complexity that requires Sagas, compensating transactions, and eventual consistency — problems that are hard to reason about and harder to debug.</p>
+      <p>The monolith phase is the learning phase. Domain-Driven Design prescribes building a model, discovering where it fits and where it chafes, and only then identifying Bounded Contexts worth isolating. When you have run the monolith in production for a year, the real seams become visible — often completely different from where you would have guessed on day one.</p>
+      <p><strong>The fix:</strong> Build a modular monolith first. Use vertical slice architecture. Let the seams emerge from real usage. Extract services only when a module's needs clearly diverge from the whole.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Creating a Distributed Monolith (Microservices in Name Only)</span>
+      <p>Teams under pressure to "modernise" often split a monolith by creating one service per controller or one service per database table. The result is a distributed monolith: 20 services that must be deployed together, share a database, and call each other synchronously across dozens of hops. You now have all the complexity of microservices (network latency, partial failure, distributed tracing, multiple deployment pipelines) with none of the benefits (independent deployability, fault isolation).</p>
+      <p>Signs you have built a distributed monolith: you cannot deploy Service A without also deploying Services B, C, and D; services share the same database schema; a single API request fans out to 15 synchronous downstream calls; local development requires running 12 processes simultaneously.</p>
+      <p><strong>The fix:</strong> Respect bounded context boundaries. Each service must own its data (no shared tables). Each service must be independently deployable (versioned APIs, backward-compatible changes). If you cannot meet these two constraints, the decomposition is wrong and a modular monolith would serve you better.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A monolith is a single deployable unit containing all application functionality. A modular monolith enforces internal boundaries for maintainability. Microservices are the right evolution only when specific, concrete constraints — scaling, compliance, cadence — justify the operational complexity.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "A monolith is a single deployable where all application functionality lives together. When structured well — as a modular monolith — this is the right choice for most teams: one repo, one deployment pipeline, fast developer experience, and in-process transactions instead of distributed ones. The real architectural decision is not monolith vs microservices but how to manage internal coupling. Shopify proves monoliths scale to 40,000 req/sec with a Rails codebase. The transition to microservices only makes sense when a specific module has a concrete, named reason: PCI compliance isolation, 10x scaling differential, or genuinely different deployment cadence. Without those constraints, you risk creating a distributed monolith — the worst outcome — where you have microservices complexity but none of the independence benefits."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is a distributed monolith and how would you identify one?</li>
+        <li>How would you migrate a monolith to microservices without downtime?</li>
+        <li>When would you choose a monolith over microservices for a greenfield project?</li>
+        <li>What is the Strangler Fig pattern and when do you use it?</li>
+        <li>How does a modular monolith differ from a well-structured monolith?</li>
+        <li>How does Shopify run a monolith at scale?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Automatically saying "microservices are better" without mentioning the operational cost tradeoff — senior interviewers penalise this immediately.</li>
+        <li>Not knowing what a distributed monolith is — it demonstrates you have not operated a microservices system in production.</li>
+        <li>Confusing "monolith" with "poorly structured code" — a monolith can have excellent internal structure; the deployment model is orthogonal to code quality.</li>
+        <li>Recommending microservices for a startup or small team context — this demonstrates cargo-cult thinking, not architectural judgment.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Monolith Advantage</th>
+          <th>Monolith Limitation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Developer Velocity</strong></td>
+          <td>One codebase, fast iteration, simple local setup, full-stack changes in one PR</td>
+          <td>Large teams may hit merge conflict frequency; large test suite CI time increases</td>
+        </tr>
+        <tr>
+          <td><strong>Operations</strong></td>
+          <td>One deployment pipeline, one log stream, one health check, no service mesh needed</td>
+          <td>Scale entire app even if one component needs resources; single process OOM kills everything</td>
+        </tr>
+        <tr>
+          <td><strong>Data Consistency</strong></td>
+          <td>ACID transactions across all modules — no saga complexity, no eventual consistency</td>
+          <td>All modules share DB — schema changes need backward compatibility across modules</td>
+        </tr>
+        <tr>
+          <td><strong>Testing</strong></td>
+          <td>Integration tests run in-process — fast, no service stubs, deterministic</td>
+          <td>Full test suite grows over time; need architectural discipline to avoid test interdependencies</td>
+        </tr>
+        <tr>
+          <td><strong>Fault Isolation</strong></td>
+          <td>Simpler failure modes — one process, one thing to debug, one crash dump</td>
+          <td>Memory leak or CPU spike in one module impacts all modules (no process-level isolation)</td>
+        </tr>
+        <tr>
+          <td><strong>Scaling</strong></td>
+          <td>Horizontal scaling behind a load balancer works well for stateless apps</td>
+          <td>Cannot scale one hot module independently — must scale the whole application</td>
+        </tr>
+        <tr>
+          <td><strong>Technology</strong></td>
+          <td>One language, one framework, one hiring profile</td>
+          <td>Adopting a new language or runtime requires extracting a service or rewriting</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Independent deployable services — the alternative to a monolith.</span>
+      </a>
+      <a href="cqrs.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CQRS</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Separating read and write models — applies inside a monolith or across services.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Managing distributed transactions — complexity you avoid by staying in the monolith.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Routing entry point — key component in a Strangler Fig migration strategy.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

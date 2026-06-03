@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indexing — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="indexing" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Indexing</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Data <span>→</span> Indexing</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Data</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Indexing</h1>
+      <p class="page-subtitle">A data structure that lets the database engine find rows without scanning every single record — the difference between millisecond and multi-second queries.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Data</span>
+        <span class="tag">Databases</span>
+        <span class="tag">Performance</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Imagine a 1,000-page textbook with no index. To find every mention of "B-tree" you must read every page from cover to cover. Now imagine the same book with a sorted index in the back: "B-tree — pages 42, 78, 391." You jump straight there. A database index is that back-of-book index — a separate, sorted data structure that maps values to the rows that contain them.</p>
+    </div>
+
+    <p>Without an index, the database performs a <strong>sequential scan</strong> — it reads every row in a table to find the matching ones. On a table with 100 million rows that can take seconds. An index pre-organises the values in a column (or columns) so the engine can skip to the right rows in O(log n) time instead of O(n). This is the single most impactful performance optimisation available in relational databases and most NoSQL stores.</p>
+
+    <p>The trade-off: indexes cost storage and slow down writes. Every <code>INSERT</code>, <code>UPDATE</code>, or <code>DELETE</code> must update not just the table but every index on it. Good index design is therefore a balance between read speed and write overhead.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story — Slack Messages Table</span>
+      <div class="story-scenario">
+        Slack stores every message ever sent in a messages table. By mid-2023 that table held over 10 billion rows across all workspaces globally. Engineers needed to let users search their channel history — fetching the most recent 50 messages in a given channel is the most common query pattern in the application.
+      </div>
+      <div class="story-problem">
+        Without a targeted index, the query <code>SELECT * FROM messages WHERE channel_id = 'C123' ORDER BY created_at DESC LIMIT 50</code> triggered a sequential scan across billions of rows. Even with the table partitioned by workspace, scans within a large workspace took 8 seconds. The search feature was unusable. P99 latency hit 12 seconds on active channels.
+      </div>
+      <div class="story-solution">
+        The team added a composite index: <code>CREATE INDEX idx_messages_channel_time ON messages(channel_id, created_at DESC)</code>. The column order was deliberate — <code>channel_id</code> first because users always filter by channel (high cardinality, excellent selectivity), then <code>created_at DESC</code> so the index pages are pre-sorted in the direction the query needs. The database could now use an <strong>index-only scan</strong> to satisfy the entire query without touching the table heap.
+      </div>
+      <div class="story-outcome">
+        Query time dropped from 8 seconds to 12 milliseconds — a 650x improvement. P99 latency normalised under 50ms. The index added ~80 GB of storage overhead but eliminated three database replicas that had been provisioned purely to absorb the sequential scan load, netting a significant infrastructure cost reduction.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Think of a phone book. It lists every subscriber in alphabetical order. To find "Smith, John" you don't read every entry — you flip to the S section, then to Sm, then scan a few entries. That's an index. A database index works the same way: it's a sorted copy of one or more columns, stored separately, that the engine can binary-search in fractions of a millisecond.</p>
+          <p>When you write <code>SELECT * FROM users WHERE email = 'alice@example.com'</code>, the database has two options. Without an index: read every user row until it finds Alice's email. With an index on the <code>email</code> column: jump directly to Alice's row in O(log n) time. For a table with 1 million users, that's the difference between scanning 1,000,000 rows and scanning roughly 20 (since log₂ 1,000,000 ≈ 20).</p>
+          <p>Creating a basic index is a single SQL command and takes effect immediately:</p>
+        </div>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Create an index on the email column of the users table
+CREATE INDEX idx_users_email ON users(email);
+
+-- Now this query uses the index instead of a full table scan
+SELECT * FROM users WHERE email = 'alice@example.com';
+
+-- Drop an index
+DROP INDEX idx_users_email;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Sequential scan (Seq Scan)</strong> — Reading every row in a table from start to finish. Always works, but slow on large tables.</li>
+          <li><strong>Index scan</strong> — Using the index to find the row locations, then fetching those specific rows from the table.</li>
+          <li><strong>Index-only scan</strong> — The index contains all the data the query needs; no visit to the table required. Fastest option.</li>
+          <li><strong>Cardinality</strong> — The number of distinct values in a column. High cardinality (e.g., email addresses) = very useful index. Low cardinality (e.g., a boolean <code>is_active</code>) = index rarely helps.</li>
+        </ul>
+
+        <h3 class="subsection-title">B-Tree Structure (Most Common Index)</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+graph TD
+    R["Root Node<br/>Keys: 30 | 70"]
+    B1["Branch Node<br/>Keys: 10 | 20"]
+    B2["Branch Node<br/>Keys: 40 | 55"]
+    B3["Branch Node<br/>Keys: 75 | 90"]
+    L1["Leaf: 5 → row ptr"]
+    L2["Leaf: 10 → row ptr"]
+    L3["Leaf: 20 → row ptr"]
+    L4["Leaf: 30 → row ptr"]
+    L5["Leaf: 40 → row ptr"]
+    L6["Leaf: 55 → row ptr"]
+    L7["Leaf: 70 → row ptr"]
+    L8["Leaf: 75 → row ptr"]
+    L9["Leaf: 90 → row ptr"]
+
+    R --> B1
+    R --> B2
+    R --> B3
+    B1 --> L1
+    B1 --> L2
+    B1 --> L3
+    B2 --> L4
+    B2 --> L5
+    B2 --> L6
+    B3 --> L7
+    B3 --> L8
+    B3 --> L9
+          </div>
+        </div>
+
+        <p>Each leaf node stores the indexed value and a pointer to the actual row on disk. To find a value, the engine starts at the root, compares the search key, and navigates down the appropriate branch — typically 3–5 levels deep even for tables with hundreds of millions of rows.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>There are several index types, each optimised for different access patterns. Choosing the right type — and understanding <code>EXPLAIN ANALYZE</code> — separates average from strong engineers.</p>
+
+        <h3 class="subsection-title">Index Types</h3>
+        <ul>
+          <li><strong>B-tree (default)</strong> — Balanced tree. Supports equality (<code>=</code>), range (<code>&lt;</code>, <code>&gt;</code>, <code>BETWEEN</code>), and <code>ORDER BY</code>. Used in PostgreSQL, MySQL, Oracle, SQL Server by default.</li>
+          <li><strong>Hash</strong> — Stores a hash of each value. O(1) exact-match lookup. Cannot be used for range queries or sorting. Best in Redis and in-memory use cases. PostgreSQL supports hash indexes but they don't persist across crash recovery prior to v10.</li>
+          <li><strong>GIN (Generalized Inverted Index)</strong> — Designed for composite values: full-text search (<code>tsvector</code>), JSONB columns, arrays. Slower to build and update but excellent for <code>@&gt;</code> containment queries and <code>@@</code> text search operators.</li>
+          <li><strong>GiST (Generalized Search Tree)</strong> — Supports geometric data, IP ranges, fuzzy matching. Used for PostGIS spatial queries.</li>
+          <li><strong>BRIN (Block Range Index)</strong> — Stores min/max values per disk block range. Tiny storage cost, only useful on naturally ordered columns (e.g., <code>created_at</code> in append-only tables).</li>
+        </ul>
+
+        <h3 class="subsection-title">Reading EXPLAIN ANALYZE</h3>
+        <p>Before adding indexes, always run <code>EXPLAIN ANALYZE</code> to understand what the planner is doing and what it costs:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">EXPLAIN ANALYZE
+SELECT id, title, created_at
+FROM tickets
+WHERE user_id = 1042
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- Example output BEFORE index:
+-- Seq Scan on tickets  (cost=0.00..28345.00 rows=47 width=52)
+--                      (actual time=0.042..312.847 rows=47 loops=1)
+--   Filter: (user_id = 1042)
+--   Rows Removed by Filter: 1249953
+-- Planning time: 0.612 ms
+-- Execution time: 312.991 ms
+
+-- After: CREATE INDEX idx_tickets_user_time ON tickets(user_id, created_at DESC);
+
+-- Index Scan using idx_tickets_user_time on tickets
+--                      (cost=0.43..84.21 rows=47 width=52)
+--                      (actual time=0.028..0.347 rows=47 loops=1)
+--   Index Cond: (user_id = 1042)
+-- Planning time: 0.389 ms
+-- Execution time: 0.412 ms</code></pre>
+        </div>
+
+        <p>Key output nodes to recognise:</p>
+        <ul>
+          <li><strong>Seq Scan</strong> — Full table scan. Normal for small tables or when the planner estimates index won't help (e.g., fetching 60% of rows).</li>
+          <li><strong>Index Scan</strong> — Uses the index to find rows, then fetches from the heap. <code>cost</code> is planner estimate; <code>actual time</code> is wall clock.</li>
+          <li><strong>Index Only Scan</strong> — The index satisfies the query entirely — no heap access. Only possible if all selected columns are in the index (covering index).</li>
+          <li><strong>Bitmap Index Scan + Bitmap Heap Scan</strong> — Mid-ground: builds a bitmap of matching row locations, then fetches heap pages in order. Efficient for moderate selectivity.</li>
+        </ul>
+
+        <h3 class="subsection-title">Composite Index: Column Order Matters</h3>
+        <p>A composite index on <code>(a, b, c)</code> supports queries that filter on the <strong>leftmost prefix</strong> of columns. This is called the <strong>left-prefix rule</strong>:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Index: CREATE INDEX ON orders(status, user_id, created_at);
+
+-- ✅ Uses index — filters on leftmost column
+SELECT * FROM orders WHERE status = 'pending';
+
+-- ✅ Uses index — filters on first two columns
+SELECT * FROM orders WHERE status = 'pending' AND user_id = 42;
+
+-- ✅ Uses index fully
+SELECT * FROM orders WHERE status = 'pending' AND user_id = 42
+  AND created_at > NOW() - INTERVAL '7 days';
+
+-- ❌ Cannot use index — skips leftmost column
+SELECT * FROM orders WHERE user_id = 42;
+
+-- ❌ Cannot use index — skips both leading columns
+SELECT * FROM orders WHERE created_at > NOW() - INTERVAL '7 days';</code></pre>
+        </div>
+
+        <p><strong>Rule of thumb for column order:</strong> Put the column with the highest selectivity (most distinct values) first — unless you always filter on a fixed column, in which case that fixed equality column goes first. The goal is to eliminate as many rows as possible at each tree level.</p>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>Advanced index techniques go beyond the default B-tree and unlock significant performance gains with minimal storage overhead.</p>
+
+        <h3 class="subsection-title">Covering Index (Index-Only Scan)</h3>
+        <p>A covering index includes every column a query needs — the engine never touches the table heap. In PostgreSQL, add non-key columns with <code>INCLUDE</code>:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Query: fetch recent tickets for a user (id, title, status, created_at)
+SELECT id, title, status, created_at
+FROM tickets
+WHERE user_id = 1042
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- Standard index — still requires heap fetch for title and status
+CREATE INDEX idx_tickets_user ON tickets(user_id, created_at DESC);
+
+-- Covering index — includes all projected columns in the index leaf
+-- No heap access needed → Index Only Scan
+CREATE INDEX idx_tickets_user_covering
+  ON tickets(user_id, created_at DESC)
+  INCLUDE (id, title, status);
+
+-- MySQL/MariaDB: equivalent is a composite index with all needed columns
+CREATE INDEX idx_tickets_user_covering
+  ON tickets(user_id, created_at, id, title, status);</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Partial Index</h3>
+        <p>A partial index only indexes rows that match a <code>WHERE</code> clause. This massively reduces index size when you only ever query a subset of rows:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- 99% of orders are 'completed'. Queries only ever touch 'pending'.
+-- Full index on status = waste of 99% of index space.
+
+-- Partial index: only index pending orders
+CREATE INDEX idx_orders_pending
+  ON orders(created_at DESC)
+  WHERE status = 'pending';
+
+-- This query uses the partial index — fast, tiny index
+SELECT * FROM orders WHERE status = 'pending' ORDER BY created_at DESC;
+
+-- This query does NOT use the partial index (status = 'completed')
+SELECT * FROM orders WHERE status = 'completed' ORDER BY created_at DESC;
+
+-- Practical impact: table has 10M rows, 100K pending orders
+-- Full index: 10M entries (~800 MB)
+-- Partial index: 100K entries (~8 MB) — 99% smaller, fits in RAM</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Index Selectivity and When Indexes Are Ignored</h3>
+        <p>The query planner estimates whether using the index is cheaper than a sequential scan based on <strong>selectivity</strong> — what fraction of rows match the predicate. If the index would return more than ~10–15% of the table, a sequential scan is often faster (avoids random I/O):</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Low selectivity: ~50% of users are active — planner ignores index
+SELECT * FROM users WHERE is_active = true;   -- Seq Scan likely
+
+-- High selectivity: very few users have this role — index used
+SELECT * FROM users WHERE role = 'admin';     -- Index Scan likely
+
+-- Force the planner to show its reasoning (PostgreSQL)
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM users WHERE is_active = true;
+
+-- Disable sequential scan to force index path for testing
+SET enable_seqscan = off;
+EXPLAIN ANALYZE SELECT * FROM users WHERE is_active = true;
+SET enable_seqscan = on;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Index Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Benefit</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Read performance</strong></td>
+              <td class="good">O(log n) lookup vs O(n) scan; 100–10000x faster on large tables</td>
+              <td class="bad">Small per-query planning overhead; planner must evaluate index paths</td>
+            </tr>
+            <tr>
+              <td><strong>Write performance</strong></td>
+              <td class="good">No change to INSERT/UPDATE logic from application perspective</td>
+              <td class="bad">Every write must update all indexes; 10 indexes = ~10x write amplification</td>
+            </tr>
+            <tr>
+              <td><strong>Storage</strong></td>
+              <td class="good">Enables smaller, cheaper instances</td>
+              <td class="bad">B-tree indexes typically 10–30% of table size; covering indexes larger</td>
+            </tr>
+            <tr>
+              <td><strong>Maintenance</strong></td>
+              <td class="good">Automatic; no application changes needed</td>
+              <td class="bad">Bloat over time; VACUUM/REINDEX needed in PostgreSQL for write-heavy tables</td>
+            </tr>
+            <tr>
+              <td><strong>Lock behaviour</strong></td>
+              <td class="good">CREATE INDEX CONCURRENTLY avoids full table lock in PostgreSQL</td>
+              <td class="bad">Standard CREATE INDEX locks writes for the duration of the build</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>Always use <code>CREATE INDEX CONCURRENTLY</code> in production. The standard <code>CREATE INDEX</code> holds a ShareLock that blocks all writes until the index build completes — on a 100M-row table that could be 10+ minutes of write downtime. <code>CONCURRENTLY</code> takes ~2x longer but never blocks writes. The only downside is that it cannot be run inside a transaction block.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At expert level, index strategy intersects with write amplification, vacuum mechanics, full-text search architecture, and the economics of storage vs compute.</p>
+
+        <h3 class="subsection-title">Index Maintenance Overhead (PostgreSQL Internals)</h3>
+        <p>PostgreSQL uses MVCC (Multi-Version Concurrency Control). When a row is updated, the old version is kept in the heap until VACUUM removes it — but the index entries for the old version become "dead tuples." Accumulated dead tuples cause <strong>index bloat</strong> — the index grows larger than necessary, slowing scans and wasting I/O bandwidth.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Check index bloat (PostgreSQL)
+SELECT
+  schemaname,
+  tablename,
+  indexname,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size,
+  idx_scan,
+  idx_tup_read,
+  idx_tup_fetch
+FROM pg_stat_user_indexes
+ORDER BY pg_relation_size(indexrelid) DESC;
+
+-- Find unused indexes (zero scans since last statistics reset)
+SELECT schemaname, tablename, indexname, idx_scan
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+  AND schemaname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY pg_relation_size(indexrelid) DESC;
+
+-- Rebuild a bloated index without a full lock
+REINDEX INDEX CONCURRENTLY idx_orders_status;
+
+-- Check table bloat and dead tuple ratio
+SELECT relname, n_dead_tup, n_live_tup,
+       round(n_dead_tup * 100.0 / nullif(n_live_tup + n_dead_tup, 0), 1) AS dead_ratio
+FROM pg_stat_user_tables
+WHERE n_dead_tup > 10000
+ORDER BY n_dead_tup DESC;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Write-Heavy Workloads: When to Avoid or Defer Indexes</h3>
+        <p>On write-heavy tables (event logs, IoT telemetry, audit trails), every additional index multiplies I/O cost. Strategies:</p>
+        <ul>
+          <li><strong>BRIN indexes</strong> — For append-only, time-ordered data. A BRIN on <code>created_at</code> is ~200 pages vs ~50,000 pages for a B-tree on a 100M-row table. Trade-off: requires data to be physically sorted on disk; random updates make it useless.</li>
+          <li><strong>Deferred/partial index rebuild</strong> — Bulk-load data with indexes dropped, then rebuild: <code>DROP INDEX; COPY ...; CREATE INDEX CONCURRENTLY;</code>. Load speed improves 5–20x.</li>
+          <li><strong>Fillfactor tuning</strong> — Set <code>fillfactor=70</code> on B-trees for heavily updated tables: <code>CREATE INDEX ... WITH (fillfactor=70)</code>. Leaves 30% of each page free so HOT (Heap-Only Tuple) updates can be accommodated without moving index entries.</li>
+          <li><strong>Separate write and read replicas</strong> — Route all writes to primary (fewer indexes), add read replicas with richer indexes tuned for query patterns.</li>
+        </ul>
+
+        <h3 class="subsection-title">Full-Text Search: GIN Index vs Elasticsearch</h3>
+        <p>PostgreSQL GIN indexes on <code>tsvector</code> columns handle moderate full-text search workloads well, without adding infrastructure complexity:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Add a tsvector column and GIN index for full-text search
+ALTER TABLE tickets ADD COLUMN search_vector tsvector;
+
+UPDATE tickets
+SET search_vector = to_tsvector('english', coalesce(title,'') || ' ' || coalesce(description,''));
+
+CREATE INDEX idx_tickets_fts ON tickets USING GIN(search_vector);
+
+-- Automatically update search_vector on insert/update using a trigger
+CREATE FUNCTION tickets_tsvector_update() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('english',
+    coalesce(NEW.title,'') || ' ' || coalesce(NEW.description,''));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tsvector_update BEFORE INSERT OR UPDATE ON tickets
+FOR EACH ROW EXECUTE FUNCTION tickets_tsvector_update();
+
+-- Full-text search query
+SELECT id, title, ts_rank(search_vector, query) AS rank
+FROM tickets, to_tsquery('english', 'payment & failed') query
+WHERE search_vector @@ query
+ORDER BY rank DESC
+LIMIT 20;</code></pre>
+        </div>
+
+        <p><strong>When to choose Elasticsearch over PostgreSQL FTS:</strong></p>
+        <ul>
+          <li>Need relevance tuning with boosting, fuzzy matching, or custom analyzers</li>
+          <li>Full-text search is the primary access pattern (not a secondary feature)</li>
+          <li>Table has 100M+ rows with high update frequency (GIN index rebuild becomes expensive)</li>
+          <li>Need faceted search, aggregations, or auto-complete at scale</li>
+          <li>Multi-language stemming and language detection required</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note — Index Strategy by Stage</span>
+          <p><strong>Startup (0–1M rows):</strong> Add indexes when you first observe slow queries. Don't pre-optimise. EXPLAIN ANALYZE is your guide.</p>
+          <p><strong>Growth (1M–100M rows):</strong> Audit unused indexes quarterly, eliminate them. Profile composite index column order against actual query patterns. Monitor dead tuple ratios — tune autovacuum if needed.</p>
+          <p><strong>Scale (100M+ rows):</strong> Index strategy becomes a first-class architectural concern. Partial indexes, covering indexes, and BRIN for time-series become essential. Consider table partitioning (local indexes per partition are far smaller). Evaluate whether FTS should move to a dedicated search service.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Slack — messages table, 10B+ rows, 650x query improvement</span>
+      <p><strong>Context:</strong> Slack's messages table is one of the largest OLTP tables in production anywhere. Hundreds of millions of messages are written every day. The core query — "give me the last 50 messages in channel X" — runs billions of times per day across every active workspace. It must return in under 100ms to keep the real-time messaging UX responsive.</p>
+      <p><strong>Index design:</strong> The composite index <code>(channel_id, created_at DESC)</code> was chosen deliberately. <code>channel_id</code> is placed first because the query always filters on it (high selectivity — each channel is a small fraction of the total table). <code>created_at DESC</code> is placed second so results come out pre-sorted in descending order, eliminating a sort step. The index is a covering index for the most common projection (<code>id, channel_id, user_id, text, created_at</code>), enabling index-only scans on the hot path.</p>
+      <p><strong>Concrete numbers:</strong> Before the index: 8 second P50 query time. After: 12 milliseconds P50, under 50ms P99. Index size: ~80 GB on the primary. Table size: ~4 TB. Storage overhead: 2%. This is within budget — the 80 GB is in RAM on the primary for the hot channels, so it's effectively zero I/O cost in steady state.</p>
+      <p><strong>Ongoing operations:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Autovacuum is tuned aggressively for the messages table: <code>autovacuum_vacuum_scale_factor = 0.01</code> (trigger vacuum when 1% of rows are dead, vs the default 20%).</li>
+        <li>The table is partitioned by month. Each partition has its own index, keeping individual index sizes manageable.</li>
+        <li>New indexes are built with <code>CREATE INDEX CONCURRENTLY</code> — blocking writes on a 10B-row table would mean hours of outage.</li>
+        <li>Unused indexes are dropped quarterly — 14 legacy indexes were found and removed in one audit, reducing write amplification by ~25%.</li>
+      </ul>
+      <p><strong>Lessons learned:</strong> The most common mistake was adding indexes reactively without removing old ones. At peak, the messages table had 22 indexes — almost all writes triggered 22 B-tree updates. After the audit, 8 well-chosen indexes replaced 22 redundant ones. Write throughput increased 18% with zero read regression.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Over-Indexing: 10+ Indexes on One Table</span>
+      <p>Engineers add indexes to fix slow queries and never remove them. A table that accumulates 15 indexes pays a 15x write amplification penalty. Every <code>INSERT</code> must update 15 B-trees. Every <code>UPDATE</code> on any indexed column updates those trees. On write-heavy tables this compounds quickly — teams have observed 5–10x write throughput degradation from index sprawl alone.</p>
+      <p><strong>Fix:</strong> Audit indexes with <code>SELECT * FROM pg_stat_user_indexes WHERE idx_scan = 0</code>. Remove any index with zero scans since the last statistics reset (typically 2+ weeks in production). Combine overlapping indexes into composite indexes.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Wrong Column Order in Composite Index</span>
+      <p>The index <code>(status, user_id)</code> and <code>(user_id, status)</code> are very different. If your most common query is <code>WHERE user_id = ?</code>, the first index cannot be used (left-prefix rule violation). Engineers frequently put the "logical" column first rather than the column that drives selectivity. Low-selectivity columns (like a <code>status</code> enum with 4 values) placed first create wide fan-out at the root — the index is nearly useless.</p>
+      <p><strong>Fix:</strong> Design composite indexes around actual query patterns. Run <code>EXPLAIN ANALYZE</code> for every slow query and verify the index is actually used. Put the equality column first, then the range/sort column. Put high-selectivity columns before low-selectivity ones when both are equality filters.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Missing Index on Foreign Key Columns</span>
+      <p>In PostgreSQL, foreign key constraints do not automatically create indexes on the referencing column (MySQL InnoDB does create them). This means a <code>JOIN</code> on an unindexed foreign key triggers a sequential scan on the child table. On a large table, joining <code>orders.user_id</code> to <code>users.id</code> without an index on <code>orders.user_id</code> will scan the entire orders table for every user lookup.</p>
+      <p><strong>Fix:</strong> Always index foreign key columns: <code>CREATE INDEX ON orders(user_id)</code>. Run the following query after schema changes to catch missing FK indexes:</p>
+      <div class="code-wrapper" data-lang="sql">
+        <pre><code class="language-sql">-- Find foreign key columns with no index (PostgreSQL)
+SELECT
+  tc.table_name,
+  kcu.column_name,
+  ccu.table_name AS foreign_table
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.referential_constraints rc
+  ON tc.constraint_name = rc.constraint_name
+JOIN information_schema.constraint_column_usage ccu
+  ON rc.unique_constraint_name = ccu.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = tc.table_name
+      AND indexdef LIKE '%' || kcu.column_name || '%'
+  );</code></pre>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A database index is a sorted auxiliary data structure that maps column values to row locations, enabling O(log n) lookups instead of O(n) sequential scans — at the cost of additional storage and write amplification.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "An index is a separate data structure — most commonly a B-tree — that stores a sorted copy of one or more columns alongside pointers to the corresponding table rows. When a query filters or sorts on an indexed column, the engine traverses the tree in O(log n) time instead of scanning the entire table. The main trade-off is write amplification: every insert, update, or delete must update all indexes. A practical example is a messages table — without an index on channel_id and created_at, fetching recent messages requires a full table scan that takes seconds. With a composite index on those two columns in that order, the same query takes 12 milliseconds. Choosing the right index requires understanding the left-prefix rule for composite indexes, the selectivity of your predicates, and whether a partial or covering index can further reduce overhead."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between a B-tree index and a hash index? When would you use each?</li>
+        <li>Explain the left-prefix rule for composite indexes with an example.</li>
+        <li>What is a covering index and when does it enable an index-only scan?</li>
+        <li>How does a partial index differ from a full index? Give a use case.</li>
+        <li>How do you identify unused or bloated indexes in PostgreSQL?</li>
+        <li>When would you choose Elasticsearch over a GIN index for full-text search?</li>
+        <li>You have a write-heavy table that's getting slower every week. How do you diagnose and fix it?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "just add an index" without mentioning write overhead — interviewers will probe trade-offs.</li>
+        <li>Claiming hash indexes support range queries — they don't. Hash indexes are equality-only.</li>
+        <li>Forgetting the left-prefix rule when designing composite indexes — a very common interview gotcha.</li>
+        <li>Ignoring index selectivity — indexes on low-cardinality columns (booleans, small enums) are often ignored by the query planner.</li>
+        <li>Not mentioning <code>CREATE INDEX CONCURRENTLY</code> for production — standard CREATE INDEX blocks writes.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Recommended Approach</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Read-heavy, rare writes</strong></td>
+          <td>Aggressive indexing — composite, covering, partial</td>
+          <td>Write overhead negligible; read performance paramount</td>
+        </tr>
+        <tr>
+          <td><strong>Write-heavy (logs, events)</strong></td>
+          <td>Minimal indexes — primary key only, BRIN for time range</td>
+          <td>Every index multiplies write amplification; BRIN is tiny</td>
+        </tr>
+        <tr>
+          <td><strong>Full-text search (&lt;50M rows)</strong></td>
+          <td>PostgreSQL GIN index on tsvector</td>
+          <td>No extra infrastructure; sufficient for moderate workloads</td>
+        </tr>
+        <tr>
+          <td><strong>Full-text search (100M+ rows, complex)</strong></td>
+          <td>Elasticsearch / OpenSearch</td>
+          <td>Custom analyzers, relevance tuning, aggregations at scale</td>
+        </tr>
+        <tr>
+          <td><strong>Append-only time-series table</strong></td>
+          <td>BRIN index on timestamp column</td>
+          <td>200 pages vs 50,000 pages for B-tree; same range query support</td>
+        </tr>
+        <tr>
+          <td><strong>Low-cardinality filter column</strong></td>
+          <td>Partial index per value if needed; otherwise skip</td>
+          <td>B-tree on boolean/status often ignored by planner anyway</td>
+        </tr>
+        <tr>
+          <td><strong>Production index creation</strong></td>
+          <td>Always use CREATE INDEX CONCURRENTLY</td>
+          <td>Avoids write lock that blocks the table for minutes</td>
+        </tr>
+        <tr>
+          <td><strong>Foreign key columns (PostgreSQL)</strong></td>
+          <td>Always index — not automatic</td>
+          <td>Unindexed FK = sequential scan on every JOIN to child table</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="databases.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Databases</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Relational and non-relational data storage fundamentals.</span>
+      </a>
+      <a href="sharding.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Sharding</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Horizontal partitioning strategy for scaling large datasets.</span>
+      </a>
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">In-memory layer that absorbs read pressure from the database.</span>
+      </a>
+      <a href="replication.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Data</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Replication</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Copying data across nodes for availability and read scale-out.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

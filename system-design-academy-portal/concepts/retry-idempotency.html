@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retry &amp; Idempotency — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="retry-idempotency" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+<div id="sidebar-overlay"></div>
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Retry &amp; Idempotency</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Reliability <span>→</span> Retry &amp; Idempotency</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1 — PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Reliability</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Retry &amp; Idempotency</h1>
+      <p class="page-subtitle">Make distributed systems resilient to transient failures — and ensure that retrying an operation never causes unintended side effects like double charges.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Reliability</span>
+        <span class="tag">Distributed Systems</span>
+        <span class="tag">Resilience</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2 — DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p><strong>Retry</strong> is like pressing the elevator button again after it doesn't light up — you assume a brief hiccup and try once more. <strong>Idempotency</strong> is the guarantee that pressing that button ten times only calls the elevator once — you can't summon two elevators by pressing repeatedly.</p>
+      <p>Together they answer the question every distributed system must answer: "When my request fails and I don't know why, is it safe to try again?"</p>
+    </div>
+
+    <p>In a distributed system, <em>things fail transiently all the time</em> — a network packet drops, a server restarts, a database runs a short garbage collection pause. Most of these failures resolve in milliseconds to seconds. Retrying the request is the right instinct. The problem is that some operations are <strong>not safe to retry</strong> without extra safeguards: charging a credit card twice, creating a duplicate order, or sending a notification email twice all cause real user harm. Idempotency is the design pattern that makes retrying safe by ensuring the system produces the same result no matter how many times the same logical operation is submitted.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3 — THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fintech startup built a mobile payments app. During checkout, the app sent a POST /charge request to its payment-service. The mobile client had a 5-second timeout. On slow connections, the charge sometimes succeeded server-side but the 200 OK response never reached the app before the timeout fired.
+      </div>
+      <div class="story-problem">
+        The app treated any timeout as a failure and automatically retried the charge. On flaky 3G connections, this happened dozens of times a day. Customers started reporting double and triple charges. Support tickets exploded. One user was charged seven times for a single $12 coffee order. The startup issued $47,000 in refunds in a single month and nearly lost their payment processor relationship.
+      </div>
+      <div class="story-solution">
+        The team added two changes. First, the mobile app generates a UUID before each payment attempt and sends it as an <code>Idempotency-Key</code> header. Second, the payment-service stores each idempotency key with its result for 24 hours — if the same key arrives again, the service returns the cached original response instead of processing a new charge. The key is generated once per user checkout session, so any number of network retries map to exactly one payment.
+      </div>
+      <div class="story-outcome">
+        Double charges dropped to zero. The team also added exponential backoff with jitter to the retry logic — instead of all devices hammering the server simultaneously after a regional blip, each client waited a randomised interval before retrying. Server load spikes from retry storms fell by 80%. Customer support tickets related to payments dropped by 94%.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4 — LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- ─── BEGINNER PANEL ─── -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're sending a text message and your phone shows "Failed to send." You tap retry. That's a retry — try the same thing again because something went wrong temporarily.</p>
+          <p>Now imagine you accidentally send the same message three times. The recipient gets three identical texts. That's the problem with retries when the operation isn't <strong>idempotent</strong>. An idempotent operation is one where doing it multiple times is the same as doing it once. Pressing "like" on a post is idempotent — no matter how many times you press it, you can only like it once. Charging a credit card is NOT idempotent by default — each call charges you again.</p>
+          <p>Systems solve this by attaching a unique request ID to each attempt. The server sees: "I already processed request abc-123, here's the result" — and returns the original result instead of doing the work again.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Transient failure</strong> — A temporary error that goes away on its own (network hiccup, server restarting). Worth retrying.</li>
+          <li><strong>Permanent failure</strong> — An error that won't fix itself (invalid card number, item doesn't exist). Do NOT retry — it will keep failing.</li>
+          <li><strong>Idempotent</strong> — An operation where calling it multiple times has the same effect as calling it once.</li>
+          <li><strong>Idempotency key</strong> — A unique ID the client generates and sends with its request so the server can detect duplicates.</li>
+        </ul>
+
+        <h3 class="subsection-title">Retry with Exponential Backoff Timeline</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    C->>S: Attempt 1 (t=0s)
+    S-->>C: 503 Service Unavailable
+
+    Note over C: Wait ~1s (backoff + jitter)
+
+    C->>S: Attempt 2 (t≈1s)
+    S-->>C: 503 Service Unavailable
+
+    Note over C: Wait ~2s (backoff + jitter)
+
+    C->>S: Attempt 3 (t≈3s)
+    S-->>C: 503 Service Unavailable
+
+    Note over C: Wait ~4s (backoff + jitter)
+
+    C->>S: Attempt 4 (t≈7s)
+    S-->>C: 200 OK ✓
+
+    Note over C,S: Total: 4 attempts, ~7s elapsed
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Which HTTP methods are safe to retry?</h3>
+        <ul>
+          <li><strong>GET</strong> — Always safe to retry. Just fetches data, doesn't change anything.</li>
+          <li><strong>DELETE</strong> — Usually safe to retry. Deleting something that's already deleted still results in "it's gone."</li>
+          <li><strong>PUT</strong> — Safe to retry. Sets a value — setting it to the same value twice is fine.</li>
+          <li><strong>POST</strong> — NOT safe to retry by default. Creates something new each time. Needs an idempotency key to be safe.</li>
+        </ul>
+      </div>
+
+      <!-- ─── INTERMEDIATE PANEL ─── -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <h3 class="subsection-title">Exponential Backoff</h3>
+        <p>Retrying immediately after a failure is usually the worst thing you can do — the server is probably still struggling. <strong>Exponential backoff</strong> means each retry waits twice as long as the previous one:</p>
+
+        <div class="code-wrapper" data-lang="formula">
+          <pre><code class="language-text">wait_time = base * 2^attempt
+
+Attempt 0 (first retry): 1 * 2^0 = 1s
+Attempt 1:               1 * 2^1 = 2s
+Attempt 2:               1 * 2^2 = 4s
+Attempt 3:               1 * 2^3 = 8s
+Attempt 4:               1 * 2^4 = 16s  ← cap here (max_wait)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Jitter — Why You Must Add Randomness</h3>
+        <p>Without jitter, every client that received the same 503 at the same moment will all retry at <em>exactly</em> the same time. If 1,000 clients retry after exactly 2 seconds, you've recreated the same traffic spike that caused the failure. <strong>Full jitter</strong> randomises the wait within the backoff window:</p>
+
+        <div class="code-wrapper" data-lang="formula">
+          <pre><code class="language-text">Full jitter:
+  wait_time = random(0, min(cap, base * 2^attempt))
+
+Example for attempt 2 (cap = 30s, base = 1s):
+  max_wait = min(30, 1 * 4) = 4s
+  wait_time = random(0, 4)  → could be 0.7s, 2.3s, 3.9s ...
+
+Result: 1,000 clients spread their retries randomly across 4s
+        instead of all hitting at t+4s simultaneously.</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Implementing Retry with Exponential Backoff + Jitter</h3>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import time
+import random
+import requests
+
+def retry_with_backoff(url, payload, max_attempts=5, base_delay=1.0, max_delay=30.0):
+    """
+    Retry a POST request with full-jitter exponential backoff.
+    Only retries on transient errors (5xx, connection errors).
+    Does NOT retry on 4xx — those are permanent client errors.
+    """
+    for attempt in range(max_attempts):
+        try:
+            response = requests.post(url, json=payload, timeout=5)
+
+            # Success
+            if response.status_code == 200:
+                return response
+
+            # Permanent failure — do not retry
+            if 400 <= response.status_code < 500:
+                raise ValueError(f"Client error {response.status_code} — not retrying")
+
+            # Transient failure — fall through to backoff
+            print(f"Attempt {attempt + 1} failed with {response.status_code}")
+
+        except requests.exceptions.ConnectionError as e:
+            print(f"Attempt {attempt + 1} connection error: {e}")
+
+        # Last attempt — give up
+        if attempt == max_attempts - 1:
+            raise RuntimeError(f"All {max_attempts} attempts failed")
+
+        # Exponential backoff with full jitter
+        cap = min(max_delay, base_delay * (2 ** attempt))
+        sleep_time = random.uniform(0, cap)
+        print(f"Waiting {sleep_time:.2f}s before attempt {attempt + 2}...")
+        time.sleep(sleep_time)
+
+    raise RuntimeError("Retry loop exited unexpectedly")</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Idempotency Keys</h3>
+        <p>The client generates a UUID <em>once</em> before the first attempt, and sends it with every retry via a header. The server uses this key to detect duplicate requests:</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import uuid
+
+def charge_customer(user_id: str, amount_cents: int) -> dict:
+    """
+    Charge a customer. Safe to retry — idempotency key ensures
+    at most one charge regardless of how many times this is called.
+    """
+    # Generate ONCE before the retry loop — same key for all attempts
+    idempotency_key = str(uuid.uuid4())
+
+    payload = {"user_id": user_id, "amount_cents": amount_cents}
+    headers = {"Idempotency-Key": idempotency_key}
+
+    for attempt in range(5):
+        try:
+            response = requests.post(
+                "https://api.payment.example/charge",
+                json=payload,
+                headers=headers,   # same key on every retry
+                timeout=5
+            )
+            if response.status_code in (200, 201):
+                return response.json()
+            if 400 <= response.status_code < 500:
+                raise ValueError(f"Permanent error: {response.status_code}")
+        except requests.exceptions.Timeout:
+            pass  # retry
+        # ... backoff logic</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Server-Side Idempotency Key Handling</h3>
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">from flask import Flask, request, jsonify
+import redis
+import json
+
+app = Flask(__name__)
+cache = redis.Redis()
+IDEMPOTENCY_KEY_TTL = 86400  # 24 hours
+
+@app.route('/charge', methods=['POST'])
+def charge():
+    idem_key = request.headers.get('Idempotency-Key')
+
+    if idem_key:
+        # Check cache first
+        cached = cache.get(f"idem:{idem_key}")
+        if cached:
+            # Duplicate request — return original response, don't charge again
+            return jsonify(json.loads(cached)), 200
+
+    # Process the charge (new request or no idempotency key)
+    result = process_payment(request.json)
+
+    if idem_key:
+        # Store result for 24h — future retries get this cached response
+        cache.setex(f"idem:{idem_key}", IDEMPOTENCY_KEY_TTL, json.dumps(result))
+
+    return jsonify(result), 201</code></pre>
+        </div>
+
+        <h3 class="subsection-title">HTTP Method Idempotency Reference</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Idempotent?</th>
+              <th>Safe (read-only)?</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>GET</strong></td>
+              <td class="good">Yes</td>
+              <td class="good">Yes</td>
+              <td>Always safe to retry</td>
+            </tr>
+            <tr>
+              <td><strong>PUT</strong></td>
+              <td class="good">Yes</td>
+              <td class="bad">No</td>
+              <td>Sets resource to value — same result if repeated</td>
+            </tr>
+            <tr>
+              <td><strong>DELETE</strong></td>
+              <td class="good">Yes</td>
+              <td class="bad">No</td>
+              <td>Second call may return 404, but end state is same</td>
+            </tr>
+            <tr>
+              <td><strong>HEAD</strong></td>
+              <td class="good">Yes</td>
+              <td class="good">Yes</td>
+              <td>Like GET but no body</td>
+            </tr>
+            <tr>
+              <td><strong>POST</strong></td>
+              <td class="bad">No (by default)</td>
+              <td class="bad">No</td>
+              <td>Creates new resource each call — needs idempotency key</td>
+            </tr>
+            <tr>
+              <td><strong>PATCH</strong></td>
+              <td class="bad">No (by default)</td>
+              <td class="bad">No</td>
+              <td>Depends on operation — append is not idempotent, set is</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ─── ADVANCED PANEL ─── -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">Retry Storms — The Silent Killer</h3>
+        <p>A retry storm occurs when a downstream service degrades and all its callers simultaneously start retrying at their configured max rate. The math is brutal:</p>
+
+        <div class="code-wrapper" data-lang="scenario">
+          <pre><code class="language-text">Normal operation:
+  100 upstream services × 10 req/s each = 1,000 req/s to database
+
+Database slows (high CPU, GC pause):
+  All 100 services detect timeouts and retry 3× each
+  100 services × 10 req/s × 3 retries = 3,000 req/s to already-struggling DB
+
+Result: 3× amplification turns a recoverable slowdown into a full outage.
+        The database never recovers because retries keep it at 300% load.</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Retry Budgets</h3>
+        <p>A <strong>retry budget</strong> caps the total fraction of requests that are retries, not just per-client but system-wide. Popularised by Google's SRE practices:</p>
+
+        <div class="code-wrapper" data-lang="concept">
+          <pre><code class="language-text">Retry budget rule: retries must not exceed 10% of total requests
+
+If a service receives 10,000 req/s:
+  Max retry traffic = 1,000 req/s
+  If retries exceed this, start rejecting retry attempts at source
+
+Implementation approaches:
+  1. Token bucket: each service gets N retry tokens/second, refills constantly
+  2. Server-side: server tracks retry header (Retry-Attempt: 2) and
+     actively rejects excess retries with 429 Too Many Requests
+  3. Client-side: exponential backoff + max_attempts cap
+     (e.g., 3 attempts total, never more)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Trade-Off Summary</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Benefit</th>
+              <th>Risk</th>
+              <th>When to Use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Immediate retry (no backoff)</strong></td>
+              <td class="good">Fastest recovery for very brief glitches</td>
+              <td class="bad">Thundering herd — amplifies load on degraded service</td>
+              <td>Almost never. Only if 1 retry max and glitch &lt; 50ms</td>
+            </tr>
+            <tr>
+              <td><strong>Fixed interval retry</strong></td>
+              <td class="good">Simple to implement and reason about</td>
+              <td class="bad">Synchronised retries → spikes. No adaptation to recovery time</td>
+              <td>Low-concurrency internal tools only</td>
+            </tr>
+            <tr>
+              <td><strong>Exponential backoff</strong></td>
+              <td class="good">Load decreases over time, gives service room to recover</td>
+              <td class="bad">All clients on same schedule still synchronise if started at same time</td>
+              <td>All production retry scenarios</td>
+            </tr>
+            <tr>
+              <td><strong>Backoff + full jitter</strong></td>
+              <td class="good">Eliminates thundering herd, even distribution of retries over time</td>
+              <td class="bad">Max wait is unpredictable (could be 0s or cap)</td>
+              <td>Production default — use this</td>
+            </tr>
+            <tr>
+              <td><strong>Backoff + decorrelated jitter</strong></td>
+              <td class="good">Even better temporal spread than full jitter in some workloads</td>
+              <td class="bad">More complex algorithm, harder to explain to teammates</td>
+              <td>High-concurrency write workloads with many clients</td>
+            </tr>
+            <tr>
+              <td><strong>Idempotency key (no retry logic)</strong></td>
+              <td class="good">Client can retry freely without server-side duplication risk</td>
+              <td class="bad">Requires server-side storage of keys + TTL management</td>
+              <td>Any non-idempotent operation (payments, order creation)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">What NOT to Retry</h3>
+        <div class="common-mistake">
+          <span class="common-mistake-label">Never retry 4xx errors</span>
+          <p>HTTP 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 422 (Unprocessable Entity) — these will not resolve with retrying. They represent permanent failures about the request itself. Retrying a 400 wastes resources and masks a real bug in the client. Retrying a 403 could trigger rate limiting or account suspension.</p>
+          <p><strong>Only retry:</strong> 429 (Too Many Requests — after honouring Retry-After header), 500, 502, 503, 504, and connection/timeout errors.</p>
+        </div>
+
+        <h3 class="subsection-title">Non-Idempotent Operations That Look Idempotent</h3>
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p><strong>Relative updates are not idempotent.</strong> <code>UPDATE account SET balance = balance - 10</code> is NOT idempotent — running it twice subtracts 20. <code>UPDATE account SET balance = 90</code> (absolute) IS idempotent.</p>
+          <p><strong>Appending to a log is not idempotent.</strong> Inserting a row with no unique constraint creates duplicates. Add a unique constraint on <code>operation_id</code> and use <code>INSERT ... ON CONFLICT DO NOTHING</code>.</p>
+          <p><strong>Sending notifications is not idempotent.</strong> Sending an email twice delivers two emails. Deduplication by message ID at the notification layer is required before retrying.</p>
+        </div>
+      </div>
+
+      <!-- ─── EXPERT PANEL ─── -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Stripe's Idempotency Key Implementation</h3>
+        <p>Stripe is the gold standard reference implementation. Every mutating API call should include an <code>Idempotency-Key</code> header. Stripe stores keys and results for 24 hours.</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">import stripe
+import uuid
+import time
+
+stripe.api_key = "sk_live_..."
+
+def create_payment_intent_idempotent(amount: int, currency: str, customer_id: str) -> dict:
+    """
+    Create a PaymentIntent safely with idempotency.
+    The key is tied to the logical operation, not the HTTP request.
+    Generate it from stable business inputs so a server restart
+    with the same parameters reuses the same key.
+    """
+    # Stable key: tied to customer + amount + currency
+    # Same business operation always generates the same key
+    # This prevents duplicates even across process restarts
+    idempotency_key = f"pi-{customer_id}-{amount}-{currency}-{int(time.time() // 3600)}"
+    # ↑ Bucketed to 1-hour window: same customer can only create
+    #   one $X payment per hour without a new key
+
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency=currency,
+            customer=customer_id,
+            idempotency_key=idempotency_key,
+        )
+        return {"status": "created", "intent_id": intent.id}
+
+    except stripe.error.IdempotencyError as e:
+        # Stripe detected the same key with different parameters
+        # This is a client bug — different request with same key
+        raise ValueError(f"Idempotency key reused with different params: {e}")
+
+    except stripe.error.RateLimitError:
+        # 429 — honour Retry-After, then retry with SAME key
+        raise  # caller handles backoff</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Database-Level Idempotency</h3>
+        <p>For operations that write to a database, use the database itself as the idempotency store — avoids the need for a separate cache:</p>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- Schema: store each idempotency key with its result
+CREATE TABLE idempotency_keys (
+    key         VARCHAR(255) PRIMARY KEY,
+    status      VARCHAR(50)  NOT NULL,   -- 'processing', 'complete', 'failed'
+    response    JSONB,                    -- cached response body
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours'
+);
+
+-- Cleanup job (run every hour)
+DELETE FROM idempotency_keys WHERE expires_at < NOW();
+
+-- Index for TTL cleanup
+CREATE INDEX idx_idem_expires ON idempotency_keys(expires_at);</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">from contextlib import contextmanager
+import psycopg2
+import json
+
+def process_with_idempotency(conn, idempotency_key: str, operation_fn):
+    """
+    Execute operation_fn exactly once, regardless of how many times called
+    with the same idempotency_key.
+
+    Uses advisory locks to prevent race condition where two concurrent
+    requests with the same key both see "not cached" simultaneously.
+    """
+    with conn.cursor() as cur:
+        # 1. Acquire advisory lock on hash of the key
+        # Prevents two concurrent identical requests from both running
+        key_hash = hash(idempotency_key) % (2**31)
+        cur.execute("SELECT pg_try_advisory_xact_lock(%s)", (key_hash,))
+        lock_acquired = cur.fetchone()[0]
+
+        if not lock_acquired:
+            # Another process is handling the same key right now
+            # Wait briefly and retry lookup
+            raise RetryAfterError("Key being processed by another worker")
+
+        # 2. Check for existing result
+        cur.execute(
+            "SELECT status, response FROM idempotency_keys WHERE key = %s AND expires_at > NOW()",
+            (idempotency_key,)
+        )
+        row = cur.fetchone()
+
+        if row:
+            status, response = row
+            if status == 'complete':
+                return json.loads(response)  # Return cached result
+            elif status == 'processing':
+                raise RetryAfterError("Still processing — retry in 1s")
+            # status == 'failed' — re-run the operation
+
+        # 3. Mark as processing (idempotency fence)
+        cur.execute(
+            """INSERT INTO idempotency_keys (key, status)
+               VALUES (%s, 'processing')
+               ON CONFLICT (key) DO UPDATE SET status = 'processing'""",
+            (idempotency_key,)
+        )
+        conn.commit()
+
+    # 4. Execute the actual operation (outside of lock scope)
+    try:
+        result = operation_fn()
+        # 5. Store result
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE idempotency_keys SET status='complete', response=%s WHERE key=%s",
+                (json.dumps(result), idempotency_key)
+            )
+            conn.commit()
+        return result
+
+    except Exception as e:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE idempotency_keys SET status='failed' WHERE key=%s",
+                (idempotency_key,)
+            )
+            conn.commit()
+        raise</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Circuit Breaker Integration</h3>
+        <p>Retry and circuit breaker work together — retry handles individual transient failures, circuit breaker handles <em>sustained</em> failure. Without the circuit breaker, retries pile up indefinitely during an outage:</p>
+
+        <div class="code-wrapper" data-lang="python">
+          <pre><code class="language-python">from enum import Enum
+import threading
+import time
+
+class CircuitState(Enum):
+    CLOSED = "closed"         # Normal — all requests pass through
+    OPEN = "open"             # Failing — all requests rejected immediately (fast fail)
+    HALF_OPEN = "half_open"   # Recovery probe — one request allowed through
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, recovery_timeout=30, half_open_max=1):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max = half_open_max
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.half_open_attempts = 0
+        self._lock = threading.Lock()
+
+    def call(self, fn, *args, **kwargs):
+        with self._lock:
+            if self.state == CircuitState.OPEN:
+                elapsed = time.time() - self.last_failure_time
+                if elapsed >= self.recovery_timeout:
+                    self.state = CircuitState.HALF_OPEN
+                    self.half_open_attempts = 0
+                else:
+                    raise CircuitOpenError(f"Circuit OPEN — retry in {self.recovery_timeout - elapsed:.0f}s")
+
+            if self.state == CircuitState.HALF_OPEN:
+                if self.half_open_attempts >= self.half_open_max:
+                    raise CircuitOpenError("Half-open probe already in flight")
+                self.half_open_attempts += 1
+
+        try:
+            result = fn(*args, **kwargs)
+            with self._lock:
+                # Success — reset circuit
+                if self.state == CircuitState.HALF_OPEN:
+                    self.state = CircuitState.CLOSED
+                self.failure_count = 0
+            return result
+
+        except Exception as e:
+            with self._lock:
+                self.failure_count += 1
+                self.last_failure_time = time.time()
+                if self.failure_count >= self.failure_threshold:
+                    self.state = CircuitState.OPEN
+            raise
+
+# Usage: circuit breaker wraps retry — don't retry when circuit is OPEN
+payment_cb = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+
+def charge_with_circuit_breaker(payload):
+    try:
+        return payment_cb.call(lambda: requests.post("/charge", json=payload))
+    except CircuitOpenError:
+        # Fast fail — no retry, no waiting
+        return {"error": "payment_service_unavailable", "retry_after": 30}</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Production Design Pattern</span>
+          <p><strong>Layered defence:</strong> Idempotency key (prevents duplicates) + Exponential backoff with jitter (prevents thundering herd) + Retry budget (prevents retry amplification) + Circuit breaker (prevents cascade failures). Each layer addresses a different failure mode. Use all four together in any service that handles money, inventory, or notifications.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5 — ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Stripe — Idempotent Payment API at Scale</span>
+      <p><strong>Context:</strong> Stripe processes hundreds of billions of dollars in payments annually. Every payment intent creation, capture, and refund is a POST request. Mobile clients on unreliable connections time out constantly. Server-side, deployments happen dozens of times per day, creating brief windows where in-flight requests may not receive responses. Without idempotency, even a 0.001% duplicate rate at $500B volume means $500M in erroneous charges.</p>
+      <p><strong>How Stripe implements it:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Every mutating API endpoint accepts an <code>Idempotency-Key</code> header (up to 255 chars, client-generated UUID).</li>
+        <li>Stripe stores the key, the HTTP status, and the serialised response body in a distributed store with a 24-hour TTL.</li>
+        <li>If the same key arrives before the original request completes, Stripe returns 409 Conflict — the client should wait and retry.</li>
+        <li>If the key arrives with different parameters than the original, Stripe returns 422 — the client has a bug (can't reuse a key for a different operation).</li>
+        <li>Idempotency keys are scoped per API key — a key "abc-123" from Merchant A doesn't conflict with "abc-123" from Merchant B.</li>
+        <li>Their official SDKs automatically generate and attach idempotency keys, and implement exponential backoff with jitter for all retries.</li>
+      </ol>
+      <p><strong>Concrete numbers:</strong> Stripe's engineering blog reports that idempotency keys prevent an estimated 0.5–2% of all API calls from creating duplicate charges (depending on client SDK quality). At their scale, that represents billions of dollars in prevented duplicate charges each year. Their retry logic with jitter reduces peak retry traffic by approximately 75% compared to naive immediate retry.</p>
+      <p><strong>Lessons for your system:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Make idempotency opt-out, not opt-in</strong> — Stripe's SDKs attach keys automatically. If developers have to remember to add the key, they'll forget under deadline pressure.</li>
+        <li><strong>Store the full response, not just "processed"</strong> — On replay, return the exact original status code and body. Some clients check the response body; returning a generic 200 breaks them.</li>
+        <li><strong>24 hours is the right TTL</strong> — Long enough for mobile devices to come back online after being offline; short enough to keep storage costs manageable.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6 — COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Retrying Non-Idempotent POST Without an Idempotency Key</span>
+      <p>The most costly mistake. The timeout fires, the client retries, the server processes both requests. A customer gets charged twice, an order is created twice, an email is sent twice. The severity depends on the operation — double-charging a customer is a chargeback and a regulatory incident. The fix is mandatory: always generate and attach an idempotency key before the retry loop begins, not after the first failure.</p>
+      <p><strong>Red flag in code review:</strong> Any retry loop around a POST/create call that doesn't carry an idempotency key through all attempts.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Jitter on Retries (Thundering Herd)</span>
+      <p>A developer adds exponential backoff — good. But no jitter — bad. If 500 mobile clients all experience a connection error at the same second (e.g. during a brief BGP route flap), they all back off for exactly 2 seconds, then all hit the server simultaneously again. The spike recreates the original failure. Jitter — even just <code>sleep(backoff * random())</code> — smears those 500 retries across the full backoff window and prevents the spike.</p>
+      <p><strong>Real numbers:</strong> AWS's "Exponential Backoff and Jitter" blog post shows full jitter achieving 7.5× better throughput than fixed backoff in high-contention scenarios.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Infinite or Uncapped Retries</span>
+      <p>A developer sets <code>max_attempts = None</code> "to make the system more resilient." When a downstream service goes down for 2 hours, every caller retries indefinitely. Background job queues fill with thousands of stuck tasks, each holding threads and database connections. The retry storm takes down services that had nothing to do with the original failure. Always cap retries (3–5 is typical) and combine with circuit breakers to stop retrying against services that are clearly down for extended periods.</p>
+      <p><strong>Symptom:</strong> CPU and memory on callers climbs over time during a downstream outage, even though those callers "aren't doing anything."</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7 — INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Retries handle transient failures by trying the operation again; idempotency ensures those retries never cause duplicate side effects like double charges — together they make distributed systems both resilient and correct.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "In distributed systems, transient failures are inevitable — network packets drop, servers restart, load spikes cause timeouts. The right response is to retry, but retrying safely requires idempotency. Without it, retrying a payment POST can double-charge a customer. The pattern is: the client generates a UUID idempotency key once before the retry loop and sends it on every attempt; the server stores the key and caches the response, returning the cached result on duplicate requests. For the retry timing itself, you always want exponential backoff — each attempt waits twice as long — plus full jitter, which adds randomness to prevent hundreds of clients from retrying simultaneously and creating a thundering herd. The key trade-off is between retry amplification — more retries means more load on an already-struggling service — and availability — fewer retries means more user-visible errors. Retry budgets and circuit breakers cap the amplification."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What HTTP status codes should you retry, and which should you never retry?</li>
+        <li>What's the difference between exponential backoff and exponential backoff with jitter?</li>
+        <li>How would you implement idempotency without Redis (database-only)?</li>
+        <li>How does a circuit breaker interact with retry logic?</li>
+        <li>You're designing a payment service. Walk me through how you'd make it safe to retry.</li>
+        <li>What's a retry storm and how do you prevent it?</li>
+        <li>Why is PUT idempotent but POST is not?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "just retry on any error" without distinguishing transient vs permanent — retrying a 400 wastes resources and masks bugs.</li>
+        <li>Describing exponential backoff without mentioning jitter — this is the most common gap interviewers probe for specifically.</li>
+        <li>Treating idempotency as only a payment concern — any operation with side effects (email, notification, inventory decrement) needs it.</li>
+        <li>Not knowing that GET/PUT/DELETE are idempotent by definition but POST is not — HTTP fundamentals are fair game.</li>
+        <li>Forgetting that idempotency keys need a TTL — unlimited storage of keys isn't operationally viable.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8 — TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Retry &amp; Idempotency Benefit</th>
+          <th>Cost / Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Availability</strong></td>
+          <td>Transient failures become invisible to users — request succeeds on retry</td>
+          <td>Higher latency on the retry path; user perceives a slow response instead of an error</td>
+        </tr>
+        <tr>
+          <td><strong>Correctness</strong></td>
+          <td>Idempotency keys prevent duplicate operations regardless of network conditions</td>
+          <td>Requires server-side storage and TTL management; adds a cache hit to every request path</td>
+        </tr>
+        <tr>
+          <td><strong>Load</strong></td>
+          <td>Jitter spreads retry traffic evenly, preventing thundering herd on recovery</td>
+          <td>Retries amplify load during outages — poorly configured retries can triple server load</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>Client library handles retry logic transparently (SDK-level)</td>
+          <td>Correct implementation requires backoff + jitter + key management + circuit breaker; easy to do partially and dangerously</td>
+        </tr>
+        <tr>
+          <td><strong>Latency</strong></td>
+          <td>Retry recovers from transient failures without user intervention</td>
+          <td>Worst-case latency = sum of all backoff waits (can be 30+ seconds with 5 retries)</td>
+        </tr>
+        <tr>
+          <td><strong>Debugging</strong></td>
+          <td>Idempotency key appears in logs — easy to trace all attempts of a logical operation</td>
+          <td>Retry storms produce massive log volume; need sampling/aggregation to not obscure signal</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9 — RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="circuit-breaker.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Circuit Breaker</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Stops retry storms by cutting traffic to sustained failures.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Caps request rates — server side complement to client-side retry budgets.</span>
+      </a>
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Async retry via dead letter queues — alternative retry pattern for background work.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Multi-step distributed transactions where each step must be idempotent.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

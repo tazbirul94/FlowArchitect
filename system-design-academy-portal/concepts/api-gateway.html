@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Gateway — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="api-gateway" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">API Gateway</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Networking <span>→</span> API Gateway</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Networking</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">API Gateway</h1>
+      <p class="page-subtitle">A single entry point for all client requests — handling authentication, routing, rate limiting, SSL termination, and request transformation before traffic reaches your backend services.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Networking</span>
+        <span class="tag">Microservices</span>
+        <span class="tag">Infrastructure</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of an API Gateway as the front desk of a large corporate building. Every visitor — employees, couriers, clients — enters through the same entrance. The receptionist checks their ID (authentication), directs them to the right floor (routing), limits how many people from a single company can enter at once (rate limiting), and logs everyone who comes through (observability). No one knows or cares how many floors are in the building, or how many people work on each one.</p>
+    </div>
+
+    <p>In a microservices architecture, clients would otherwise need to know the address of every service — <code>user-service:3001</code>, <code>ticket-service:8080</code>, <code>payment-service:5000</code> — and handle authentication themselves. An API Gateway collapses all of that into one endpoint. It receives every request, applies cross-cutting concerns (auth, rate limiting, logging), and routes the request to the correct backend service. The client only ever talks to the gateway.</p>
+
+    <p>This is why the API Gateway pattern emerged alongside microservices. When you go from one monolith to dozens of services, the question of "who handles auth?" and "where do I put rate limiting?" has a clean answer: the gateway, once, at the edge.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A travel booking startup decomposed their monolith into 12 microservices over 18 months: <code>search-service</code>, <code>booking-service</code>, <code>payment-service</code>, <code>notification-service</code>, and eight others. Each team owned their service and exposed REST endpoints directly. The mobile app and web app called each service directly using individual base URLs hardcoded in client code.
+      </div>
+      <div class="story-problem">
+        Every service implemented its own JWT validation — six slightly different ways. When the security team found a vulnerability in the token parsing logic, they had to patch 12 services separately, coordinating 12 deployments. The mobile app had 12 different base URLs; when a service moved, the app broke in production until users force-updated. Rate limiting didn't exist, and a buggy mobile client hammered <code>search-service</code> with 10,000 requests/min, starving real users. An audit found that 3 services had never validated tokens at all — the auth had silently been skipped in a refactor six months ago.
+      </div>
+      <div class="story-solution">
+        The team introduced an API Gateway (Kong) in front of all services. All clients now call <code>api.travelapp.io</code>. The gateway handles JWT validation once — a single plugin, a single patch point. Path-based routing sends <code>/search/*</code> to <code>search-service</code> and <code>/bookings/*</code> to <code>booking-service</code>. Rate limiting is configured per route: search allows 100 req/min per client, payment allows 10. The gateway logs every request centrally for the audit team.
+      </div>
+      <div class="story-outcome">
+        The next security patch was a single config change deployed in 3 minutes, not 12 coordinated rollouts. When <code>notification-service</code> was rewritten in a different language and moved to a new host, clients noticed nothing — only the gateway routing config changed. The buggy mobile client that fired 10,000 req/min was automatically throttled; real users saw no impact. Client-side code dropped from 1,800 lines of service-discovery boilerplate to 120 lines calling a single base URL.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you run an airport. Passengers (clients) arrive wanting to reach their destination (backend service). Without an API Gateway, every passenger would have to navigate directly to each terminal, go through security at every gate, and figure out the boarding process on their own. Chaos.</p>
+          <p>An <strong>API Gateway</strong> is the main terminal entrance. Every passenger goes through one place. Security is done once. Staff direct everyone to the right gate (routing). If too many passengers arrive at once, they queue or some are turned away (rate limiting). The airline can move gates around behind the scenes and passengers never know — they still go to the same entrance.</p>
+          <p>In software: clients only know one URL. The gateway handles all the complicated routing, security checks, and logging behind the scenes. Backend services can change freely without breaking clients.</p>
+        </div>
+
+        <h3 class="subsection-title">What an API Gateway Does</h3>
+        <ul>
+          <li><strong>Routing</strong> — sends <code>/api/users</code> to <code>user-service</code>, <code>/api/orders</code> to <code>order-service</code></li>
+          <li><strong>Authentication</strong> — checks if the user's token is valid before the request reaches any backend</li>
+          <li><strong>Rate Limiting</strong> — stops one client from overwhelming the system with too many requests</li>
+          <li><strong>SSL Termination</strong> — handles HTTPS so backend services can use plain HTTP internally</li>
+          <li><strong>Logging</strong> — records every request in one place for debugging and auditing</li>
+        </ul>
+
+        <h3 class="subsection-title">Gateway Routing Architecture</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A[Mobile App] --> G[API Gateway\napi.example.com]
+    B[Web App] --> G
+    C[Third-party Client] --> G
+
+    G -->|Auth Check| AA{JWT Valid?}
+    AA -->|No| REJ[401 Rejected]
+    AA -->|Yes| ROUTE{Route by Path}
+
+    ROUTE -->|/api/users| US[user-service\n:3001]
+    ROUTE -->|/api/tickets| TS[ticket-service\n:8080]
+    ROUTE -->|/api/payments| PS[payment-service\n:5000]
+    ROUTE -->|/api/orders| OS[order-service\n:9000]
+
+    style G fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    style AA fill:#f59e0b,color:#000
+    style REJ fill:#ef4444,color:#fff
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Route</strong> — a rule that maps a URL path to a backend service</li>
+          <li><strong>Plugin/Middleware</strong> — a piece of logic the gateway runs on every request (e.g., JWT validation, rate limiting)</li>
+          <li><strong>Upstream</strong> — the backend service that the gateway forwards requests to</li>
+          <li><strong>Downstream</strong> — the client that sends requests to the gateway</li>
+          <li><strong>BFF (Backend for Frontend)</strong> — a pattern where different clients (mobile, web) get their own gateway tailored to their needs</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>An API Gateway operates at Layer 7 (HTTP/HTTPS) of the network stack. This means it can inspect and modify request/response payloads, headers, and paths — not just IP addresses and ports. This is what makes it fundamentally different from a load balancer.</p>
+
+        <h3 class="subsection-title">Request Flow Through the Gateway</h3>
+        <ol>
+          <li>Client sends <code>GET /api/users/42/profile</code> to <code>api.example.com</code> with <code>Authorization: Bearer &lt;jwt&gt;</code></li>
+          <li>Gateway receives the request, starts processing pipeline</li>
+          <li>Rate limit plugin checks: client IP has 45/100 requests used this minute — allow</li>
+          <li>Auth plugin validates the JWT: signature valid, not expired, user has <code>read:profile</code> scope</li>
+          <li>Router matches <code>/api/users/*</code> → <code>user-service:3001</code></li>
+          <li>Request transformation: gateway strips the <code>Authorization</code> header and injects <code>X-User-ID: 42</code> and <code>X-User-Role: member</code></li>
+          <li>Gateway forwards <code>GET /users/42/profile</code> to <code>user-service:3001</code> with injected headers</li>
+          <li><code>user-service</code> responds with <code>200 OK</code> and JSON body</li>
+          <li>Gateway logs: method, path, upstream, latency, status code</li>
+          <li>Gateway returns response to client</li>
+        </ol>
+
+        <h3 class="subsection-title">Path-Based Routing Configuration (NGINX)</h3>
+        <div class="code-wrapper" data-lang="nginx">
+          <pre><code class="language-nginx">upstream user_service {
+    server user-service:3001;
+    keepalive 32;
+}
+
+upstream ticket_service {
+    server ticket-service:8080;
+    keepalive 32;
+}
+
+upstream payment_service {
+    server payment-service:5000;
+    keepalive 16;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+
+    ssl_certificate     /etc/ssl/api.example.com.crt;
+    ssl_certificate_key /etc/ssl/api.example.com.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # JWT validation via auth_request
+    location = /auth {
+        internal;
+        proxy_pass http://auth-service:4000/validate;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+    }
+
+    location /api/users/ {
+        auth_request /auth;
+        auth_request_set $user_id $upstream_http_x_user_id;
+
+        proxy_pass http://user_service/;
+        proxy_set_header X-User-ID $user_id;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+    }
+
+    location /api/tickets/ {
+        auth_request /auth;
+        auth_request_set $user_id $upstream_http_x_user_id;
+
+        proxy_pass http://ticket_service/;
+        proxy_set_header X-User-ID $user_id;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /api/payments/ {
+        auth_request /auth;
+        auth_request_set $user_id $upstream_http_x_user_id;
+
+        # Payments get a stricter rate limit
+        limit_req zone=payment_zone burst=5 nodelay;
+
+        proxy_pass http://payment_service/;
+        proxy_set_header X-User-ID $user_id;
+    }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Kong Gateway Route Configuration (Declarative)</h3>
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># kong.yml — declarative config for Kong
+_format_version: "3.0"
+
+services:
+  - name: user-service
+    url: http://user-service:3001
+    routes:
+      - name: user-routes
+        paths: ["/api/users"]
+        strip_path: true
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: kid
+          claims_to_verify: [exp, nbf]
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  - name: ticket-service
+    url: http://ticket-service:8080
+    routes:
+      - name: ticket-routes
+        paths: ["/api/tickets"]
+        strip_path: true
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 200
+
+  - name: payment-service
+    url: http://payment-service:5000
+    routes:
+      - name: payment-routes
+        paths: ["/api/payments"]
+        strip_path: true
+    plugins:
+      - name: jwt
+      - name: rate-limiting
+        config:
+          minute: 10    # Stricter limit for payment endpoints
+      - name: request-transformer
+        config:
+          add:
+            headers: ["X-Payment-Gateway: primary"]</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Core Gateway Capabilities</h3>
+        <ul>
+          <li><strong>SSL/TLS Termination</strong> — HTTPS terminates at the gateway; backend services use plain HTTP on the internal network, reducing CPU overhead and simplifying cert management</li>
+          <li><strong>JWT Validation at Edge</strong> — validate tokens once at the gateway, inject parsed claims (user ID, roles) as headers to backend services — backends never touch JWT parsing code</li>
+          <li><strong>Rate Limiting</strong> — per-client (IP or API key), per-route, per-service — prevents one misbehaving client from taking down the entire system</li>
+          <li><strong>Request/Response Transformation</strong> — add/remove/rename headers; transform request body for legacy backends; aggregate responses from multiple services</li>
+          <li><strong>Observability</strong> — centralized access logs, distributed trace injection, latency metrics per route — no need to instrument each service separately</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Design Principle</span>
+          <p>The gateway is a <strong>thin pipe</strong>. It should handle cross-cutting infrastructure concerns — auth, routing, rate limiting, logging. It should never contain business logic. If you find yourself writing <code>if user.country == "US": route_to(us_service) else: route_to(eu_service)</code> based on user data you had to query a database for, that logic belongs in a dedicated service, not the gateway.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At scale, the API Gateway is simultaneously your most critical infrastructure component and your most common architectural mistake. The gateway's design directly controls system latency, availability, and the cognitive load on every team that ships APIs.</p>
+
+        <h3 class="subsection-title">BFF Pattern — Backend for Frontend</h3>
+        <p>A single gateway serving all clients creates tension: mobile apps want small payloads and aggregated data; web apps want richer responses; third-party API consumers want stability and versioning. The BFF (Backend for Frontend) pattern solves this with separate gateways per client type.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    subgraph Clients
+      MOB[Mobile App\niOS/Android]
+      WEB[Web App\nReact/Vue]
+      EXT[Third-party\nAPI Consumer]
+    end
+
+    subgraph Gateways ["BFF Layer"]
+      GBFF[Mobile BFF\nSmall payloads\nAggregated endpoints]
+      WBFF[Web BFF\nRicher responses\nServer-side rendering support]
+      PUBAPI[Public API Gateway\nVersioned\nStrict rate limits]
+    end
+
+    subgraph Services
+      US[user-service]
+      TS[ticket-service]
+      PS[payment-service]
+      NS[notification-service]
+    end
+
+    MOB --> GBFF
+    WEB --> WBFF
+    EXT --> PUBAPI
+
+    GBFF --> US
+    GBFF --> TS
+    WBFF --> US
+    WBFF --> TS
+    WBFF --> NS
+    PUBAPI --> US
+    PUBAPI --> TS
+    PUBAPI --> PS
+
+    style GBFF fill:#3b82f6,color:#fff
+    style WBFF fill:#8b5cf6,color:#fff
+    style PUBAPI fill:#10b981,color:#fff
+          </div>
+        </div>
+
+        <p>The mobile BFF aggregates a <code>GET /home</code> call into one response by calling <code>user-service</code>, <code>ticket-service</code>, and <code>notification-service</code> in parallel — saving the mobile client three round trips. The web BFF returns richer data since bandwidth is less constrained. The public API gateway enforces strict versioning (<code>/v1/</code>, <code>/v2/</code>) and has harsher rate limits since third-party consumers are untrusted.</p>
+
+        <h3 class="subsection-title">Gateway Product Comparison</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Strengths</th>
+              <th>Weaknesses</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Kong</strong> (open-source)</td>
+              <td class="good">Plugin ecosystem (80+ plugins), declarative config, Kubernetes-native via KIC, high performance (Lua/NGINX core)</td>
+              <td class="bad">Complexity of plugin interactions; self-managed HA requires careful setup</td>
+              <td>Teams wanting control, existing NGINX expertise, large plugin surface</td>
+            </tr>
+            <tr>
+              <td><strong>NGINX</strong></td>
+              <td class="good">Extreme throughput, battle-tested, config-based simplicity, zero surprise latency</td>
+              <td class="bad">Auth and rate limiting require custom modules or Lua; dynamic config needs nginx reload</td>
+              <td>High-performance routing, teams with NGINX expertise, SSL termination at scale</td>
+            </tr>
+            <tr>
+              <td><strong>AWS API Gateway</strong></td>
+              <td class="good">Fully managed, native IAM/Cognito integration, Lambda authorizers, pay-per-request</td>
+              <td class="bad">~29ms added latency; vendor lock-in; expensive at high volume; cold starts on Lambda authorizers</td>
+              <td>AWS-native stacks, serverless architectures, small teams wanting zero ops</td>
+            </tr>
+            <tr>
+              <td><strong>Traefik</strong></td>
+              <td class="good">Kubernetes-native — auto-discovers routes from Ingress/CRD labels; dynamic config without reload; Docker-native</td>
+              <td class="bad">Less mature plugin ecosystem than Kong; enterprise features behind Traefik Enterprise license</td>
+              <td>Kubernetes environments, GitOps workflows, container-heavy teams</td>
+            </tr>
+            <tr>
+              <td><strong>Envoy (solo)</strong></td>
+              <td class="good">Industry standard for L7 proxy; xDS API for dynamic config; gRPC-native; used as foundation by Istio/Consul</td>
+              <td class="bad">Not designed to be configured directly — intended as a data plane component; steep learning curve</td>
+              <td>Infrastructure teams building their own control plane; Envoy-based service meshes</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Circuit Breaking at Gateway Layer</h3>
+        <p>A well-configured gateway should detect when a backend service is failing and stop routing traffic to it — rather than letting requests pile up and time out. This is circuit breaking at the gateway layer, and it prevents one failing service from cascading to slow down the entire gateway.</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># Traefik circuit breaker via middleware
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: payment-circuit-breaker
+  namespace: production
+spec:
+  circuitBreaker:
+    # Trip breaker when 50% of requests fail over 30s
+    expression: "ResponseCodeRatio(500, 600, 0, 600) > 0.5"
+    # Check every 10 seconds
+    checkPeriod: 10s
+    # Stay open for 30 seconds before half-open retry
+    fallbackDuration: 30s
+    recoveryDuration: 10s
+
+---
+# IngressRoute using the circuit breaker
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: payment-routes
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: PathPrefix(`/api/payments`)
+      kind: Rule
+      middlewares:
+        - name: payment-circuit-breaker
+        - name: rate-limit-payments
+        - name: jwt-auth
+      services:
+        - name: payment-service
+          port: 5000</code></pre>
+        </div>
+
+        <h3 class="subsection-title">When NOT to Use an API Gateway</h3>
+        <ul>
+          <li><strong>Monolithic applications</strong> — A gateway adds a network hop and operational overhead for no benefit when you have one service.</li>
+          <li><strong>Internal service-to-service communication</strong> — Services calling each other internally don't need to go through the gateway. Use service mesh (sidecar proxies) for east-west traffic. The gateway handles north-south (client to cluster) traffic only.</li>
+          <li><strong>Early-stage startups with 1–3 services</strong> — The operational overhead (TLS certs, HA config, monitoring) is not worth it until you have enough services to justify the abstraction. A well-configured NGINX reverse proxy is sufficient for 3 services.</li>
+          <li><strong>Latency-critical paths where 5–30ms matters</strong> — AWS API Gateway's documented overhead (~29ms) is measurable. For latency-sensitive workloads (HFT, gaming), design to minimize gateway hops or use a lower-overhead proxy.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Anti-Pattern Alert</span>
+          <p><strong>The Smart Gateway Anti-Pattern:</strong> Teams slowly add business logic to the gateway — "it's faster to put this check at the edge." The gateway ends up with database calls, complex conditional routing, and shared business rules. It becomes a distributed monolith with all the operational pain of a gateway plus all the coupling of a monolith. Keep the gateway dumb. Route, auth, rate-limit, log. Everything else belongs in services.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, the API Gateway strategy evolves from "one gateway" to a layered traffic management architecture. The gateway decisions made early become load-bearing architectural constraints that are very expensive to change later.</p>
+
+        <h3 class="subsection-title">Netflix: From Zuul to Envoy</h3>
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Netflix Case Study</span>
+          <span class="enterprise-card-company">Netflix — Gateway Evolution (2012–2023)</span>
+          <p><strong>Phase 1 — Zuul 1 (2012):</strong> Netflix open-sourced Zuul as their edge gateway. Zuul 1 used a blocking I/O model (one thread per connection). At 100K req/sec, this required thousands of threads — high memory, high context-switch overhead. Max throughput was bounded by thread pool exhaustion.</p>
+          <p><strong>Phase 2 — Zuul 2 (2016):</strong> Rewrote Zuul with async, non-blocking I/O (Netty-based). A small number of event loop threads handled thousands of concurrent connections. Same hardware handled 3× more traffic. The 2B+ daily requests Netflix processes go through this layer.</p>
+          <p><strong>Phase 3 — Envoy at the Edge (2020+):</strong> Netflix began migrating portions of their edge to Envoy. Reasons: xDS API for dynamic configuration without restarts, native gRPC support, richer observability (distributed tracing with headers injected at L7), and alignment with the CNCF ecosystem. Zuul and Envoy coexist for different traffic classes.</p>
+          <p><strong>Scale numbers:</strong> Netflix serves 238M+ subscribers. Peak traffic: approximately 15% of global internet bandwidth in the evening. The edge gateway infrastructure handles over 2 billion API requests per day, with p99 latency targets of under 50ms for gateway processing alone.</p>
+          <p><strong>Key lesson:</strong> The blocking I/O vs non-blocking I/O decision in a gateway is not academic. At 10K req/sec, it doesn't matter. At 500K req/sec, it's the difference between 500 servers and 150 servers.</p>
+        </div>
+
+        <h3 class="subsection-title">API Gateway vs Service Mesh</h3>
+        <p>The most common architectural confusion in post-2020 microservices: "Do I need a service mesh (Istio) or an API gateway?" The answer is usually both, for different purposes.</p>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>API Gateway</th>
+              <th>Service Mesh (Istio/Linkerd)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Traffic direction</strong></td>
+              <td>North-South (client ↔ cluster boundary)</td>
+              <td class="good">East-West (service ↔ service inside cluster)</td>
+            </tr>
+            <tr>
+              <td><strong>Auth</strong></td>
+              <td class="good">JWT, API key, OAuth2 — external client auth</td>
+              <td>mTLS — mutual TLS between services (workload identity)</td>
+            </tr>
+            <tr>
+              <td><strong>Configuration</strong></td>
+              <td>Route-based config (paths, methods, headers)</td>
+              <td class="good">Sidecar-injected per pod — no app code changes</td>
+            </tr>
+            <tr>
+              <td><strong>Observability</strong></td>
+              <td>Request logs, gateway metrics</td>
+              <td class="good">Full service topology, distributed traces, per-service SLO dashboards</td>
+            </tr>
+            <tr>
+              <td><strong>Operational complexity</strong></td>
+              <td class="good">Moderate — one component to manage</td>
+              <td>High — sidecar injection, control plane (Istiod), CRDs, debug complexity</td>
+            </tr>
+            <tr>
+              <td><strong>Latency overhead</strong></td>
+              <td>1–30ms per request (varies by product)</td>
+              <td>~1ms per hop (sidecar adds one hop per service call)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architecture Decision Rule</span>
+          <p>Use an API Gateway for north-south (ingress) traffic. Use a service mesh for east-west (intra-cluster) traffic if you need mTLS, zero-trust networking, or fine-grained traffic policies between services. You don't need a service mesh until you have east-west security requirements, multi-cluster traffic management, or fine-grained canary deployments between internal services. Most teams at under 50 services should start with just a gateway.</p>
+        </div>
+
+        <h3 class="subsection-title">Compliance and Multi-Region Gateway Design</h3>
+        <p>GDPR and data residency regulations affect gateway routing design directly. A user in Germany making requests to <code>api.example.com</code> must have their data processed in the EU. This requires geo-aware routing at the gateway layer.</p>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># AWS API Gateway with Lambda authorizer — geo-aware routing
+# CloudFront distribution routes EU traffic to EU region stack
+
+# terraform — geo routing via Route 53
+resource "aws_route53_record" "api_geo" {
+  zone_id = var.hosted_zone_id
+  name    = "api.example.com"
+  type    = "A"
+
+  # EU users → EU API Gateway
+  set_identifier = "eu-users"
+  geolocation_routing_policy {
+    continent = "EU"
+  }
+  alias {
+    name                   = aws_api_gateway_domain_name.eu.regional_domain_name
+    zone_id                = aws_api_gateway_domain_name.eu.regional_zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "api_default" {
+  zone_id = var.hosted_zone_id
+  name    = "api.example.com"
+  type    = "A"
+
+  # All other users → US API Gateway
+  set_identifier = "default"
+  geolocation_routing_policy {
+    country = "*"
+  }
+  alias {
+    name                   = aws_api_gateway_domain_name.us.regional_domain_name
+    zone_id                = aws_api_gateway_domain_name.us.regional_zone_id
+    evaluate_target_health = true
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Gateway deployed with at least 2 replicas behind a load balancer (no SPOF)</li>
+          <li>Health check endpoint on gateway itself monitored by external synthetic</li>
+          <li>All routes version-controlled in declarative config (Kong deck / Terraform / Helm values)</li>
+          <li>JWT secret rotation tested — gateway can hot-reload key without downtime</li>
+          <li>Rate limit thresholds documented per route with reasoning</li>
+          <li>Gateway latency tracked separately (p50, p95, p99) — not bundled with backend latency</li>
+          <li>Circuit breaker thresholds configured for all payment/critical routes</li>
+          <li>Access logs shipped to SIEM — PCI compliance requires log retention</li>
+          <li>mTLS between gateway and internal services (zero-trust posture)</li>
+          <li>Runbook for gateway emergency bypass (direct service access during gateway outage)</li>
+          <li>Load test gateway independently at 2× expected peak before production launch</li>
+          <li>TLS 1.2 minimum enforced; TLS 1.3 preferred; cipher suites audited quarterly</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Netflix — 2B+ Requests Per Day Through a Single Edge Layer</span>
+      <p><strong>Context:</strong> Netflix serves 238 million subscribers across 190 countries. Their backend consists of hundreds of microservices. Every stream start, playback event, search query, and account action flows through their edge gateway layer before reaching any backend service.</p>
+      <p><strong>Architecture:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Clients (smart TVs, mobile, browser) call a single API endpoint — the edge gateway cluster</li>
+        <li>The gateway validates session tokens using a distributed token validation service (sub-millisecond latency via in-memory cache)</li>
+        <li>Country-of-origin is extracted from the request — EU requests route to EU-region services (GDPR compliance)</li>
+        <li>Path routing sends <code>/api/title</code> to the content metadata cluster, <code>/api/playback</code> to the playback service, <code>/api/account</code> to the account service</li>
+        <li>Rate limiting: 1,000 req/min per authenticated account — protects against credential stuffing and account scraping</li>
+        <li>Every request injects a <code>X-Netflix-Device-Id</code> and <code>X-Netflix-Request-Id</code> header for distributed tracing across 100+ microservices downstream</li>
+      </ol>
+      <p><strong>Numbers:</strong> Peak throughput exceeds 600,000 requests per second globally. The Zuul 2 / Envoy gateway layer adds ~3–8ms of latency overhead. Gateway infrastructure runs on auto-scaled EC2 clusters with target: never less than 30% headroom capacity above current peak. An entire region can be evacuated (traffic shifted to adjacent region) in under 2 minutes using DNS-based routing.</p>
+      <p><strong>Lessons for your team:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Non-blocking I/O is non-negotiable at scale</strong> — Blocking thread-per-request models hit a hard ceiling. Async gateways (Netty, Envoy, NGINX event loop) handle the same load at a fraction of the memory. Migrate before you hit the ceiling, not after.</li>
+        <li><strong>Token validation must be in-memory</strong> — Calling a database or remote service for every request to validate a JWT adds 20–100ms per call. Cache validated tokens in-memory with a short TTL (30–60 seconds). Revocation is handled via short expiry + revocation list check, not per-request DB calls.</li>
+        <li><strong>Trace injection at the gateway is worth its weight in gold</strong> — Injecting a single request ID at the gateway allows you to correlate a client-reported bug to the exact chain of service calls that caused it. Without this, debugging distributed systems is forensic archaeology.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Putting Business Logic in the Gateway</span>
+      <p>The most insidious API gateway mistake: gradually moving business decisions into the gateway because "it's faster to reject at the edge." First it's checking a feature flag. Then it's looking up the user's subscription tier to decide which backend to route to. Then it's calling a database to verify account status. Now your gateway has application logic, database dependencies, and service coupling. It has become the very monolith you decomposed.</p>
+      <p>The gateway must remain a <strong>dumb pipe</strong> for infrastructure concerns. Routing rules should be based on request properties (path, headers, method) — never on data fetched from a database. If you need dynamic routing based on business data, build a dedicated routing service and have the gateway call it — keeping the logic testable and independently deployable.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Single Gateway Instance — Single Point of Failure</span>
+      <p>A team adds an API gateway to eliminate SPOFs on backend services. The gateway itself is deployed as a single instance. Now the entire system goes down when the gateway goes down — and it will. Gateway processes crash, nodes get evicted by the scheduler, TLS certificates expire and the process fails to restart.</p>
+      <p>Every production gateway must run with at least two replicas behind a load balancer, with health checks on each. A gateway cluster going from 3 to 2 instances should page an engineer; going to 1 should be treated as an incident. Use a load balancer (AWS ALB, NGINX, or cloud NLB) in front of the gateway replicas — the irony of load balancing your load balancer is real but necessary.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Monitoring Gateway Latency Separately</span>
+      <p>Teams bundle gateway latency into backend service latency and then spend weeks investigating why <code>payment-service</code> p99 is "high" — when the actual problem is gateway JWT validation taking 150ms due to an expired key cache and falling back to a remote validation endpoint. Because all latency was attributed to the backend, the gateway was never in scope for the investigation.</p>
+      <p>Gateway latency must be tracked independently: total gateway processing time (before forwarding to upstream), auth plugin latency, and upstream response time. A dashboard showing "gateway overhead = X ms" separate from "upstream latency = Y ms" is the difference between 10 minutes and 3 days to root-cause a latency regression. Export these as separate metrics: <code>gateway_auth_duration_ms</code>, <code>gateway_routing_duration_ms</code>, <code>gateway_total_duration_ms</code>.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        An API Gateway is a single entry point that handles authentication, routing, rate limiting, SSL termination, and observability for all client-to-service traffic — centralizing cross-cutting concerns so each backend service stays focused on its business logic.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "An API Gateway solves the problem of cross-cutting concerns in microservices. Without one, every service needs to implement auth, rate limiting, and logging individually — which means 12 services implementing JWT validation 12 different ways, and patching a security vulnerability requires 12 coordinated deployments. The gateway collapses all of that into one place. Clients call one URL; the gateway validates tokens, enforces rate limits, routes by path to the correct backend, injects parsed user context as headers, and logs everything centrally. I think of it as the public API contract between the outside world and your internal service topology. For example, Netflix handles over 2 billion requests per day through their edge gateway layer, which adds roughly 3–8ms of overhead but gives them centralized observability and consistent security policy across hundreds of services. The key trade-off is that the gateway becomes your most critical component — it must be HA, low-latency, and operationally simple, because if it goes down, everything goes down."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between an API Gateway and a load balancer?</li>
+        <li>What's the BFF (Backend for Frontend) pattern and when would you use it?</li>
+        <li>How do you handle gateway-level authentication without adding significant latency?</li>
+        <li>What's the difference between an API Gateway and a service mesh like Istio?</li>
+        <li>How would you design the gateway to avoid it becoming a single point of failure?</li>
+        <li>When would you NOT use an API Gateway?</li>
+        <li>How does Kong differ from AWS API Gateway — and how do you choose between them?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Confusing an API Gateway with a load balancer — a load balancer distributes traffic across instances of the same service; a gateway routes to different services by path and handles application-layer concerns like auth.</li>
+        <li>Not mentioning high availability — interviewers expect you to note that the gateway must itself be fault-tolerant, not just the services behind it.</li>
+        <li>Treating the gateway as the right place for business logic — it should be a thin infrastructure pipe, not an application layer. This distinction matters to senior engineers.</li>
+        <li>Ignoring the latency impact — AWS API Gateway adds ~29ms; NGINX adds ~0.5ms; these differences are architecturally significant at scale. Know the numbers.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Security</strong></td>
+          <td>Auth enforced once at edge; single patch point for vulnerabilities</td>
+          <td>Gateway becomes high-value attack target; misconfiguration exposes all services</td>
+        </tr>
+        <tr>
+          <td><strong>Developer Experience</strong></td>
+          <td>Clients have one URL; services can change host/port without client updates</td>
+          <td>Gateway config becomes a shared dependency; route changes need coordination</td>
+        </tr>
+        <tr>
+          <td><strong>Operational Complexity</strong></td>
+          <td>Centralized logging, tracing, rate limiting — one place to configure and monitor</td>
+          <td>Critical infrastructure to operate; gateway outage affects entire system</td>
+        </tr>
+        <tr>
+          <td><strong>Latency</strong></td>
+          <td>SSL termination offloaded from services; connection reuse to backends</td>
+          <td>Additional network hop adds 1–30ms depending on product and auth complexity</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Rate limiting protects backends from overload; gateway scales independently</td>
+          <td>Gateway is a choke point; must be horizontally scaled and load balanced itself</td>
+        </tr>
+        <tr>
+          <td><strong>Team Autonomy</strong></td>
+          <td>Each service team can evolve APIs without client coordination</td>
+          <td>Platform team owns gateway config — service teams must request routing changes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="load-balancer.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Load Balancer</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Distributes traffic across multiple instances of the same service.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Controls how many requests a client can make in a time window.</span>
+      </a>
+      <a href="circuit-breaker.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Circuit Breaker</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Stops cascading failures by cutting traffic to failing services.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Breaking a system into independent, deployable services.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

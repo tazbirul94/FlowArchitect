@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CQRS — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="cqrs" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">CQRS</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Architecture <span>→</span> CQRS</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Architecture</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Coined by</span>
+          <span class="meta-value">Greg Young, 2010</span>
+        </div>
+      </div>
+      <h1 class="page-title">CQRS</h1>
+      <p class="page-subtitle">Command Query Responsibility Segregation — separate your read and write models so each can be independently optimised, scaled, and evolved.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Architecture</span>
+        <span class="tag">Scalability</span>
+        <span class="tag">Event Sourcing</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a bank. There is one window where you <em>deposit or withdraw</em> money — every transaction goes through strict identity checks, auditing, and balance validation. There is a separate <em>ATM display</em> that just shows your balance — it reads from a cached summary and doesn't need to lock the ledger. CQRS is the same idea applied to your codebase: one path for writes (commands), a completely separate path for reads (queries).</p>
+    </div>
+
+    <p>CQRS stands for <strong>Command Query Responsibility Segregation</strong>. It is a pattern, first articulated by Greg Young in 2010 and popularised through Martin Fowler's enterprise architecture catalog, that splits an application's data model into two distinct sides:</p>
+
+    <ul>
+      <li><strong>Command side</strong> — handles operations that change state: <code>PlaceOrder</code>, <code>UpdateInventory</code>, <code>CancelOrder</code>. Commands return void or an ID. They go through validation and business rules. The underlying storage is typically normalised (3NF) to ensure consistency.</li>
+      <li><strong>Query side</strong> — handles read-only operations: <code>GetOrderDashboard</code>, <code>GetInventoryReport</code>. Queries have no side effects. The underlying storage is often denormalised, pre-joined, and optimised for the exact shape each consumer needs.</li>
+    </ul>
+
+    <p>Without CQRS, a single model tries to serve both purposes. Business logic for writes pollutes query paths with unnecessary complexity. Optimising for fast reads (denormalisation) conflicts with write consistency requirements. The result is a model that does neither job well. CQRS lets you optimise each side independently.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fast-growing e-commerce platform processes thousands of orders a minute. The engineering team had built a clean domain model: an <code>Order</code> entity with full business logic for placing, updating, and cancelling orders. The same <code>Order</code> model was also used to power the customer dashboard, the seller analytics screen, the warehouse picking queue, and the executive revenue report — all via the same repository methods.
+      </div>
+      <div class="story-problem">
+        As the platform scaled, query performance collapsed. The dashboard needed data from Orders, Products, Users, and Shipping — all joined across normalised tables under heavy locking. Indexes that helped writes hurt reads and vice versa. Business logic methods on the domain model were accidentally invoked from read paths, firing validation rules mid-query. The team added caching, but cache invalidation bugs caused stale dashboards. Reads were 99% of traffic but were fighting the write model for resources. P99 dashboard latency hit 8 seconds.
+      </div>
+      <div class="story-solution">
+        The team introduced CQRS. Commands (<code>PlaceOrder</code>, <code>CancelOrder</code>) continued to go through the domain model with full validation, writing to a normalised write database. Whenever a command succeeded, an event was published (<code>OrderPlaced</code>, <code>OrderCancelled</code>). Separate event consumers built purpose-built read models: a denormalised <code>order_dashboard_view</code> table pre-joined with customer names and product photos, a <code>warehouse_queue_view</code> sorted by dispatch priority, and an <code>analytics_summary_view</code> updated asynchronously. Each read model was a simple <code>SELECT *</code> from a purpose-built table.
+      </div>
+      <div class="story-outcome">
+        Dashboard P99 latency dropped from 8 seconds to 60ms. The read replicas scaled independently — the team added three more read nodes without touching write infrastructure. Business logic on the write side became cleaner because it no longer carried query-related concerns. The only trade-off: the dashboard could lag by up to 500ms after an order was placed. The team added a "refreshing..." indicator for the 0.5% of users who opened the dashboard within a second of placing an order. Customers didn't notice.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine a library. When you <em>return</em> a book, a librarian takes it, checks for damage, logs the return, updates records, and puts it back on the right shelf. That is the <em>write path</em> — it requires rules and careful handling.</p>
+          <p>When you want to <em>find</em> a book, you walk to the catalogue display — a simple lookup board that just shows title, location, and availability. That is the <em>read path</em> — it is fast, simple, and needs no rules. You don't check for damage when browsing the catalogue.</p>
+          <p><strong>CQRS does the same thing for your software.</strong> Instead of one model that handles both reading and writing, you have two separate models. The write model enforces all the business rules. The read model is a simple, fast, pre-built view of the data optimised for what the user actually sees on screen.</p>
+          <p>The key insight: <em>reads and writes have very different requirements</em>. Reads are frequent and need to be fast. Writes are less frequent but need to be correct. Trying to serve both from one model is like using the librarian's processing desk as your browsing catalogue.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Command</strong> — An instruction to change something. "Place this order." "Cancel that booking." Commands have business logic. They can be rejected.</li>
+          <li><strong>Query</strong> — A request to see something. "Show me my orders." "What is in stock?" Queries are read-only and always succeed (or return empty).</li>
+          <li><strong>Write model</strong> — The internal representation of your data optimised for consistent updates. Usually normalised, with relationships enforced.</li>
+          <li><strong>Read model</strong> — A pre-built, denormalised view of the data optimised for a specific screen or consumer. Can be a flat table, a JSON document, or a cache.</li>
+        </ul>
+
+        <h3 class="subsection-title">Command vs Query Path</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    Client([Client])
+
+    subgraph CommandPath["Command Path (Write)"]
+        direction TB
+        C1[Command\ne.g. PlaceOrder] --> C2[CommandHandler\nValidation + Business Rules] --> C3[(Write DB\nNormalised)]
+    end
+
+    subgraph QueryPath["Query Path (Read)"]
+        direction TB
+        Q1[Query\ne.g. GetDashboard] --> Q2[QueryHandler\nSimple lookup] --> Q3[(Read DB\nDenormalised)]
+    end
+
+    Client --> C1
+    Client --> Q1
+    C3 -- "Event / Sync" --> Q3
+          </div>
+        </div>
+
+        <p>The two paths share no code. The write side runs business logic. The read side is a simple database read from a pre-built view. An event (or a background sync process) keeps the read model up to date after writes happen.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level, CQRS is about concrete implementation patterns: how commands, command handlers, query handlers, and read models are structured in code.</p>
+
+        <h3 class="subsection-title">The Command Side</h3>
+        <p>A <strong>command</strong> is a plain object representing intent. It is named in the imperative voice and carries only the data needed to perform the action. A <strong>command handler</strong> receives it, loads the relevant aggregate, applies business logic, and persists the result.</p>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># commands.py — plain data objects, no logic
+from dataclasses import dataclass
+from uuid import UUID
+
+@dataclass(frozen=True)
+class PlaceOrderCommand:
+    customer_id: UUID
+    items: list[dict]
+    payment_method: str
+
+@dataclass(frozen=True)
+class CancelOrderCommand:
+    order_id: UUID
+    reason: str
+
+
+# command_handlers.py — one handler per command
+class PlaceOrderCommandHandler:
+    def __init__(self, order_repo, payment_service, event_bus):
+        self._order_repo = order_repo
+        self._payment_service = payment_service
+        self._event_bus = event_bus
+
+    def handle(self, cmd: PlaceOrderCommand) -> UUID:
+        # 1. Load / create aggregate
+        order = Order.create(
+            customer_id=cmd.customer_id,
+            items=cmd.items
+        )
+        # 2. Apply business rules (raises DomainError if invalid)
+        order.validate_stock()
+        order.apply_payment(cmd.payment_method, self._payment_service)
+        # 3. Persist write model
+        self._order_repo.save(order)
+        # 4. Publish domain event for read-side consumers
+        self._event_bus.publish(OrderPlacedEvent(order_id=order.id, ...))
+        return order.id
+
+
+class CancelOrderCommandHandler:
+    def __init__(self, order_repo, event_bus):
+        self._order_repo = order_repo
+        self._event_bus = event_bus
+
+    def handle(self, cmd: CancelOrderCommand) -> None:
+        order = self._order_repo.get(cmd.order_id)
+        order.cancel(reason=cmd.reason)  # raises if not cancellable
+        self._order_repo.save(order)
+        self._event_bus.publish(OrderCancelledEvent(order_id=order.id, reason=cmd.reason))
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">The Query Side</h3>
+        <p>A <strong>query handler</strong> reads from a read model — a denormalised table or document store purpose-built for that specific view. There is no domain model involved, no business logic, no side effects.</p>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># queries.py — plain data objects
+@dataclass(frozen=True)
+class GetOrderDashboardQuery:
+    customer_id: UUID
+    page: int = 1
+    page_size: int = 20
+
+# query_handlers.py — direct DB reads, no domain model
+class GetOrderDashboardQueryHandler:
+    def __init__(self, read_db):
+        self._read_db = read_db
+
+    def handle(self, query: GetOrderDashboardQuery) -> list[OrderDashboardRow]:
+        # Read model is pre-joined: no complex SQL here
+        rows = self._read_db.execute("""
+            SELECT order_id, placed_at, status, total_amount,
+                   item_count, customer_name, shipping_address
+            FROM   order_dashboard_view
+            WHERE  customer_id = %s
+            ORDER  BY placed_at DESC
+            LIMIT  %s OFFSET %s
+        """, [query.customer_id, query.page_size, (query.page - 1) * query.page_size])
+        return [OrderDashboardRow(**row) for row in rows]
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Read Model Synchronisation</h3>
+        <p>The read model must stay in sync with the write model. There are two approaches:</p>
+        <ul>
+          <li><strong>Synchronous (inline)</strong> — the command handler updates the read model in the same transaction. Simple but couples write and read infrastructure. Good for small systems.</li>
+          <li><strong>Asynchronous (event-driven)</strong> — the command handler publishes an event; a separate consumer updates the read model. Slightly eventual but decoupled. Used in most production CQRS systems.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># read_model_updater.py — event consumer that keeps read model fresh
+class OrderDashboardViewUpdater:
+    def __init__(self, read_db):
+        self._read_db = read_db
+
+    def on_order_placed(self, event: OrderPlacedEvent) -> None:
+        self._read_db.execute("""
+            INSERT INTO order_dashboard_view
+                (order_id, customer_id, customer_name, placed_at,
+                 status, total_amount, item_count, shipping_address)
+            VALUES (%s, %s, %s, NOW(), 'PLACED', %s, %s, %s)
+        """, [event.order_id, event.customer_id, event.customer_name,
+              event.total_amount, event.item_count, event.shipping_address])
+
+    def on_order_cancelled(self, event: OrderCancelledEvent) -> None:
+        self._read_db.execute("""
+            UPDATE order_dashboard_view
+            SET    status = 'CANCELLED', cancelled_at = NOW()
+            WHERE  order_id = %s
+        """, [event.order_id])
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multiple Read Models for Different Consumers</h3>
+        <p>The power of CQRS is that you can build as many read models as you need, each optimised for its consumer:</p>
+        <ul>
+          <li><strong>Mobile app</strong> — needs a summary: order ID, status, total, item count. One row, minimal payload.</li>
+          <li><strong>Warehouse picking</strong> — needs items, quantities, bin locations, sorted by pick route. Completely different shape.</li>
+          <li><strong>Analytics</strong> — needs aggregates: revenue per day, cancellation rate, top products. Pre-aggregated, updated in batch.</li>
+          <li><strong>Admin console</strong> — needs full detail: all fields, audit history, customer contact info.</li>
+        </ul>
+        <p>Without CQRS, one query has to serve all four. With CQRS, each consumer gets its own read model shaped exactly for its needs.</p>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, CQRS is about trade-offs, combining it with Event Sourcing, and understanding when it creates more problems than it solves.</p>
+
+        <h3 class="subsection-title">CQRS + Event Sourcing</h3>
+        <p>CQRS pairs naturally with <strong>Event Sourcing</strong>. Instead of storing the current state of an entity, you store the <em>sequence of events</em> that led to it. The write model becomes an append-only event log. Read models are <strong>projections</strong> — views built by replaying events.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    CMD[Command\nPlaceOrder] --> H[Command Handler] --> ES[(Event Store\nAppend-only)]
+    ES --> P1[Projection:\nDashboard View] --> RDB1[(Read DB:\ndashboard_view)]
+    ES --> P2[Projection:\nWarehouse Queue] --> RDB2[(Read DB:\nwarehouse_view)]
+    ES --> P3[Projection:\nAnalytics Summary] --> RDB3[(Read DB:\nanalytics_view)]
+    RDB1 --> QH[Query Handlers]
+    RDB2 --> QH
+    RDB3 --> QH
+    QH --> CLIENT([Client])
+          </div>
+        </div>
+
+        <p>The key benefit: if a projection has a bug, you can fix the code and <strong>replay all events from the beginning</strong> to rebuild it. Your data is never lost — only the derived view was wrong.</p>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># event_store.py
+class EventStore:
+    def append(self, aggregate_id: UUID, events: list[DomainEvent], expected_version: int) -> None:
+        """Optimistic concurrency: fail if another writer updated since we loaded."""
+        current_version = self._get_version(aggregate_id)
+        if current_version != expected_version:
+            raise ConcurrencyConflictError(aggregate_id)
+        for event in events:
+            self._db.execute(
+                "INSERT INTO events (aggregate_id, event_type, payload, version, occurred_at) VALUES (%s, %s, %s, %s, NOW())",
+                [aggregate_id, type(event).__name__, serialize(event), current_version + 1]
+            )
+            current_version += 1
+
+    def load(self, aggregate_id: UUID) -> list[DomainEvent]:
+        rows = self._db.execute(
+            "SELECT event_type, payload FROM events WHERE aggregate_id = %s ORDER BY version",
+            [aggregate_id]
+        )
+        return [deserialize(row['event_type'], row['payload']) for row in rows]
+
+
+# order_aggregate.py — rebuilt from events every time (or cached)
+class Order:
+    @classmethod
+    def load(cls, event_store: EventStore, order_id: UUID) -> 'Order':
+        events = event_store.load(order_id)
+        order = cls.__new__(cls)
+        order._apply_all(events)
+        return order
+
+    def _apply_all(self, events: list[DomainEvent]) -> None:
+        for event in events:
+            self._apply(event)
+
+    def _apply(self, event: DomainEvent) -> None:
+        handlers = {
+            OrderPlacedEvent: self._on_placed,
+            OrderCancelledEvent: self._on_cancelled,
+            OrderShippedEvent: self._on_shipped,
+        }
+        handlers[type(event)](event)
+
+    def _on_placed(self, event: OrderPlacedEvent) -> None:
+        self.id = event.order_id
+        self.status = 'PLACED'
+        self.items = event.items
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Trade-offs Table</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Benefit</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Read performance</strong></td>
+              <td class="good">Reads hit denormalised views — near-instant even at scale</td>
+              <td class="bad">Read model must be maintained and kept in sync</td>
+            </tr>
+            <tr>
+              <td><strong>Write performance</strong></td>
+              <td class="good">Write model is lean — no join overhead, no read-optimisation pollution</td>
+              <td class="bad">Must publish events / trigger projections after every write</td>
+            </tr>
+            <tr>
+              <td><strong>Scalability</strong></td>
+              <td class="good">Read and write sides scale independently — add read replicas without touching write DB</td>
+              <td class="bad">Infrastructure doubles: separate write DB, read DB(s), event bus</td>
+            </tr>
+            <tr>
+              <td><strong>Multiple consumers</strong></td>
+              <td class="good">Each consumer gets its own read model shaped for its exact needs</td>
+              <td class="bad">N consumers = N read models to build, maintain, and monitor</td>
+            </tr>
+            <tr>
+              <td><strong>Consistency</strong></td>
+              <td class="good">Write side is strongly consistent</td>
+              <td class="bad">Read side is eventually consistent — may lag by milliseconds to seconds</td>
+            </tr>
+            <tr>
+              <td><strong>Debugging</strong></td>
+              <td class="good">Clear separation makes write-side bugs easier to isolate</td>
+              <td class="bad">Tracing a read anomaly requires looking at event flow + projections</td>
+            </tr>
+            <tr>
+              <td><strong>Team complexity</strong></td>
+              <td class="good">Write and read teams can work independently</td>
+              <td class="bad">Requires strong understanding of eventual consistency across the team</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">When to Use CQRS</h3>
+        <ul>
+          <li>Complex domain with rich business rules on the write side that would pollute read queries.</li>
+          <li>Significant read/write scale mismatch — e.g., 99% reads, 1% writes — where scaling independently saves cost.</li>
+          <li>Multiple consumers needing different representations of the same data (mobile, analytics, admin).</li>
+          <li>You are already using or moving toward Event Sourcing.</li>
+          <li>Domain Driven Design with aggregates — CQRS and DDD were designed together.</li>
+        </ul>
+
+        <h3 class="subsection-title">When NOT to Use CQRS</h3>
+        <ul>
+          <li><strong>Simple CRUD applications</strong> — if your domain is mostly create/read/update/delete with no real business rules, CQRS adds massive complexity for zero benefit.</li>
+          <li><strong>Small teams</strong> — maintaining two models, an event bus, and projections requires engineering bandwidth. On a 2-person team, it is premature.</li>
+          <li><strong>No clear read/write imbalance</strong> — if reads and writes are roughly equal, the effort of separate models yields nothing.</li>
+          <li><strong>Strong consistency required on reads</strong> — if users must see their own writes immediately (no eventual consistency acceptable), CQRS requires extra work (read-your-own-writes patterns) that may negate the benefits.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Note</span>
+          <p>CQRS is not binary. You can apply it at the service level (one service with separate command and query handlers using the same database, just separate code paths) before committing to separate databases. Start with logical separation. Add physical separation (separate DBs, event bus, projections) only when you have measured that you need it. "CQRS Lite" — same DB, separate models — solves most of the complexity problems at a fraction of the infrastructure cost.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At the expert level, CQRS is about projection design, handling projection failures, eventual consistency guarantees, and enterprise-scale patterns.</p>
+
+        <h3 class="subsection-title">Read-Side Projections at Scale</h3>
+        <p>A <strong>projection</strong> is a function from a stream of events to a read model. At enterprise scale, projections become their own engineering problem:</p>
+        <ul>
+          <li><strong>Catch-up subscriptions</strong> — a new projection must process all historical events before it can serve queries. For a system with 10 billion events, this takes hours. Plan for it.</li>
+          <li><strong>Checkpointing</strong> — projections must record their position in the event stream. If the consumer crashes and restarts, it must resume from the last checkpoint, not the beginning.</li>
+          <li><strong>Idempotency</strong> — the same event may be delivered more than once (at-least-once delivery). Projections must be idempotent: applying the same event twice produces the same result as applying it once.</li>
+          <li><strong>Partition ordering</strong> — Kafka partitions give ordering within a partition. If events for the same aggregate can land in different partitions, projections may receive them out of order. Design aggregates to always publish to the same partition (use aggregate ID as partition key).</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># projection_runner.py — production-grade projection with checkpointing
+class OrderDashboardProjection:
+    def __init__(self, event_stream, read_db, checkpoint_store):
+        self._stream = event_stream
+        self._db = read_db
+        self._checkpoints = checkpoint_store
+
+    def run(self) -> None:
+        last_position = self._checkpoints.get('order_dashboard_projection') or 0
+        for event, position in self._stream.subscribe_from(last_position):
+            try:
+                self._handle(event)
+                # Checkpoint every 100 events for performance
+                if position % 100 == 0:
+                    self._checkpoints.set('order_dashboard_projection', position)
+            except Exception as e:
+                log.error("Projection failure at position %d: %s", position, e)
+                # Dead-letter queue for manual inspection
+                self._stream.dead_letter(event, error=str(e))
+                # Continue processing — don't halt the stream
+
+    def _handle(self, event: DomainEvent) -> None:
+        # Idempotent upsert — safe to apply twice
+        if isinstance(event, OrderPlacedEvent):
+            self._db.execute("""
+                INSERT INTO order_dashboard_view
+                    (order_id, customer_id, status, total_amount, placed_at)
+                VALUES (%s, %s, 'PLACED', %s, %s)
+                ON CONFLICT (order_id) DO UPDATE
+                    SET status = EXCLUDED.status,
+                        total_amount = EXCLUDED.total_amount
+            """, [event.order_id, event.customer_id, event.total_amount, event.occurred_at])
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Projection Failure Recovery</h3>
+        <p>The canonical recovery approach with Event Sourcing:</p>
+        <ol>
+          <li>Fix the projection code bug.</li>
+          <li>Drop the corrupted read model table.</li>
+          <li>Reset the checkpoint to position 0.</li>
+          <li>Restart the projection — it replays all events from the beginning.</li>
+          <li>Once caught up, route queries to it.</li>
+        </ol>
+        <p>This is the single most powerful argument for Event Sourcing + CQRS over traditional CRUD. Your events are the source of truth. Read models are derived and always rebuildable.</p>
+
+        <h3 class="subsection-title">Azure Event Store Pattern (EventGrid + Cosmos DB)</h3>
+        <p>Microsoft's production CQRS pattern for Azure-native systems uses:</p>
+        <ul>
+          <li><strong>Azure Cosmos DB</strong> as the event store (append-only, change feed for subscriptions).</li>
+          <li><strong>Cosmos DB Change Feed</strong> as the event stream — projections subscribe to the change feed of the events container.</li>
+          <li><strong>Azure Functions</strong> as projection runners — serverless, scale-to-zero, triggered by change feed events.</li>
+          <li><strong>Cosmos DB (separate container)</strong> or <strong>Azure SQL</strong> as read model storage, with each projection writing to its own container.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python"># azure_pattern/projection_function.py
+# Azure Function triggered by Cosmos DB Change Feed
+import azure.functions as func
+import json
+
+app = func.FunctionApp()
+
+@app.cosmos_db_trigger(
+    arg_name="events",
+    container_name="events",
+    database_name="orders_db",
+    connection="COSMOS_CONNECTION_STRING"
+)
+def order_dashboard_projection(events: func.DocumentList) -> None:
+    for event_doc in events:
+        event_type = event_doc["event_type"]
+        payload = event_doc["payload"]
+
+        if event_type == "OrderPlaced":
+            upsert_dashboard_view(
+                order_id=payload["order_id"],
+                customer_id=payload["customer_id"],
+                status="PLACED",
+                total_amount=payload["total_amount"],
+                placed_at=event_doc["occurred_at"]
+            )
+        elif event_type == "OrderCancelled":
+            update_dashboard_view_status(
+                order_id=payload["order_id"],
+                status="CANCELLED"
+            )
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Eventual Consistency Patterns</h3>
+        <p>Managing user expectations around eventual consistency:</p>
+        <ul>
+          <li><strong>Read-your-own-writes</strong> — After a command, redirect the user to a query with a version token. The query handler waits (up to N ms) for the read model to catch up to that version before responding. If it times out, return the last-known state with a "refreshing" indicator.</li>
+          <li><strong>Optimistic UI</strong> — The client immediately shows the result of a command in the UI without waiting for the read model. If the command later fails, the client rolls back. Used widely in mobile apps.</li>
+          <li><strong>Polling with version</strong> — The command returns the event position. The client polls the read model with the expected version. The read model returns 202 Accepted until it has caught up, then returns the data.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Expert Architect Note</span>
+          <p>The hardest part of CQRS at enterprise scale is not the technical implementation — it is the organisational knowledge. Every engineer on the team must understand eventual consistency deeply enough to make correct decisions when building features. A single developer who treats the read model as strongly consistent will introduce subtle bugs that are extremely hard to reproduce. Invest in training and coding standards before adopting CQRS. Greg Young himself said: "CQRS is not an architecture. It's a principle. The architecture that emerges from it is up to you."</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Microsoft Azure DevOps — Work Item Tracking</span>
+      <p><strong>Context:</strong> Azure DevOps manages hundreds of millions of work items (bugs, tasks, user stories) across thousands of enterprise tenants. Work items have complex domain rules: state machine transitions, field validation based on process templates, parent-child link constraints, iteration path hierarchies, and custom field definitions per organisation. Simultaneously, work items must power multiple radically different views: a Kanban board (columns = states), a backlog list (hierarchy of items), a sprint board (assigned items in current iteration), burndown charts (velocity over time), and query-based reports with arbitrary filters.</p>
+      <p><strong>How CQRS is applied:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Every state change to a work item — create, update, link, move, resolve — is processed through the command side, which enforces the full process template rules, field validation, and state machine. Commands go through ~40 validation rules before being committed. The write model is normalised with full referential integrity.</li>
+        <li>When a work item changes, domain events are published: <code>WorkItemCreated</code>, <code>WorkItemUpdated</code>, <code>WorkItemStateChanged</code>, <code>WorkItemLinked</code>.</li>
+        <li>Separate projections consume these events and maintain purpose-built read models: a <code>board_view</code> document per board (pre-bucketed by column), a <code>backlog_view</code> document tree (pre-computed parent-child hierarchy), an <code>analytics_facts</code> table for burndown and velocity queries.</li>
+        <li>Each tenant's board view is a single Cosmos DB document — a <code>GET</code> with no joins, returning in under 10ms regardless of item count.</li>
+        <li>Read replicas handle 98% of traffic. The write database handles only mutation operations.</li>
+      </ol>
+      <p><strong>Concrete numbers:</strong> Azure DevOps serves over 30 million work item reads per day. Average board load time: 120ms. Average work item update latency (command path): 280ms. Read model lag after a write: typically 50–200ms, maximum 2 seconds under load. The team estimates that without CQRS, serving this read volume from the write database would require 15x more database compute at 4x the cost.</p>
+      <p><strong>Lessons from production:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Projection versioning</strong> — when the board view schema changes, the team creates a new projection version (<code>board_view_v2</code>), rebuilds it from events in the background, then switches the query handler to it atomically. No downtime.</li>
+        <li><strong>Lag monitoring is mandatory</strong> — they alert when read model lag exceeds 5 seconds. Lag spikes are the first sign of a backed-up event consumer.</li>
+        <li><strong>Not all views need eventual consistency</strong> — the "just saved" confirmation screen queries the write database directly. Only the heavy-traffic views use CQRS read models.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Applying CQRS to Simple CRUD</span>
+      <p>The most common mistake: introducing CQRS to a service that does nothing more than create, read, update, and delete records with minimal business logic. You now have two models, an event bus, projection runners, and eventual consistency — all to serve what a single well-indexed table would handle trivially. A user settings service does not need CQRS. An order fulfilment engine with 40 domain rules might.</p>
+      <p><strong>Rule of thumb:</strong> if you can't name the commands (imperative verbs with business meaning like <code>PlaceOrder</code>, <code>ApproveRefund</code>), you probably don't need CQRS. If your commands are named <code>UpdateUser</code>, <code>SetField</code>, or <code>SaveRecord</code>, your domain is CRUD, not CQRS territory.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Ignoring Projection Failure — Silent Stale Read Models</span>
+      <p>Teams set up projections, observe them working in staging, and deploy without monitoring. A projection consumer crashes silently in production. The read model stops updating. Users see stale data. No alert fires because the read DB is up and queries are fast — they are just returning old data. This continues for hours or days before someone notices that cancelled orders still appear as active.</p>
+      <p><strong>Fix:</strong> every projection must expose a lag metric: <code>current_event_position - projection_position</code>. Alert when lag exceeds your SLA threshold (usually 10–30 seconds for user-facing views). Dead-letter queues must be monitored and alarmed on non-zero depth. Treat projection failure as a SEV-2 incident.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Tight Coupling Between Write and Read Models</span>
+      <p>The entire point of CQRS is that the read model is independently evolvable. A common failure mode: the read model is just a different SQL view on the same normalised write tables, requiring joins. Now you have the naming overhead of CQRS without the performance or scalability benefits. Another failure: the command handler calls the read model projection synchronously in the same transaction. Now they are not independent — you can't scale, deploy, or migrate them separately.</p>
+      <p><strong>Fix:</strong> the read model must be <em>physically separate</em> — ideally a different database, at minimum a different schema. The write model publishes events; the read model consumes them. The command handler does not know the read model exists. The read model does not know the write model exists. Enforce this at code review: no shared imports between write-side and read-side packages.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        CQRS separates read and write models so each can be independently optimised — writes go through business-rule-enforcing command handlers against a normalised write DB; reads hit denormalised, pre-built views via query handlers, enabling independent scaling and multiple consumer representations.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "CQRS stands for Command Query Responsibility Segregation. The core idea is that reading data and writing data have fundamentally different requirements, so they should use different models. On the write side, you have command handlers that enforce business rules and update a normalised database. On the read side, you have query handlers that read from denormalised, purpose-built views — no business logic, no joins, just fast lookups. The two sides communicate via events: when a command succeeds, it publishes a domain event that updates the read models asynchronously. The main benefit is that you can scale reads and writes independently — if you have 99% reads and 1% writes, you add read replicas without touching your write infrastructure. You can also build multiple read models for different consumers — a mobile summary view, a warehouse queue view, an analytics dashboard — each shaped exactly for its consumer. The trade-off is eventual consistency: the read model lags slightly behind writes. For most systems this is 50–500ms, which users don't notice. The pattern is most valuable in complex domains with rich business logic. For simple CRUD, it's over-engineering."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>How does CQRS relate to Event Sourcing — are they the same thing?</li>
+        <li>How do you handle the case where a user wants to see their own write immediately (read-your-own-writes)?</li>
+        <li>What happens if a projection consumer goes down for 2 hours?</li>
+        <li>How would you migrate an existing monolithic service to CQRS without downtime?</li>
+        <li>What monitoring would you add to a CQRS system in production?</li>
+        <li>When would you choose CQRS + Event Sourcing vs just CQRS?</li>
+        <li>Can you have CQRS with a single database?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Confusing CQRS with Event Sourcing — they are complementary patterns but neither requires the other. You can have CQRS without event sourcing (synchronous read model sync) and event sourcing without CQRS (though CQRS makes event sourcing significantly more practical).</li>
+        <li>Not mentioning eventual consistency — any senior interviewer will ask "what's the trade-off?" and the first answer must be eventual consistency on the read side. Failing to name it signals shallow understanding.</li>
+        <li>Saying "CQRS is always a good idea" — interviewers expect you to know when not to use it. Naming "simple CRUD" as a counter-case shows maturity.</li>
+        <li>Treating commands and queries as just HTTP POST vs GET — CQRS is a domain model pattern, not an API naming convention. Commands are objects that go through handlers with business logic, not just non-idempotent HTTP requests.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Risk</th>
+          <th>Mitigation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Read performance</strong></td>
+          <td>Denormalised read models serve queries in &lt; 10ms at any scale</td>
+          <td>Read models must be maintained and built upfront</td>
+          <td>Start with "CQRS Lite" — same DB, separate code paths; add separate DB when measured</td>
+        </tr>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Write side is strongly consistent; all business rules enforced</td>
+          <td>Read side is eventually consistent; lag of 50ms–2s typical</td>
+          <td>Read-your-own-writes, optimistic UI, clear user-facing lag indicators</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Read and write sides scale independently; add read nodes without touching write DB</td>
+          <td>Infra doubles: two databases, event bus, projection runners</td>
+          <td>Use managed cloud services (Cosmos DB, EventGrid, Functions) to reduce ops overhead</td>
+        </tr>
+        <tr>
+          <td><strong>Maintainability</strong></td>
+          <td>Write domain model is clean; read model evolution is independent</td>
+          <td>Two models to maintain; schema changes require updating projections</td>
+          <td>Versioned projections; rebuild-from-events as standard practice</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>Separation of concerns — write and read teams can work independently</td>
+          <td>Steep learning curve; eventual consistency is conceptually hard for most engineers</td>
+          <td>Team training; documented conventions; code review checklist for CQRS rules</td>
+        </tr>
+        <tr>
+          <td><strong>Debugging</strong></td>
+          <td>Clear audit trail when combined with Event Sourcing; events are inspectable</td>
+          <td>Tracing a stale read requires inspecting event stream + projection position</td>
+          <td>Lag metrics, distributed tracing (correlation IDs on events), projection health dashboards</td>
+        </tr>
+        <tr>
+          <td><strong>Recovery</strong></td>
+          <td>With Event Sourcing: corrupted read model can be fully rebuilt from events</td>
+          <td>Without Event Sourcing: if read model data is lost or corrupted, full rebuild is not possible</td>
+          <td>Combine CQRS with Event Sourcing when you need rebuildability guarantees</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Services communicate via events — the backbone that connects CQRS write and read sides.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Coordinates long-running transactions across services using events — pairs naturally with CQRS commands.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Each microservice can internally apply CQRS to manage its own read and write models independently.</span>
+      </a>
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The delivery mechanism for domain events that drive read-side projections in a CQRS system.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

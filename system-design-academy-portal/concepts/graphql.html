@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GraphQL — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="graphql" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">GraphQL</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> APIs <span>→</span> GraphQL</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">APIs</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">GraphQL</h1>
+      <p class="page-subtitle">A query language for APIs that lets clients request exactly the data they need — nothing more, nothing less — through a single, self-documenting endpoint.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">APIs</span>
+        <span class="tag">Query Language</span>
+        <span class="tag">Schema-First</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>REST is like ordering from a set menu — you get what the kitchen decided to put on the plate. GraphQL is like ordering à la carte — you specify exactly which items you want, in what combination, and they arrive on one tray instead of five separate trips from the waiter.</p>
+    </div>
+
+    <p>GraphQL is a query language for your API and a server-side runtime for executing those queries. Developed at Facebook in 2012 and open-sourced in 2015, it solves two chronic problems with REST: <strong>over-fetching</strong> (getting back fields you don't need, wasting bandwidth) and <strong>under-fetching</strong> (needing to call three endpoints to get the data for one screen).</p>
+
+    <p>With GraphQL, the client describes its data requirements in a query document. The server validates the query against a strongly-typed schema and executes it, returning exactly the requested shape. One network round-trip. No wasted bytes. No waterfall of sequential HTTP calls.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        Facebook's mobile engineering team in 2012 was rebuilding the iOS app. The existing REST API was designed around the web experience — it returned massive JSON objects built for desktop screens. On a 3G connection, every news-feed page load required 6–8 separate REST calls, and each response contained dozens of fields the mobile app never rendered.
+      </div>
+      <div class="story-problem">
+        A single news-feed refresh caused: <code>GET /feed</code> returning 2 KB of user profile data the app already had, then <code>GET /users/{id}/posts</code> returning posts with 40 fields when 5 were needed, then <code>GET /posts/{id}/comments</code> called once per post — 20 posts meant 20 additional requests. On 3G, this cascade took 8–12 seconds. Battery drain from network keep-alive chewed through 15% of charge per hour of scrolling.
+      </div>
+      <div class="story-solution">
+        The team designed GraphQL: a single endpoint where the client sends a query describing exactly what it wants. The news-feed screen sends one query asking for feed items with only the fields it displays. The server resolves all sub-queries internally (using its own fast internal network) and returns one response. The mobile client receives exactly the shape it needs — nothing extra, nothing missing.
+      </div>
+      <div class="story-outcome">
+        The Facebook iOS app feed load time dropped from 8 seconds to under 1.5 seconds on 3G. Network payload per feed refresh dropped 70%. The API became self-documenting — mobile engineers could introspect the schema to see all available fields without reading docs or emailing the backend team. Facebook open-sourced GraphQL in 2015. GitHub adopted it for their v4 API. Today 100M+ developers interact with GitHub's GraphQL API daily.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're building a mobile app that shows a user's profile card: their name, avatar, and number of followers. With REST, you'd call <code>GET /users/42</code> and get back a 50-field JSON object — birth date, email, settings, preferences — even though you only need three fields. That's over-fetching.</p>
+          <p>Now imagine you also need their latest three posts. With REST you'd make a second call to <code>GET /users/42/posts?limit=3</code>. That's two round-trips for one screen. That's under-fetching.</p>
+          <p>With GraphQL, you write one query that says "give me the user's name, avatar URL, follower count, and their last 3 posts' titles." The server returns exactly that shape — in one round-trip, with no extra fields.</p>
+        </div>
+
+        <h3 class="subsection-title">The Three Operation Types</h3>
+        <ul>
+          <li><strong>Query</strong> — Read data. Like a GET request. Fetches information from the server.</li>
+          <li><strong>Mutation</strong> — Write data. Like POST/PUT/DELETE. Creates or changes something on the server.</li>
+          <li><strong>Subscription</strong> — Real-time updates. The server pushes changes to you over a WebSocket connection (e.g., live chat messages, stock prices).</li>
+        </ul>
+
+        <h3 class="subsection-title">How a Query Resolves</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A["Client sends GraphQL Query\n{ user(id: 42) { name posts { title } } }"] --> B[GraphQL Server]
+    B --> C{Parse &amp; Validate\nagainst Schema}
+    C -->|Valid| D[Execute Resolver Tree]
+    C -->|Invalid| E[Return Error]
+    D --> F[userResolver\nfetches User row]
+    F --> G[postsResolver\nfetches Posts for User]
+    G --> H[Assemble Response]
+    H --> I["Return { data: { user: {...} } }"]
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Your First GraphQL Query</h3>
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># Ask for exactly the fields you need
+query GetUserProfile {
+  user(id: "42") {
+    name
+    avatarUrl
+    followerCount
+    posts(limit: 3) {
+      title
+      publishedAt
+    }
+  }
+}</code></pre>
+        </div>
+
+        <p>The server responds with a JSON object whose shape <em>exactly mirrors</em> the query structure — no surprise fields, no missing data:</p>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">{
+  "data": {
+    "user": {
+      "name": "Alice",
+      "avatarUrl": "https://cdn.example.com/alice.jpg",
+      "followerCount": 1284,
+      "posts": [
+        { "title": "GraphQL is great", "publishedAt": "2025-05-01" },
+        { "title": "REST vs GraphQL", "publishedAt": "2025-04-20" },
+        { "title": "My first API", "publishedAt": "2025-03-14" }
+      ]
+    }
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <h3 class="subsection-title">Schema Definition Language (SDL)</h3>
+        <p>Every GraphQL API starts with a schema — a strongly-typed contract that defines every type, field, and operation available. The schema is the single source of truth for both client and server.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># Schema Definition Language (SDL)
+
+type User {
+  id: ID!           # ID! means non-null — this field is always present
+  name: String!
+  email: String!
+  avatarUrl: String
+  followerCount: Int!
+  posts: [Post!]!   # List of Post, list and items are both non-null
+  createdAt: String!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  body: String!
+  author: User!
+  comments: [Comment!]!
+  publishedAt: String
+  tags: [String!]!
+}
+
+type Comment {
+  id: ID!
+  text: String!
+  author: User!
+  createdAt: String!
+}
+
+# Root operation types
+type Query {
+  user(id: ID!): User           # Nullable — returns null if not found
+  users(limit: Int, offset: Int): [User!]!
+  post(id: ID!): Post
+  posts(authorId: ID, limit: Int): [Post!]!
+}
+
+type Mutation {
+  createPost(input: CreatePostInput!): Post!
+  updatePost(id: ID!, input: UpdatePostInput!): Post!
+  deletePost(id: ID!): Boolean!
+}
+
+type Subscription {
+  commentAdded(postId: ID!): Comment!
+}
+
+input CreatePostInput {
+  title: String!
+  body: String!
+  tags: [String!]
+}
+
+input UpdatePostInput {
+  title: String
+  body: String
+  tags: [String!]
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Queries, Mutations, and Subscriptions</h3>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># QUERY — read data
+query GetPostWithComments($postId: ID!) {
+  post(id: $postId) {
+    title
+    body
+    author {
+      name
+      avatarUrl
+    }
+    comments {
+      text
+      author {
+        name
+      }
+      createdAt
+    }
+  }
+}
+
+# MUTATION — write data
+mutation CreateNewPost($input: CreatePostInput!) {
+  createPost(input: $input) {
+    id
+    title
+    publishedAt
+  }
+}
+
+# SUBSCRIPTION — real-time push
+subscription WatchComments($postId: ID!) {
+  commentAdded(postId: $postId) {
+    id
+    text
+    author {
+      name
+    }
+    createdAt
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Fragments — Reusable Field Selections</h3>
+        <p>Fragments let you define a named set of fields once and reuse them across multiple queries. This avoids duplication and keeps queries maintainable.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># Define a fragment
+fragment UserBasic on User {
+  id
+  name
+  avatarUrl
+}
+
+# Reuse it in two different queries
+query GetPost($id: ID!) {
+  post(id: $id) {
+    title
+    author {
+      ...UserBasic    # Spread the fragment
+    }
+    comments {
+      text
+      author {
+        ...UserBasic  # Same fragment, different context
+      }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Resolver Chain — How Fields Get Their Values</h3>
+        <p>On the server, each field in the schema maps to a <strong>resolver</strong> function. When a query is executed, GraphQL walks the query tree and calls each resolver to get the value for each field. Resolvers can independently fetch data from databases, caches, or other services.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Apollo Server resolver map (Node.js)
+const resolvers = {
+  Query: {
+    // Top-level resolvers receive: (parent, args, context, info)
+    user: async (_, { id }, { dataSources }) => {
+      return dataSources.usersDB.findById(id);
+    },
+    post: async (_, { id }, { dataSources }) => {
+      return dataSources.postsDB.findById(id);
+    },
+  },
+
+  // Type-level resolvers — called when a User field is requested
+  User: {
+    // 'parent' is the User object already fetched
+    posts: async (parent, { limit = 10 }, { dataSources }) => {
+      return dataSources.postsDB.findByAuthorId(parent.id, { limit });
+    },
+    followerCount: async (parent, _, { dataSources }) => {
+      return dataSources.followsDB.countFollowers(parent.id);
+    },
+  },
+
+  Post: {
+    author: async (parent, _, { dataSources }) => {
+      return dataSources.usersDB.findById(parent.authorId);
+    },
+    comments: async (parent, _, { dataSources }) => {
+      return dataSources.commentsDB.findByPostId(parent.id);
+    },
+  },
+};</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Introspection — The Self-Documenting API</h3>
+        <p>GraphQL APIs are introspective. You can query the schema itself to discover all available types, fields, and operations. This powers tools like GraphiQL and Postman's GraphQL support.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># Ask the API what types are available
+query IntrospectSchema {
+  __schema {
+    types {
+      name
+      kind
+      fields {
+        name
+        type {
+          name
+          kind
+        }
+      }
+    }
+  }
+}
+
+# Ask about a specific type
+query InspectUser {
+  __type(name: "User") {
+    name
+    fields {
+      name
+      type {
+        name
+        kind
+        ofType {
+          name
+          kind
+        }
+      }
+    }
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">The N+1 Problem</h3>
+        <p>The most critical performance pitfall in GraphQL. When you query a list of items and each item has a nested resolver, you get one database query per item instead of one query total.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># This innocent-looking query causes N+1 in a naive implementation
+query GetAllPosts {
+  posts(limit: 100) {   # 1 DB query for posts
+    title
+    author {            # 100 separate DB queries, one per post!
+      name
+    }
+  }
+}</code></pre>
+        </div>
+
+        <p>The naive resolver calls <code>usersDB.findById(post.authorId)</code> for each of the 100 posts — 101 database round-trips for what should be 2. At 100 posts this is noticeable; at 1000 posts it brings down your database.</p>
+
+        <h3 class="subsection-title">DataLoader — The Solution</h3>
+        <p>DataLoader is a utility (originally from Facebook) that batches and caches data-loading. Instead of executing one DB call per item, DataLoader collects all IDs requested in the same event-loop tick and issues a single batched query.</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">import DataLoader from 'dataloader';
+
+// One batching function — called with an array of IDs collected in one tick
+const userLoader = new DataLoader(async (userIds) => {
+  // Single DB query for all requested user IDs at once
+  const users = await db.query(
+    'SELECT * FROM users WHERE id = ANY($1)',
+    [userIds]
+  );
+  // Return results in the same order as the input IDs
+  const userMap = new Map(users.map(u => [u.id, u]));
+  return userIds.map(id => userMap.get(id) || null);
+});
+
+// Resolver — uses loader instead of direct DB call
+const resolvers = {
+  Post: {
+    author: (post, _, { loaders }) => {
+      // loader.load() schedules this ID — DataLoader batches all
+      // calls made in the same event-loop tick into ONE DB query
+      return loaders.user.load(post.authorId);
+    },
+  },
+};
+
+// Result: 100 posts → 1 query for posts + 1 batched query for all authors
+// Instead of: 1 query for posts + 100 queries for authors</code></pre>
+        </div>
+
+        <h3 class="subsection-title">GraphQL vs REST — Honest Trade-offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>GraphQL</th>
+              <th>REST</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Fetching efficiency</strong></td>
+              <td class="good">Client specifies exact fields — no over/under-fetching</td>
+              <td class="bad">Fixed response shape; often over-fetches or needs multiple calls</td>
+            </tr>
+            <tr>
+              <td><strong>HTTP caching</strong></td>
+              <td class="bad">All requests are POST to one endpoint — browser/CDN cache doesn't work without extra tooling (persisted queries)</td>
+              <td class="good">GET requests are natively cacheable by browsers, CDNs, and proxies</td>
+            </tr>
+            <tr>
+              <td><strong>Type safety</strong></td>
+              <td class="good">Schema is a strongly-typed contract; tooling auto-generates client types</td>
+              <td class="bad">OpenAPI/JSON Schema optional; often undocumented or stale</td>
+            </tr>
+            <tr>
+              <td><strong>Learning curve</strong></td>
+              <td class="bad">New query language, resolver patterns, DataLoader, persisted queries</td>
+              <td class="good">HTTP verbs and status codes — universally understood</td>
+            </tr>
+            <tr>
+              <td><strong>N+1 risk</strong></td>
+              <td class="bad">Easy to accidentally introduce N+1 in resolvers without DataLoader</td>
+              <td class="good">Developer controls SQL; N+1 is less common (but not impossible)</td>
+            </tr>
+            <tr>
+              <td><strong>File uploads</strong></td>
+              <td class="bad">Not in spec; requires multipart extensions or separate REST endpoint</td>
+              <td class="good">Native multipart/form-data support</td>
+            </tr>
+            <tr>
+              <td><strong>Versioning</strong></td>
+              <td class="good">Schema evolution without versioning — add fields, deprecate old ones</td>
+              <td class="bad">URL versioning (/v1, /v2) or fragile header-based versioning</td>
+            </tr>
+            <tr>
+              <td><strong>Tooling ecosystem</strong></td>
+              <td class="good">GraphiQL, Apollo Studio, code-gen, schema linting, federation</td>
+              <td class="good">Swagger UI, Postman, curl — mature and universal</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Query Depth Limiting</h3>
+        <p>Without protection, a malicious (or careless) client can send an arbitrarily deep query that triggers an exponential number of resolver calls — a denial-of-service through the API itself.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># This query nests deeply and could resolve millions of records
+query MaliciousDeepQuery {
+  users {
+    posts {
+      comments {
+        author {
+          posts {
+            comments {
+              author {
+                posts {           # Each level multiplies resolver calls
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">import depthLimit from 'graphql-depth-limit';
+import costAnalysis from 'graphql-cost-analysis';
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  validationRules: [
+    depthLimit(6),               // Reject queries deeper than 6 levels
+    costAnalysis({
+      maximumCost: 1000,         // Each field has a cost; reject if total > 1000
+      defaultCost: 1,
+      scalarCost: 1,
+      objectCost: 2,
+      listFactor: 10,            // Lists multiply cost by 10
+    }),
+  ],
+});</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architecture Note</span>
+          <p>Depth limiting alone is not sufficient. A query 3 levels deep that requests a list of 10,000 users, each with 50 posts, is 500,000 resolver calls. Combine depth limiting with query cost analysis and field-level rate limiting for production security. Also disable introspection in production — it gives attackers a roadmap of your entire data model.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Persisted Queries</h3>
+        <p>Standard GraphQL POSTs the full query string on every request. Persisted queries register a query string on the server (or CDN) ahead of time and send only a hash at runtime. This provides three benefits: smaller request payloads, CDN cacheability (GET with hash), and security (only pre-approved queries can execute).</p>
+
+        <div class="code-wrapper" data-lang="javascript">
+          <pre><code class="language-javascript">// Apollo Client — automatic persisted queries (APQ)
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
+import { createPersistedQueryLink } from '@apollo/client/link/persisted-queries';
+import { sha256 } from 'crypto-hash';
+
+const persistedQueryLink = createPersistedQueryLink({ sha256 });
+const httpLink = createHttpLink({ uri: '/graphql' });
+
+const client = new ApolloClient({
+  link: persistedQueryLink.concat(httpLink),
+  cache: new InMemoryCache(),
+});
+
+// First request: sends hash + full query (server stores hash → query mapping)
+// Subsequent requests: sends ONLY the hash — full query never transmitted again
+// GET /graphql?extensions={"persistedQuery":{"version":1,"sha256Hash":"abc123"}}
+// Now CDNs can cache GET requests normally!</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Schema Federation with Apollo Router</h3>
+        <p>At microservices scale, maintaining one monolithic GraphQL schema is impractical. Apollo Federation lets each service own its portion of the schema. The Apollo Router stitches them into a unified supergraph, routing sub-queries to the correct service automatically.</p>
+
+        <div class="code-wrapper" data-lang="graphql">
+          <pre><code class="language-graphql"># user-service schema (subgraph)
+type User @key(fields: "id") {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type Query {
+  user(id: ID!): User
+  me: User
+}
+
+# post-service schema (subgraph) — extends User from user-service
+type Post @key(fields: "id") {
+  id: ID!
+  title: String!
+  authorId: ID!
+  # Federated reference: resolves User across service boundary
+  author: User
+}
+
+extend type User @key(fields: "id") {
+  id: ID! @external       # Tells router this field comes from user-service
+  posts: [Post!]!         # This service contributes posts to the User type
+}
+
+type Query {
+  posts: [Post!]!
+  post(id: ID!): Post
+}</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml"># Apollo Router supergraph config
+federation_version: =2.6.0
+
+subgraphs:
+  users:
+    routing_url: http://user-service:4001/graphql
+    schema:
+      file: ./schemas/users.graphql
+  posts:
+    routing_url: http://post-service:4002/graphql
+    schema:
+      file: ./schemas/posts.graphql
+  comments:
+    routing_url: http://comment-service:4003/graphql
+    schema:
+      file: ./schemas/comments.graphql</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Compliance and Security Posture</h3>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Production Security Checklist</span>
+          <span class="enterprise-card-company">Enterprise GraphQL Hardening</span>
+          <p><strong>Introspection:</strong> Disable in production (<code>introspection: false</code> in ApolloServer). Introspection gives attackers a complete map of your data model. Use Schema Registry (Apollo Studio) for authorized developers to explore the schema.</p>
+          <p><strong>Query depth limiting:</strong> Set maximum depth to 6–10 levels depending on your data model. Use <code>graphql-depth-limit</code> package. Test with adversarial queries before going live.</p>
+          <p><strong>Query complexity analysis:</strong> Assign cost points to fields (lists cost more). Reject queries over a total cost budget. This prevents the "many shallow resolvers" variant of DoS that depth limits miss.</p>
+          <p><strong>Field-level rate limiting:</strong> Expensive computed fields (aggregations, ML inference) need per-field rate limits. Standard rate limiting on the endpoint level is insufficient — a client can call one cheap endpoint frequently vs one expensive field once.</p>
+          <p><strong>Authorization in resolvers:</strong> Never rely on the schema alone to protect data. Authorize at the resolver level. Use a pattern like <code>@auth</code> directives or middleware. Row-level security: filter data by the authenticated user's permissions inside each resolver, not at the query level.</p>
+          <p><strong>GDPR/Data residency:</strong> Federation routing rules can enforce that queries requesting EU user data are routed only to EU-region subgraph instances. Apollo Router's traffic shaping and coprocessor hooks enable compliance enforcement at the gateway layer.</p>
+        </div>
+
+        <h3 class="subsection-title">Apollo Server vs Relay vs Strawberry</h3>
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Framework</th>
+              <th>Language</th>
+              <th>Best For</th>
+              <th>Key Tradeoff</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Apollo Server</strong></td>
+              <td>Node.js / TypeScript</td>
+              <td>General-purpose, microservices federation, large teams</td>
+              <td>Mature ecosystem; commercial features (Apollo Studio) cost money at scale</td>
+            </tr>
+            <tr>
+              <td><strong>GraphQL Yoga</strong></td>
+              <td>Node.js / TypeScript</td>
+              <td>Lightweight, serverless, Cloudflare Workers, Bun</td>
+              <td>Less opinionated; federation requires extra config</td>
+            </tr>
+            <tr>
+              <td><strong>Relay (client)</strong></td>
+              <td>JavaScript / React</td>
+              <td>Large-scale React apps that need aggressive caching and co-location</td>
+              <td>High learning curve; requires Relay-compliant server (Cursor-based pagination, Node interface)</td>
+            </tr>
+            <tr>
+              <td><strong>Strawberry</strong></td>
+              <td>Python</td>
+              <td>Python backends (FastAPI, Django) with type-safe GraphQL</td>
+              <td>Python-first; excellent for data science teams already in Python</td>
+            </tr>
+            <tr>
+              <td><strong>gqlgen</strong></td>
+              <td>Go</td>
+              <td>High-performance Go microservices</td>
+              <td>Schema-first, code-generated — very fast; Go-specific</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">GitHub — REST v3 to GraphQL v4 Migration</span>
+      <p><strong>Context:</strong> GitHub has 100M+ developers using its API. The REST v3 API served over 1 billion API requests per day. Mobile clients and third-party integrations commonly needed to combine data from <code>/repos</code>, <code>/issues</code>, <code>/pulls</code>, <code>/commits</code>, and <code>/users</code> endpoints — 5 round-trips to render a single pull request review screen.</p>
+      <p><strong>Why GraphQL:</strong> GitHub's REST API returned enormous response objects (a repository object had 100+ fields). Clients would request an entire repository object just to get the <code>defaultBranch</code> name — over-fetching on every call. Additionally, paginating through nested resources (commits in a PR, reviews in a commit) required understanding GitHub's custom Link header pagination.</p>
+      <p><strong>What changed with v4:</strong> A single GraphQL endpoint at <code>api.github.com/graphql</code>. Clients request exactly the fields they need — a repository listing for a dashboard fetches 4 fields instead of 100. Cursor-based Relay-style pagination is consistent across all list types. The schema is introspectable — IDE plugins auto-complete GitHub API fields as you type.</p>
+      <p><strong>Concrete numbers:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Average payload size per API call dropped by ~60% for typical integrations</li>
+        <li>GitHub's own mobile app reduced its network calls per screen by 3–5x</li>
+        <li>The schema has grown to 250+ types and 1,000+ fields — all discoverable via introspection</li>
+        <li>100M+ developers interact with the GraphQL API daily through CI/CD integrations, IDE extensions, and third-party tooling</li>
+      </ul>
+      <p><strong>Lessons learned:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Schema design outlasts implementation:</strong> Once developers adopt your schema, breaking changes are painful. GitHub has kept backward compatibility for years through field deprecation rather than removal.</li>
+        <li><strong>Rate limiting had to change:</strong> REST rate limits were per-endpoint (5,000 requests/hour). GraphQL needed cost-based rate limits — one complex query costs more than one simple query. GitHub implemented a point-based system where each field access costs 1 point and nodes cost 1 point, with a cap of 5,000 points/hour.</li>
+        <li><strong>Persisted queries were essential:</strong> Without them, every API call sent the full query string, inflating payload size and preventing CDN caching for safe queries.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Query Depth Limiting (DoS via Deep Nesting)</span>
+      <p>GraphQL allows clients to request arbitrarily nested data. Without depth or complexity limits, a query like <code>{ users { posts { comments { author { posts { comments { ... } } } } } } }</code> can trigger an exponential chain of resolver calls that saturates your database in seconds. This is not theoretical — GraphQL endpoints without limits have been taken offline by a single malformed query from a developer debugging locally.</p>
+      <p><strong>Fix:</strong> Install <code>graphql-depth-limit</code> and set <code>depthLimit(6)</code> as a validation rule. Also add <code>graphql-cost-analysis</code> for budget-based complexity limits. Reject queries over the limit before any resolvers execute.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Missing DataLoader (N+1 Queries Kill Production)</span>
+      <p>The most common performance bug in GraphQL servers. A query for 100 posts where each post's <code>author</code> field fires a separate DB query results in 101 database calls instead of 2. At low traffic this is invisible; at production load (1,000 concurrent users each triggering 100 resolver calls) it fires 100,000 DB queries per second and crashes your database. The insidious part: it works perfectly in development (where you test with 5 posts) and fails catastrophically in production.</p>
+      <p><strong>Fix:</strong> Always use DataLoader for any resolver that fetches by a foreign key. Install <code>dataloader</code>, create one loader per data source per request context, and use <code>loader.load(id)</code> instead of direct DB calls. DataLoader batches all loads in the same event-loop tick into one query.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Introspection Enabled in Production</span>
+      <p>Introspection is invaluable during development — it powers GraphiQL, Apollo Studio, and IDE auto-complete. In production, it's a security liability. Introspection gives any unauthenticated caller a complete map of every type, field, resolver argument, and relationship in your data model. Attackers use this to identify sensitive fields (<code>internalAdminFlag</code>, <code>creditCardLast4</code>) and craft targeted queries. It's like leaving your API documentation inside the API itself with no authentication.</p>
+      <p><strong>Fix:</strong> Set <code>introspection: false</code> in your production ApolloServer config. Use Apollo Schema Registry or a private GraphiQL instance behind authentication for developer exploration. Consider allowing introspection only for authenticated requests with an <code>INTROSPECTION</code> role.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        GraphQL is a query language and runtime where the client declares exactly what data it needs, the server validates the request against a typed schema, and returns precisely that shape — eliminating over-fetching and under-fetching from a single endpoint.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "GraphQL solves two problems REST has at scale: over-fetching, where endpoints return more data than the client needs, and under-fetching, where clients need multiple round-trips to assemble one screen's worth of data. With GraphQL, you define a schema — a typed contract — and clients query exactly the fields they want in one request. The server resolves each field independently using resolver functions, which can fetch from databases, caches, or other services. The major trade-off is HTTP caching: since all requests are POSTed to one endpoint, standard CDN caching breaks — you need persisted queries to restore cacheability. The other critical pitfall is the N+1 problem: naive resolvers fire one DB query per item in a list. Facebook created DataLoader to fix this by batching all ID lookups within the same event-loop tick into a single query. GitHub migrated their entire public API to GraphQL v4 and cut payload size 60% while eliminating 5-call waterfalls for mobile screens."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What is the N+1 problem and how does DataLoader solve it?</li>
+        <li>How does GraphQL handle authentication and authorization?</li>
+        <li>Why is HTTP caching harder with GraphQL than REST? How do you work around it?</li>
+        <li>What are persisted queries and why do you need them in production?</li>
+        <li>How would you protect a GraphQL endpoint from abuse?</li>
+        <li>What is Apollo Federation and when would you use it?</li>
+        <li>When would you choose REST over GraphQL?</li>
+        <li>How does GraphQL versioning work compared to REST?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "GraphQL is always better than REST" — interviewers want nuance. GraphQL adds complexity and breaks HTTP caching; REST is simpler for CRUD-heavy APIs with simple clients.</li>
+        <li>Forgetting to mention the N+1 problem — this is the most common GraphQL production failure and interviewers expect you to know it. If you know GraphQL, you know DataLoader.</li>
+        <li>Confusing subscriptions with polling — subscriptions use WebSockets (persistent connection, server pushes). Polling is the client repeatedly querying. They solve the same use case differently.</li>
+        <li>Claiming GraphQL eliminates versioning entirely — field deprecation and schema evolution reduce versioning needs, but breaking schema changes still require coordination and migration periods.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>GraphQL Benefit</th>
+          <th>GraphQL Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fetching efficiency</strong></td>
+          <td>Client requests exact fields; no wasted bandwidth or waterfall calls</td>
+          <td>Complex queries can still be expensive if resolvers aren't optimized</td>
+        </tr>
+        <tr>
+          <td><strong>Developer experience</strong></td>
+          <td>Self-documenting schema; IDE auto-complete; type-safe clients via codegen</td>
+          <td>New query language, resolver patterns, and tooling to learn</td>
+        </tr>
+        <tr>
+          <td><strong>HTTP caching</strong></td>
+          <td>Persisted queries restore GET-based cacheability at CDN layer</td>
+          <td>Without persisted queries, all requests are POST — standard cache misses</td>
+        </tr>
+        <tr>
+          <td><strong>Schema evolution</strong></td>
+          <td>Add fields freely; deprecate old ones without a version bump</td>
+          <td>Removing or renaming fields breaks clients — requires migration period</td>
+        </tr>
+        <tr>
+          <td><strong>Security surface</strong></td>
+          <td>Schema validation rejects unknown fields; type system prevents injection</td>
+          <td>Single endpoint needs depth/complexity limits; introspection is a risk</td>
+        </tr>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>DataLoader eliminates N+1; one network call per screen</td>
+          <td>Without DataLoader, N+1 is easy to introduce and hard to detect until load</td>
+        </tr>
+        <tr>
+          <td><strong>Microservices</strong></td>
+          <td>Federation unifies multiple services behind one schema automatically</td>
+          <td>Federation adds operational complexity — Apollo Router, subgraph contracts</td>
+        </tr>
+        <tr>
+          <td><strong>File handling</strong></td>
+          <td>Unified API for all data operations</td>
+          <td>File uploads not in spec; requires multipart extension or separate REST endpoint</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="rest.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">APIs</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">REST</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The foundational API style GraphQL was designed to complement and improve upon.</span>
+      </a>
+      <a href="grpc.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">APIs</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">gRPC</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Binary protocol for service-to-service communication — fast, typed, but less flexible for clients.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">GraphQL often sits behind an API gateway for auth, rate limiting, and observability.</span>
+      </a>
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Performance</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">GraphQL's caching challenges and how persisted queries restore CDN-level caching.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

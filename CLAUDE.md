@@ -273,8 +273,11 @@ system-design-academy-portal/
 | Saga Pattern | saga.html |
 
 ## Skills (slash commands)
-- `/build-academy` — orchestrator: auto-detect pending concepts → build all → validate
+- `/build-academy` — **ORCHESTRATOR**: auto-detect pending concepts → build all batches (A–G, 4 parallel agents each) → validate → report
+- `/build-academy next` — build only next pending batch
 - `/new-concept <name>` — generate one concept page
+- `/academy-status` — show built vs pending, next batch
+- `/validate-concept <file|all>` — check concept page against 9-section conventions
 
 ## Notes
 - Do NOT regenerate assets/style.css or assets/app.js

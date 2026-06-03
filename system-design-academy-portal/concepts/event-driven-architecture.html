@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event-Driven Architecture — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="event-driven-architecture" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Event-Driven Architecture</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Messaging <span>→</span> Event-Driven Architecture</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1 — PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Messaging</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Event-Driven Architecture</h1>
+      <p class="page-subtitle">Services communicate by producing and consuming immutable events — decoupling producers from consumers and enabling systems that scale, evolve, and fail independently.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Messaging</span>
+        <span class="tag">Async</span>
+        <span class="tag">Microservices</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2 — DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a newspaper. When a journalist publishes an article, they don't know who will read it or when. Readers subscribe to the paper and react to articles at their own pace. The journalist doesn't wait for each reader to acknowledge — they just publish, and the paper handles delivery.</p>
+      <p>In event-driven architecture, services are journalists and readers. One service publishes an event ("OrderPlaced"), and any number of other services subscribe and react — without the publisher knowing who or what is listening.</p>
+    </div>
+
+    <p>In a traditional request/response system, services call each other directly. If the inventory service is slow, the order service waits. If the payment service is down, the whole checkout flow fails. Services are tightly coupled in time: they must both be alive and healthy at the same moment for any interaction to succeed.</p>
+
+    <p>Event-driven architecture breaks that coupling. Instead of "call payment service and wait," the order service emits an <code>OrderPlaced</code> event to a message broker. The payment service, inventory service, and notification service each subscribe to that event and process it independently — at their own pace, in their own time, with their own retry logic. The order service doesn't wait. The interaction is asynchronous. A temporary outage of the payment service doesn't crash checkout; events queue up and are processed when the payment service recovers.</p>
+
+    <p>This is why event-driven architecture is the backbone of modern, high-scale systems. Shopify processes over 10,000 orders per minute during Black Friday using event-driven pipelines. Netflix uses events to coordinate encoding, metadata, and recommendation updates across hundreds of services. The pattern enables <strong>loose coupling, horizontal scalability, and operational resilience</strong> that direct service calls cannot match.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3 — THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fast-growing e-commerce platform processes orders through a chain of synchronous REST calls: Order Service → Inventory Service → Payment Service → Notification Service → Analytics Service. Each call waits for the previous to complete. On good days, checkout takes 800ms. The engineering team is proud of their clean, sequential pipeline.
+      </div>
+      <div class="story-problem">
+        During a flash sale, the Analytics Service — normally a low-priority background service — started experiencing high latency due to a slow database query. Because checkout's synchronous chain ended at Analytics, every checkout now took 8 seconds instead of 800ms. Analytics was dragging down payment, which was dragging down inventory, which was dragging down the order service. The entire checkout flow degraded because of a non-critical service. Engineers had to take Analytics offline mid-sale to restore checkout, losing 2 hours of sales data.
+      </div>
+      <div class="story-solution">
+        The team redesigned the checkout flow as event-driven. The Order Service now publishes an <code>order.created</code> event to a Kafka topic and immediately returns a 202 Accepted response to the client. Inventory, Payment, Notification, and Analytics services each subscribe to that topic independently. Each service processes events at its own pace. If Analytics is slow, events simply queue in its consumer group — no impact on any other service. Payment, Inventory, and Notification process the same event in parallel, each with independent retry logic.
+      </div>
+      <div class="story-outcome">
+        Checkout latency dropped from 800ms (synchronous) to 45ms (fire-and-forget event publish). The next flash sale saw zero checkout degradation — even when Analytics went down again. Engineers could deploy, restart, or scale any consumer service without affecting the checkout path. The event log also gave them a perfect audit trail: every order, every state change, every timestamp, permanently recorded in Kafka.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4 — LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- ─── BEGINNER PANEL ─── -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're at a concert and something exciting happens on stage. You (the performer) don't shout individually at each audience member — you just do the thing. Each person in the audience independently notices, reacts, and does something about it: some cheer, some tweet, some take photos.</p>
+          <p>In event-driven architecture, a service is the performer. When something significant happens — a user places an order, a payment is processed — the service emits an <strong>event</strong> (an announcement that something happened) to a message broker (the concert hall). Other services are in the audience: they've subscribed to events they care about, and they each react independently in their own way.</p>
+          <p>The performer doesn't wait for every audience member to finish reacting. The performer just performs. That's what makes event-driven systems so fast and resilient — nothing waits for anything else.</p>
+        </div>
+
+        <h3 class="subsection-title">The Three Message Types</h3>
+        <ul>
+          <li><strong>Event</strong> — "Something happened." Past tense. Immutable fact. <code>OrderPlaced</code>, <code>PaymentCaptured</code>, <code>UserRegistered</code>. Multiple services can react. The sender doesn't care who listens.</li>
+          <li><strong>Command</strong> — "Do this." An instruction directed at a specific service. <code>PlaceOrder</code>, <code>SendEmail</code>. One handler. The sender expects it to be acted on.</li>
+          <li><strong>Query</strong> — "Tell me this." A request for data. <code>GetOrderStatus</code>, <code>ListProducts</code>. No side effects. Returns data to the caller.</li>
+        </ul>
+
+        <h3 class="subsection-title">Choreography vs Orchestration</h3>
+        <p>There are two ways services can coordinate in an event-driven system:</p>
+        <ul>
+          <li><strong>Choreography</strong> — Each service listens for events and independently decides what to do. No central coordinator. Like a jazz band — each musician responds to what they hear from others.</li>
+          <li><strong>Orchestration</strong> — A central coordinator (a saga orchestrator or workflow engine) tells each service what to do and when. Like an orchestra conductor — one person directs everyone.</li>
+        </ul>
+
+        <h3 class="subsection-title">Choreography Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant OS as Order Service
+    participant B as Message Broker
+    participant IS as Inventory Service
+    participant PS as Payment Service
+    participant NS as Notification Service
+
+    OS->>B: publish order.created
+    B-->>IS: order.created
+    B-->>PS: order.created
+    B-->>NS: order.created
+    IS->>B: publish inventory.reserved
+    PS->>B: publish payment.captured
+    NS->>B: (sends confirmation email)
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Orchestration Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant ORC as Saga Orchestrator
+    participant IS as Inventory Service
+    participant PS as Payment Service
+    participant NS as Notification Service
+
+    ORC->>IS: reserve inventory
+    IS-->>ORC: inventory reserved
+    ORC->>PS: capture payment
+    PS-->>ORC: payment captured
+    ORC->>NS: send confirmation
+    NS-->>ORC: email sent
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Event</strong> — An immutable record that something happened. Contains what happened and relevant context.</li>
+          <li><strong>Producer</strong> — The service that emits the event.</li>
+          <li><strong>Consumer</strong> — A service that subscribes to and reacts to events.</li>
+          <li><strong>Message Broker</strong> — The infrastructure that receives events from producers and delivers them to consumers (e.g. Kafka, RabbitMQ, SQS).</li>
+          <li><strong>Topic / Queue</strong> — A named channel for a specific type of event (e.g. <code>orders</code>, <code>payments</code>).</li>
+        </ul>
+      </div>
+
+      <!-- ─── INTERMEDIATE PANEL ─── -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <h3 class="subsection-title">Events vs Commands vs Queries — In Depth</h3>
+
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Intent</th>
+              <th>Direction</th>
+              <th>Consumers</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Event</strong></td>
+              <td>Announce a fact</td>
+              <td>Broadcast</td>
+              <td>Zero to many</td>
+              <td><code>OrderPlaced</code></td>
+            </tr>
+            <tr>
+              <td><strong>Command</strong></td>
+              <td>Request an action</td>
+              <td>Targeted</td>
+              <td>Exactly one</td>
+              <td><code>PlaceOrder</code></td>
+            </tr>
+            <tr>
+              <td><strong>Query</strong></td>
+              <td>Request data</td>
+              <td>Request/Reply</td>
+              <td>Exactly one</td>
+              <td><code>GetOrderStatus</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>The critical distinction: events are <em>notifications</em> (the producer doesn't care what happens next), commands are <em>instructions</em> (the producer cares that the action is taken), and queries are <em>reads</em> (no state changes, just data retrieval).</p>
+
+        <h3 class="subsection-title">Event Sourcing Basics</h3>
+        <p>Traditional systems store current state: the <code>orders</code> table has one row per order showing its current status. When an order is updated, the row is overwritten. History is lost.</p>
+        <p><strong>Event sourcing</strong> stores state changes as events instead: an append-only log of every thing that happened to every order.</p>
+
+        <div class="code-wrapper" data-lang="json">
+<pre><code class="language-json">// Traditional: current state in a row
+{ "order_id": "123", "status": "shipped", "total": 89.99 }
+
+// Event sourcing: sequence of facts
+[
+  { "type": "OrderPlaced",      "order_id": "123", "total": 89.99, "ts": "2024-01-10T09:00:00Z" },
+  { "type": "PaymentCaptured",  "order_id": "123", "amount": 89.99, "ts": "2024-01-10T09:00:12Z" },
+  { "type": "InventoryReserved","order_id": "123", "items": [{"sku": "ABC", "qty": 1}], "ts": "2024-01-10T09:00:15Z" },
+  { "type": "OrderShipped",     "order_id": "123", "tracking": "1Z999AA10123456784", "ts": "2024-01-10T09:45:00Z" }
+]</code></pre>
+        </div>
+
+        <p>Current state is derived by replaying events from the beginning (or from a snapshot). Benefits:</p>
+        <ul>
+          <li><strong>Complete audit trail</strong> — every state change is recorded with who did it and when.</li>
+          <li><strong>Time travel debugging</strong> — replay events up to a specific point to see what the state was at any moment in the past.</li>
+          <li><strong>Event replay</strong> — if a bug introduced bad state, fix the bug and replay events to reconstruct correct state.</li>
+          <li><strong>Projections</strong> — build any read model you want by replaying events through a different lens (great for CQRS).</li>
+        </ul>
+
+        <h3 class="subsection-title">A Simple Event Producer and Consumer</h3>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Producer: Order Service publishes event to Kafka
+from kafka import KafkaProducer
+import json
+
+producer = KafkaProducer(
+    bootstrap_servers=['kafka:9092'],
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+def place_order(order_data):
+    # 1. Persist order to database
+    order_id = db.save_order(order_data)
+
+    # 2. Publish event (fire and forget)
+    event = {
+        "type": "OrderPlaced",
+        "order_id": order_id,
+        "customer_id": order_data["customer_id"],
+        "items": order_data["items"],
+        "total": order_data["total"],
+        "timestamp": "2024-01-10T09:00:00Z"
+    }
+    producer.send("orders", value=event)
+    producer.flush()
+
+    # 3. Return immediately — do NOT wait for payment/inventory
+    return {"order_id": order_id, "status": "accepted"}</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Consumer: Inventory Service reacts to OrderPlaced
+from kafka import KafkaConsumer
+import json
+
+consumer = KafkaConsumer(
+    "orders",
+    bootstrap_servers=['kafka:9092'],
+    group_id="inventory-service",  # consumer group for load balancing
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+    auto_offset_reset='earliest'
+)
+
+for message in consumer:
+    event = message.value
+    if event["type"] == "OrderPlaced":
+        try:
+            reserve_inventory(event["order_id"], event["items"])
+            publish_event("InventoryReserved", {
+                "order_id": event["order_id"],
+                "reserved_at": now()
+            })
+        except InsufficientStockError as e:
+            publish_event("InventoryReservationFailed", {
+                "order_id": event["order_id"],
+                "reason": str(e)
+            })</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Design Principle</span>
+          <p>Events should be in past tense and describe facts, not instructions: <code>OrderPlaced</code> not <code>PlaceOrder</code>. An event says "this happened" — it's the consumer's decision what (if anything) to do about it. This keeps producers fully decoupled from downstream behaviour.</p>
+        </div>
+
+        <h3 class="subsection-title">What Goes in an Event?</h3>
+        <p>Two schools of thought:</p>
+        <ul>
+          <li><strong>Thin event (notification only)</strong> — Only include IDs: <code>{ "type": "OrderPlaced", "order_id": "123" }</code>. Consumers call back to get full data. Simpler event schema; consumers may make extra round-trips.</li>
+          <li><strong>Fat event (self-contained)</strong> — Include all relevant data: <code>{ "type": "OrderPlaced", "order_id": "123", "customer_id": "456", "items": [...], "total": 89.99 }</code>. Consumers don't need to call back; but events become large and schema changes break consumers.</li>
+        </ul>
+        <p>Best practice: include the fields consumers will <em>always</em> need (avoid round-trips for common cases), but don't embed the entire object graph. If consumers need different data, let them request it via query.</p>
+      </div>
+
+      <!-- ─── ADVANCED PANEL ─── -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">The Dual-Write Problem</h3>
+        <p>The most dangerous failure mode in event-driven systems: you write to your database and publish an event. These are two separate operations with no inherent atomicity. What if the database write succeeds but the event publish fails?</p>
+        <ul>
+          <li>Order is saved in DB (status: "placed") — correct</li>
+          <li>Event publish to Kafka fails — crash, network timeout, broker unreachable</li>
+          <li>Inventory and Payment never receive the event</li>
+          <li>Order sits in limbo forever — saved but no downstream processing</li>
+        </ul>
+        <p>What if you flip the order (publish first, then DB write)?</p>
+        <ul>
+          <li>Event published — consumers start processing</li>
+          <li>DB write fails</li>
+          <li>Order doesn't exist in DB, but downstream services have already acted on it</li>
+        </ul>
+        <p>Neither order is safe. This is the dual-write problem.</p>
+
+        <h3 class="subsection-title">The Outbox Pattern (Solution)</h3>
+        <p>Write the event to a database outbox table in the <em>same transaction</em> as your domain write. A separate relay process reads unpublished events from the outbox and publishes them to the broker.</p>
+
+        <div class="code-wrapper" data-lang="sql">
+<pre><code class="language-sql">-- Outbox table
+CREATE TABLE outbox_events (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic       VARCHAR(255) NOT NULL,
+    payload     JSONB        NOT NULL,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    published_at TIMESTAMPTZ  -- NULL = not yet published
+);
+
+-- Application code: single transaction writes order + event
+BEGIN;
+  INSERT INTO orders (id, customer_id, total, status)
+  VALUES ('123', '456', 89.99, 'placed');
+
+  INSERT INTO outbox_events (topic, payload)
+  VALUES ('orders', '{
+    "type": "OrderPlaced",
+    "order_id": "123",
+    "customer_id": "456",
+    "total": 89.99
+  }');
+COMMIT;
+-- If either insert fails, both roll back. Guaranteed consistency.</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Outbox relay process (runs separately, polls or uses CDC)
+import psycopg2
+from kafka import KafkaProducer
+import time
+
+producer = KafkaProducer(bootstrap_servers=['kafka:9092'])
+
+def relay_outbox():
+    conn = psycopg2.connect(DATABASE_URL)
+    while True:
+        with conn.cursor() as cur:
+            # Fetch unpublished events (with row lock to prevent duplicate publishing)
+            cur.execute("""
+                SELECT id, topic, payload
+                FROM outbox_events
+                WHERE published_at IS NULL
+                ORDER BY created_at
+                LIMIT 100
+                FOR UPDATE SKIP LOCKED
+            """)
+            rows = cur.fetchall()
+            for row_id, topic, payload in rows:
+                producer.send(topic, value=json.dumps(payload).encode())
+                cur.execute(
+                    "UPDATE outbox_events SET published_at = now() WHERE id = %s",
+                    (row_id,)
+                )
+            conn.commit()
+        time.sleep(0.1)  # poll every 100ms</code></pre>
+        </div>
+
+        <p>Alternatively, use <strong>Change Data Capture (CDC)</strong> with Debezium: watch the database transaction log and publish events automatically, without polling code. More efficient and lower latency than polling.</p>
+
+        <h3 class="subsection-title">Schema Registry</h3>
+        <p>As your system grows, event schemas evolve. The <code>OrderPlaced</code> event gains new fields, renames old ones, drops deprecated ones. Without a schema registry, consumers break silently when producers change field names.</p>
+        <p>A <strong>schema registry</strong> (e.g. Confluent Schema Registry with Avro, or Protobuf) enforces a contract:</p>
+        <ul>
+          <li>Producers register their schema before publishing — the registry validates it.</li>
+          <li>Breaking changes (removing required fields, changing field types) are rejected at registration time, not at consumer runtime.</li>
+          <li>Non-breaking changes (adding optional fields) are allowed.</li>
+          <li>Consumers specify which schema version they support — the registry handles compatibility checks.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="avro">
+<pre><code class="language-json">// Avro schema for OrderPlaced event
+{
+  "type": "record",
+  "name": "OrderPlaced",
+  "namespace": "io.ticketflow.orders",
+  "fields": [
+    { "name": "order_id",     "type": "string" },
+    { "name": "customer_id",  "type": "string" },
+    { "name": "total",        "type": "double" },
+    { "name": "items",        "type": { "type": "array", "items": {
+        "type": "record",
+        "name": "OrderItem",
+        "fields": [
+          { "name": "sku",      "type": "string" },
+          { "name": "quantity", "type": "int" },
+          { "name": "price",    "type": "double" }
+        ]
+    }}},
+    { "name": "timestamp", "type": "string" },
+    // New optional field — backward compatible (has default)
+    { "name": "coupon_code", "type": ["null", "string"], "default": null }
+  ]
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">EDA Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th class="good">Benefit</th>
+              <th class="bad">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Coupling</strong></td>
+              <td class="good">Producer knows nothing about consumers — add/remove consumers with zero producer changes</td>
+              <td class="bad">Implicit dependencies are harder to discover; contract testing required</td>
+            </tr>
+            <tr>
+              <td><strong>Resilience</strong></td>
+              <td class="good">Consumer downtime doesn't affect producer; events queue up and are processed on recovery</td>
+              <td class="bad">Eventual consistency — consumers may be seconds/minutes behind producer state</td>
+            </tr>
+            <tr>
+              <td><strong>Scalability</strong></td>
+              <td class="good">Consumers scale independently; add partitions for parallel processing</td>
+              <td class="bad">Ordering guarantees only within a partition; cross-partition ordering requires careful key design</td>
+            </tr>
+            <tr>
+              <td><strong>Debugging</strong></td>
+              <td class="good">Event log is a perfect audit trail; replay for debugging</td>
+              <td class="bad">Distributed traces span broker hops; harder to follow a flow end-to-end without distributed tracing</td>
+            </tr>
+            <tr>
+              <td><strong>Complexity</strong></td>
+              <td class="good">Each service is simple — react to input, produce output</td>
+              <td class="bad">Overall system behaviour is emergent and harder to reason about; choreography especially</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="common-mistake">
+          <span class="common-mistake-label">The Choreography Trap</span>
+          <p>Choreography is elegant for simple flows but becomes a debugging nightmare at scale. When service D produces an event that triggers service E which triggers service F which triggers service G, and something goes wrong — finding where it went wrong requires tracing events across 4 brokers and 4 services. At this point, consider whether an orchestrator (saga pattern) would make the flow explicit and observable at the cost of some coupling.</p>
+        </div>
+      </div>
+
+      <!-- ─── EXPERT PANEL ─── -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">CQRS + Event Sourcing Connection</h3>
+        <p>Command Query Responsibility Segregation (CQRS) naturally pairs with event sourcing. Write-side services emit events; read-side projections consume those events to build optimized query models.</p>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Write side: command handler emits events
+class OrderCommandHandler:
+    def handle_place_order(self, command: PlaceOrderCommand) -> None:
+        order = Order.new(command.customer_id, command.items)
+        events = order.place()  # domain model returns events
+
+        # Store events (event sourcing)
+        event_store.append_events(order.id, events)
+
+        # Publish to broker for consumers
+        for event in events:
+            kafka_producer.send("orders", event.to_dict())
+
+# Read side: projection builds query model from events
+class OrderProjection:
+    def handle_order_placed(self, event: dict) -> None:
+        # Build denormalized read model optimized for queries
+        read_db.upsert("order_summaries", {
+            "order_id":    event["order_id"],
+            "customer_id": event["customer_id"],
+            "total":       event["total"],
+            "status":      "placed",
+            "placed_at":   event["timestamp"]
+        })
+
+    def handle_order_shipped(self, event: dict) -> None:
+        read_db.update("order_summaries",
+            where={"order_id": event["order_id"]},
+            set={"status": "shipped", "tracking": event["tracking_number"]}
+        )</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Event Versioning Strategies</h3>
+        <p>Events are immutable once written to the log. When schemas evolve, you can't edit old events. Three strategies:</p>
+        <ul>
+          <li><strong>Additive versioning</strong> — Only add optional fields. Consumers ignore fields they don't know. Simple; breaks down when fields must be renamed or removed.</li>
+          <li><strong>Versioned event types</strong> — Publish <code>OrderPlacedV1</code> then <code>OrderPlacedV2</code>. Consumers subscribe to one or both. Gradual migration. Clear separation; proliferates event types.</li>
+          <li><strong>Upcasting</strong> — On read, old events are transformed to the current schema by an upcaster function. No changes to stored events; consumers always see current schema. Requires maintaining upcaster functions for every schema version ever published.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Upcasting example: transform V1 events to V2 on read
+class OrderPlacedUpcaster:
+    def upcast_v1_to_v2(self, event: dict) -> dict:
+        """V1 had 'price' field; V2 renamed it to 'total'"""
+        if event.get("schema_version") == 1:
+            event["total"] = event.pop("price")
+            event["schema_version"] = 2
+        return event
+
+# Event store applies upcasters transparently
+class EventStore:
+    def read_events(self, aggregate_id: str) -> list:
+        raw_events = self.db.fetch_events(aggregate_id)
+        return [self.upcaster.upcast(e) for e in raw_events]</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Compliance Event Log</h3>
+        <p>In regulated industries (finance, healthcare, e-commerce), the event log is a first-class compliance artifact. An append-only, tamper-evident event log satisfies audit requirements that would otherwise require expensive dedicated audit databases.</p>
+
+        <div class="code-wrapper" data-lang="python">
+<pre><code class="language-python"># Compliance-grade event store: append-only with hash chain
+import hashlib
+import json
+
+class ComplianceEventStore:
+    def append(self, event: dict) -> str:
+        prev_hash = self.get_latest_hash()  # hash of previous event
+        event_json = json.dumps(event, sort_keys=True)
+
+        # Hash chain: each event's hash includes previous hash
+        event_hash = hashlib.sha256(
+            f"{prev_hash}{event_json}".encode()
+        ).hexdigest()
+
+        self.db.insert({
+            "event":      event_json,
+            "hash":       event_hash,
+            "prev_hash":  prev_hash,
+            "created_at": utcnow()
+        })
+        return event_hash
+
+    def verify_chain(self) -> bool:
+        """Verify no events have been tampered with"""
+        events = self.db.fetch_all_ordered()
+        for i, event in enumerate(events[1:], 1):
+            expected = hashlib.sha256(
+                f"{events[i-1]['hash']}{event['event']}".encode()
+            ).hexdigest()
+            if expected != event["hash"]:
+                return False  # Tampering detected
+        return True</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Saga Pattern Preview</h3>
+        <p>Long-running, multi-step business transactions (place order → reserve inventory → charge payment → fulfill order) cannot use ACID transactions across services. The <strong>saga pattern</strong> coordinates these multi-step flows using events, with compensating transactions for rollback.</p>
+        <ul>
+          <li><strong>Choreography saga</strong> — Each service reacts to success/failure events and takes the next step. Fully decoupled; difficult to see the overall flow.</li>
+          <li><strong>Orchestration saga</strong> — A dedicated saga orchestrator sends commands to each service in sequence, tracks state, and triggers compensating transactions if any step fails.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect's Perspective</span>
+          <p>Event-driven architecture is not a panacea. Use it when you genuinely need async decoupling, multiple consumers, or event sourcing. For simple CRUD operations with a single downstream consumer, a direct synchronous call with a circuit breaker is simpler and more transparent. The right question is not "should we use EDA?" but "what coupling and consistency trade-offs does this specific interaction require?" EDA excels when the answer includes "producers should not wait," "multiple services need the same information," or "we need a full audit trail." For everything else, start simple.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5 — ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Shopify — Order Processing Pipeline</span>
+      <p><strong>Context:</strong> Shopify processes 10,000+ orders per minute during Black Friday Cyber Monday (BFCM). Each order must trigger inventory reservation, payment capture, fulfillment scheduling, merchant notification, buyer confirmation, analytics recording, and fraud scoring — all for tens of thousands of merchants simultaneously.</p>
+      <p><strong>How it's built:</strong> Every step in the order lifecycle is an event. When a buyer clicks "Place Order," Shopify's Order Service writes the order and emits <code>order.created</code> to a Kafka cluster. From that single event, independent consumers fan out in parallel:</p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><strong>Inventory Service</strong> consumes <code>order.created</code> → reserves stock → emits <code>inventory.reserved</code></li>
+        <li><strong>Payment Service</strong> consumes <code>inventory.reserved</code> → captures payment → emits <code>payment.captured</code></li>
+        <li><strong>Fulfillment Service</strong> consumes <code>payment.captured</code> → schedules warehouse pick → emits <code>fulfillment.requested</code></li>
+        <li><strong>Shipping Service</strong> consumes <code>fulfillment.requested</code> → books carrier → emits <code>shipping.dispatched</code></li>
+        <li><strong>Notification Service</strong> subscribes to all events → sends merchant/buyer emails/SMS at each step</li>
+        <li><strong>Analytics Service</strong> subscribes to all events → updates dashboards, GMV metrics, conversion funnels</li>
+        <li><strong>Fraud Service</strong> subscribes to <code>order.created</code> → scores async → emits <code>fraud.flagged</code> if suspicious (triggers hold on fulfillment)</li>
+      </ol>
+      <p><strong>Numbers that matter:</strong> During BFCM 2023, Shopify processed $9.3 billion in sales. The event pipeline handled over 40 million events in the peak hour. No single service outage would have stopped checkout — events would queue and resume on recovery. Checkout latency stayed under 100ms despite the load, because the Order Service only writes the order and publishes one event before returning to the buyer.</p>
+      <p><strong>Lessons learned:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Events must be idempotent</strong> — Kafka delivers at-least-once. Consumers will occasionally see duplicate events. Every consumer must handle duplicate events safely (idempotency key in your DB, check before acting).</li>
+        <li><strong>Consumer lag is an operational metric</strong> — Monitor the lag (how far behind each consumer group is from the latest offset). A consumer with growing lag is falling behind. Alert before lag causes SLA violations.</li>
+        <li><strong>Dead letter queues are mandatory</strong> — Events that fail processing after N retries go to a DLQ. Without a DLQ, a single bad event can block a consumer permanently (blocking every event behind it in the partition).</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6 — COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Fat Events — Over-Embedding Data</span>
+      <p>Including the entire object state in every event creates tight coupling between producers and consumers. When you embed the full customer profile in every <code>OrderPlaced</code> event, every consumer now depends on the customer schema. When the customer schema gains or loses fields, every consumer must update — even those that don't use customer data at all. The schema change that should affect only the Customer Service now requires coordinated deployment across five services.</p>
+      <p><strong>Fix:</strong> Include only the minimal data consumers will need to avoid a round-trip. Include IDs for related entities. If consumers need full object data, let them request it through a query or use a shared event schema with clear ownership.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Schema Registry — Silent Consumer Breakage</span>
+      <p>Without a schema registry, producers and consumers share implicit contracts through documentation and convention. When a developer renames <code>price</code> to <code>total</code> in the <code>OrderPlaced</code> event, they update the producer, update the documentation, and assume consumers will follow. Three consumers update immediately. Two consumers are on vacation and miss the change. Two weeks later, those consumers silently process events with a <code>null</code> total because the field name changed. Payments are miscalculated. The bug is attributed to a mysterious data quality issue that takes days to trace back to the schema change.</p>
+      <p><strong>Fix:</strong> Use a schema registry (Confluent Schema Registry with Avro/Protobuf). Breaking schema changes fail at registration time, not at consumer runtime. Enforce schema validation in your CI pipeline before any event producer deploys.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Ignoring Eventual Consistency</span>
+      <p>Developers design an event-driven system, then build UI flows that assume immediate consistency. A user places an order (event emitted), then is immediately redirected to an order status page that queries the database. The order status service hasn't processed the event yet. The page shows "Order not found." Users call support. The support team can't reproduce it (by the time they check, the event has been processed). Engineers spend weeks chasing a "flaky" bug that is actually a predictable consistency window.</p>
+      <p><strong>Fix:</strong> Design your UI for eventual consistency from day one. Optimistic UI: show the user what you know will be true (order placed, pending confirmation). Use polling or WebSocket push to update the status when events are processed. Never redirect immediately to a page that queries a downstream system that processes events asynchronously.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7 — INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Event-driven architecture decouples services by having producers emit immutable events to a broker, while consumers subscribe and react independently — enabling async processing, independent scaling, and fault isolation at the cost of eventual consistency.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Event-driven architecture is a pattern where services communicate by publishing and subscribing to events rather than calling each other directly. When something significant happens — an order is placed, a payment is captured — the service emits an immutable event to a message broker like Kafka. Other services subscribe to the events they care about and react independently. The key benefit is decoupling: the order service doesn't know or care whether the inventory service, payment service, or notification service exist — it just publishes a fact. If any consumer is down, events queue up and are processed on recovery. The main trade-off is eventual consistency: consumers may be seconds or minutes behind the producer, so you can't query downstream systems immediately after publishing an event. You also need to handle at-least-once delivery — consumers will occasionally see duplicates, so idempotent processing is mandatory. I'd use this pattern when multiple services need the same information, when async processing is acceptable, or when you need a full audit trail. For simple one-to-one synchronous interactions, a direct call with a circuit breaker is often cleaner."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between choreography and orchestration? When do you choose each?</li>
+        <li>What is the dual-write problem and how does the outbox pattern solve it?</li>
+        <li>How do you handle schema evolution without breaking consumers?</li>
+        <li>What is event sourcing? What are its benefits and costs compared to storing current state?</li>
+        <li>How do you ensure exactly-once processing in a system with at-least-once delivery?</li>
+        <li>What is a dead letter queue and why is it necessary?</li>
+        <li>How does event-driven architecture relate to CQRS?</li>
+        <li>Walk me through how you'd design a saga for a multi-step checkout flow.</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying EDA is "always better than REST" — it's a trade-off. Sync is simpler, easier to debug, and appropriate for many interactions. EDA adds real complexity.</li>
+        <li>Forgetting eventual consistency — not mentioning that consumers may lag behind producers shows a gap in understanding. Interviewers always probe for this.</li>
+        <li>Confusing events and commands — events are past-tense facts with multiple consumers; commands are instructions to a specific handler. Mixing these up signals shallow understanding.</li>
+        <li>Ignoring the dual-write problem — claiming you can safely "write to DB and then publish event" without addressing the atomicity issue is a red flag for senior roles.</li>
+        <li>Not mentioning idempotency — message brokers guarantee at-least-once delivery. Consumers that don't handle duplicates are incorrect by design.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8 — TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Event-Driven Architecture</th>
+          <th>Synchronous REST/RPC</th>
+          <th>Use EDA When</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Coupling</strong></td>
+          <td>Loosely coupled — producers don't know consumers</td>
+          <td>Tightly coupled — callers know and depend on callees</td>
+          <td>Multiple services need same data; consumers change independently</td>
+        </tr>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Eventual — consumers lag behind producers</td>
+          <td>Immediate — response confirms action is done</td>
+          <td>Async processing is acceptable; UI can handle pending states</td>
+        </tr>
+        <tr>
+          <td><strong>Resilience</strong></td>
+          <td>Consumer failures don't affect producer; events queue</td>
+          <td>Downstream failures propagate to caller (circuit breaker helps)</td>
+          <td>Consumer availability must not block critical path</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Consumers scale independently; partition for parallelism</td>
+          <td>Scaling requires coordinating both caller and callee</td>
+          <td>Fan-out to many consumers; high-throughput ingestion</td>
+        </tr>
+        <tr>
+          <td><strong>Debuggability</strong></td>
+          <td>Distributed traces span broker; flow is implicit</td>
+          <td>Call stack is explicit; error propagates back immediately</td>
+          <td>You have distributed tracing infrastructure in place</td>
+        </tr>
+        <tr>
+          <td><strong>Latency</strong></td>
+          <td>Producer returns immediately; consumer processes async</td>
+          <td>Caller waits for full chain to complete</td>
+          <td>User-perceived latency must not include downstream processing</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>High — broker infra, schema management, DLQ, idempotency</td>
+          <td>Low — standard HTTP client, explicit request/response</td>
+          <td>Team has experience with async systems and operational tooling</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9 — RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Durable buffers that decouple producers and consumers in time.</span>
+      </a>
+      <a href="pub-sub.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Pub/Sub</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Broadcast pattern: one publisher, many independent subscribers.</span>
+      </a>
+      <a href="kafka-streaming.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Kafka Streaming</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Distributed log and stream processing at massive scale.</span>
+      </a>
+      <a href="cqrs.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CQRS</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Separate read and write models for scalable, auditable systems.</span>
+      </a>
+      <a href="saga.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Saga Pattern</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Coordinate multi-step distributed transactions with compensating actions.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

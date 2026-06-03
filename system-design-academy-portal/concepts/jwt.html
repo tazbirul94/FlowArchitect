@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="jwt" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">JWT</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Security <span>→</span> JWT</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Security</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">JWT — JSON Web Token</h1>
+      <p class="page-subtitle">A compact, self-contained token format for securely transmitting identity and claims between parties — no database lookup required to validate a request.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Security</span>
+        <span class="tag">Authentication</span>
+        <span class="tag">Stateless</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a JWT like a digitally signed concert wristband. The wristband says who you are, what areas you're allowed into, and when it expires — all printed directly on it. Any security guard can read the wristband and verify it's genuine by checking the venue's seal, without calling the ticket office every time. If the seal is intact and the wristband hasn't expired, you're in.</p>
+      <p>In software: the "wristband" is the token, the "seal" is the cryptographic signature, and the "security guard" is any service that knows the public key.</p>
+    </div>
+
+    <p>A JWT (JSON Web Token) is a URL-safe, base64url-encoded string composed of three parts separated by dots: <code>header.payload.signature</code>. The header identifies the token type and signing algorithm. The payload carries <em>claims</em> — facts about the user like their ID, roles, and when the token expires. The signature proves the token was issued by a trusted authority and hasn't been tampered with since.</p>
+
+    <p>The critical property that makes JWTs useful at scale is <strong>statelessness</strong>. A traditional session-based system requires the server to look up a session record in a database on every request. With a JWT, the server only needs its signing key — it can verify the token's authenticity and read the user's claims entirely in memory. This removes a database round-trip from the hot path of every authenticated API call, which at millions of requests per second is a meaningful performance gain.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fintech startup built a microservices platform — five independent services: user-service, account-service, transaction-service, notification-service, and an API gateway. They used server-side sessions for authentication: on login, a session ID was created and stored in a shared Redis instance. Every service queried Redis on each request to validate the session.
+      </div>
+      <div class="story-problem">
+        At 50,000 concurrent users, Redis became the bottleneck. Every API call made a synchronous Redis lookup. Latency spiked during peak hours. When Redis had a 4-minute outage, all five services rejected every request — not just authentication — because they couldn't validate any session. The Redis cluster was now a distributed single point of failure. The ops team got paged at 2 AM.
+      </div>
+      <div class="story-solution">
+        The team migrated to JWTs. On login, the auth service issued a signed JWT containing the user's ID, roles, and an expiry time. The JWT was signed with a private RSA key held only by the auth service. Every other service was given the public key — a one-time configuration step. Services now validated tokens locally: decode the JWT, verify the RSA signature against the public key, check the expiry claim. No Redis, no network call, no shared state.
+      </div>
+      <div class="story-outcome">
+        P99 authentication latency dropped from 22ms (Redis roundtrip) to under 1ms (local verification). The Redis cluster was decommissioned from the auth hot path — kept only for refresh token management. When a downstream service went down, it no longer took authentication with it. The platform handled 3× the user load without additional infrastructure. The 2 AM Redis pager alerts stopped.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>When you log in to a website, the server needs a way to remember who you are on every future request. HTTP is stateless — it doesn't remember anything between requests. Servers used to solve this by storing a session cookie tied to a database record. But that means every page load hits the database just to ask "is this person logged in?"</p>
+          <p>A JWT solves this differently: instead of the server storing your session, it gives <em>you</em> a token that already contains your identity. The token is cryptographically signed — the server can verify it's genuine without asking anyone. You attach the token to every request in the <code>Authorization</code> header. The server reads it, verifies the signature, and knows exactly who you are and what you're allowed to do.</p>
+          <p>Think of it like a government-issued ID card. You carry it. Any official can verify it by checking the hologram (signature). They don't need to call the government office every time — the card itself is the proof.</p>
+        </div>
+
+        <h3 class="subsection-title">What a JWT Looks Like</h3>
+        <p>A JWT is a long string with two dots in it. Each section between the dots is base64url encoded (not encrypted — anyone can decode and read it):</p>
+        <div class="code-wrapper" data-lang="jwt">
+<pre><code class="language-plaintext">eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9
+.eyJzdWIiOiJ1c2VyXzEyMyIsIm5hbWUiOiJBbGljZSIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTcxNzAwMDAwMH0
+.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</code></pre>
+        </div>
+        <p>Decoded, the middle section (payload) reads:</p>
+        <div class="code-wrapper" data-lang="json">
+<pre><code class="language-json">{
+  "sub": "user_123",
+  "name": "Alice",
+  "role": "admin",
+  "exp": 1717000000
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">JWT Validation Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant S as Service
+
+    C->>GW: POST /login (username + password)
+    GW->>GW: Verify credentials
+    GW-->>C: 200 OK + JWT token
+
+    C->>GW: GET /orders<br/>Authorization: Bearer &lt;jwt&gt;
+    GW->>GW: Decode JWT header + payload
+    GW->>GW: Verify signature with public key
+    GW->>GW: Check exp claim (not expired?)
+    GW->>GW: Check aud claim (right service?)
+    alt Valid token
+      GW->>S: Forward request with user context
+      S-->>C: 200 OK + data
+    else Invalid / expired
+      GW-->>C: 401 Unauthorized
+    end
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Token</strong> — A string that proves your identity to a server.</li>
+          <li><strong>Claim</strong> — A key-value pair inside the JWT payload, e.g. <code>"role": "admin"</code>.</li>
+          <li><strong>Signature</strong> — A cryptographic proof that the token was issued by a trusted authority and hasn't changed.</li>
+          <li><strong>Expiry (<code>exp</code>)</strong> — A Unix timestamp after which the token is no longer valid.</li>
+          <li><strong>Bearer token</strong> — The convention of sending the JWT in the HTTP header: <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>A JWT has three base64url-encoded sections joined by dots. Understanding each section is fundamental to using JWTs correctly.</p>
+
+        <h3 class="subsection-title">Header</h3>
+        <p>The header declares the token type and the signing algorithm:</p>
+        <div class="code-wrapper" data-lang="json">
+<pre><code class="language-json">{
+  "alg": "RS256",
+  "typ": "JWT"
+}</code></pre>
+        </div>
+        <p><strong>Algorithm options:</strong></p>
+        <ul>
+          <li><strong>HS256</strong> (HMAC-SHA256) — Symmetric: the same secret is used to both sign and verify. Simple to set up, but every service that verifies tokens must have the secret. A leaked secret in any one service compromises all tokens across all services.</li>
+          <li><strong>RS256</strong> (RSA-SHA256) — Asymmetric: a <em>private key</em> signs the token, a <em>public key</em> verifies it. The auth service holds the private key exclusively. All other services get the public key. A compromised downstream service cannot forge tokens. <strong>Recommended for multi-service architectures.</strong></li>
+          <li><strong>ES256</strong> (ECDSA P-256) — Asymmetric like RS256 but with elliptic curve cryptography. Produces smaller signatures and is faster to verify than RSA. Use this for high-throughput systems or mobile where bandwidth and CPU matter.</li>
+        </ul>
+
+        <h3 class="subsection-title">Payload — Standard Claims (RFC 7519)</h3>
+        <div class="code-wrapper" data-lang="json">
+<pre><code class="language-json">{
+  "iss": "https://auth.ticketflow.io",
+  "sub": "user_456",
+  "aud": "ticket-service",
+  "exp": 1717001800,
+  "iat": 1717000000,
+  "jti": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "roles": ["user", "organiser"],
+  "email": "alice@example.com"
+}</code></pre>
+        </div>
+        <ul>
+          <li><code><strong>iss</strong></code> (Issuer) — Who created the token. Services should reject tokens from unknown issuers.</li>
+          <li><code><strong>sub</strong></code> (Subject) — The user this token represents. Typically the user's ID in your system.</li>
+          <li><code><strong>aud</strong></code> (Audience) — Which service this token is intended for. A token for <code>ticket-service</code> should be rejected by <code>payment-service</code>.</li>
+          <li><code><strong>exp</strong></code> (Expiration) — Unix timestamp after which the token must be rejected. Keep access tokens short-lived (5–15 minutes).</li>
+          <li><code><strong>iat</strong></code> (Issued At) — When the token was created. Useful for calculating token age.</li>
+          <li><code><strong>jti</strong></code> (JWT ID) — A unique identifier for this specific token. Used to implement a revocation blocklist.</li>
+        </ul>
+
+        <h3 class="subsection-title">Signature</h3>
+        <p>The signature is computed over the base64url-encoded header and payload:</p>
+        <div class="code-wrapper" data-lang="pseudocode">
+<pre><code class="language-plaintext">signature = RSA_SHA256(
+  private_key,
+  base64url(header) + "." + base64url(payload)
+)</code></pre>
+        </div>
+        <p>When a service receives a JWT, it re-computes this check using the public key. If the signatures match, the token is genuine. If anyone tampered with even one character of the payload, the signature check fails and the token is rejected.</p>
+
+        <h3 class="subsection-title">How to Send a JWT</h3>
+        <div class="code-wrapper" data-lang="http">
+<pre><code class="language-http">GET /api/tickets HTTP/1.1
+Host: api.ticketflow.io
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQ1NiIsImF1ZCI6InRpY2tldC1zZXJ2aWNlIiwiZXhwIjoxNzE3MDAxODAwfQ.SIG</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Validating a JWT in Node.js</h3>
+        <div class="code-wrapper" data-lang="javascript">
+<pre><code class="language-javascript">const jwt = require('jsonwebtoken');
+const fs = require('fs');
+
+// Load public key once at startup — NOT on every request
+const publicKey = fs.readFileSync('./keys/public.pem');
+
+function validateToken(token, expectedAudience) {
+  try {
+    const payload = jwt.verify(token, publicKey, {
+      algorithms: ['RS256'],   // Reject HS256 — prevents "alg:none" attacks
+      audience: expectedAudience,
+      issuer: 'https://auth.ticketflow.io',
+    });
+    return { valid: true, payload };
+  } catch (err) {
+    // err.name: 'TokenExpiredError' | 'JsonWebTokenError' | 'NotBeforeError'
+    return { valid: false, reason: err.message };
+  }
+}
+
+// Usage in Express middleware
+app.use((req, res, next) => {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
+
+  const token = auth.slice(7);
+  const result = validateToken(token, 'ticket-service');
+
+  if (!result.valid) return res.status(401).json({ error: result.reason });
+
+  req.user = result.payload;
+  next();
+});</code></pre>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At production scale, three problems dominate JWT architecture discussions: token revocation, refresh token rotation, and algorithm confusion attacks.</p>
+
+        <h3 class="subsection-title">The Token Revocation Problem</h3>
+        <p>JWTs are stateless by design — but statelessness means you cannot revoke them before expiry. If a user logs out, their JWT remains valid until <code>exp</code>. If an admin disables an account, that user's existing JWT still works. This is the core JWT trade-off.</p>
+
+        <p>Solutions in order of complexity:</p>
+        <ul>
+          <li><strong>Short expiry (5–15 min)</strong> — The simplest mitigation. A stolen token is only valid briefly. Requires refresh tokens for good UX.</li>
+          <li><strong>JTI blocklist in Redis</strong> — On logout or account disable, add the token's <code>jti</code> to a Redis set with a TTL matching the token's remaining lifetime. Every service checks the blocklist. This re-introduces a shared data store — small lookup, but now Redis is in the critical path again.</li>
+          <li><strong>Version claim</strong> — Store a <code>token_version</code> per user in the database. Include it as a claim in the JWT. Services validate the claim matches the current version. Invalidating a user's tokens means incrementing their version. Trades one Redis lookup for one DB lookup — similar overhead, better semantics.</li>
+        </ul>
+
+        <h3 class="subsection-title">Refresh Token Rotation</h3>
+        <p>Refresh tokens solve the UX problem of short-lived access tokens without sacrificing security. The pattern:</p>
+        <ol>
+          <li>On login, issue two tokens: a short-lived <strong>access token</strong> (15 min, JWT) and a long-lived <strong>refresh token</strong> (30 days, opaque string stored in DB).</li>
+          <li>Client stores the refresh token in an HTTP-only cookie (not localStorage — XSS protection).</li>
+          <li>When the access token expires, the client sends the refresh token to <code>/auth/refresh</code>.</li>
+          <li>Auth service verifies the refresh token against the database, issues a new access token <em>and</em> a new refresh token, and invalidates the old refresh token.</li>
+          <li>If an attacker steals and uses the refresh token first, the old token is marked used. When the legitimate client tries to refresh with the now-invalidated token, the auth service detects reuse and revokes the entire session family.</li>
+        </ol>
+
+        <h3 class="subsection-title">Trade-offs: HS256 vs RS256 vs ES256</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>HS256 (symmetric)</th>
+              <th>RS256 (RSA)</th>
+              <th>ES256 (ECDSA)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Key sharing</strong></td>
+              <td class="bad">All services share the same secret — one leak compromises everything</td>
+              <td class="good">Public key is safe to distribute; private key stays in auth service only</td>
+              <td class="good">Same model as RS256 — public/private key pair</td>
+            </tr>
+            <tr>
+              <td><strong>Token forgery risk</strong></td>
+              <td class="bad">Any service that verifies can also forge tokens</td>
+              <td class="good">Only the private key holder can issue tokens</td>
+              <td class="good">Only the private key holder can issue tokens</td>
+            </tr>
+            <tr>
+              <td><strong>Signature size</strong></td>
+              <td class="good">32 bytes — compact</td>
+              <td class="bad">256+ bytes (2048-bit key) — adds to every request</td>
+              <td class="good">64 bytes — small like HS256, secure like RS256</td>
+            </tr>
+            <tr>
+              <td><strong>Verification speed</strong></td>
+              <td class="good">Very fast (hash operation)</td>
+              <td class="bad">Slower (RSA modular exponentiation)</td>
+              <td class="good">Fast (elliptic curve math — much faster than RSA verify)</td>
+            </tr>
+            <tr>
+              <td><strong>Best for</strong></td>
+              <td>Single-service, dev/test, scripts</td>
+              <td>Multi-service, legacy systems requiring RSA</td>
+              <td>Multi-service, high-throughput APIs, mobile clients</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Algorithm Confusion Attack</h3>
+        <div class="common-mistake">
+          <span class="common-mistake-label">Critical Vulnerability: "alg:none" and Algorithm Switching</span>
+          <p>An attacker can modify a JWT's header to set <code>"alg": "none"</code> and strip the signature. Naive implementations that trust the algorithm declared in the header will accept this as valid. Always specify allowed algorithms explicitly in verification code — never accept whatever algorithm the token claims.</p>
+          <p>A related attack: if your system accepts both RS256 and HS256, an attacker can take an RS256 token, re-sign it using HS256 with the <em>public key</em> as the HMAC secret. Libraries that don't enforce algorithm type will verify this as valid. <strong>Fix: always hard-code the expected algorithm in your verify call.</strong></p>
+        </div>
+
+        <h3 class="subsection-title">Audience Validation Is Non-Optional</h3>
+        <p>Without <code>aud</code> validation, a token issued for <code>payment-service</code> can be sent to <code>admin-service</code> and accepted. In a microservices architecture, this is a privilege escalation vector — if one low-privilege service is compromised, an attacker can replay its tokens against higher-privilege services. Always validate <code>aud</code> on every service.</p>
+
+        <h3 class="subsection-title">Refresh Token Implementation</h3>
+        <div class="code-wrapper" data-lang="typescript">
+<pre><code class="language-typescript">// Refresh token rotation — Node.js / TypeScript example
+
+interface RefreshTokenRecord {
+  tokenHash: string;    // bcrypt hash of the refresh token
+  userId: string;
+  familyId: string;     // all tokens from one login share a family
+  used: boolean;
+  expiresAt: Date;
+}
+
+async function refreshTokens(incomingRefreshToken: string): Promise&lt;TokenPair&gt; {
+  const tokenHash = await bcrypt.hash(incomingRefreshToken, 10);
+  const record = await db.refreshTokens.findOne({ tokenHash });
+
+  if (!record) throw new UnauthorizedError('Invalid refresh token');
+
+  // Detect reuse — token was already consumed
+  if (record.used) {
+    // Revoke the entire family — session compromise assumed
+    await db.refreshTokens.deleteMany({ familyId: record.familyId });
+    throw new UnauthorizedError('Refresh token reuse detected — session revoked');
+  }
+
+  if (record.expiresAt &lt; new Date()) throw new UnauthorizedError('Refresh token expired');
+
+  // Mark old token as used
+  await db.refreshTokens.updateOne({ tokenHash }, { used: true });
+
+  // Issue new token pair
+  const newRefreshToken = crypto.randomUUID() + crypto.randomUUID(); // 72 chars entropy
+  const newAccessToken = jwt.sign(
+    { sub: record.userId, aud: 'api', iss: 'https://auth.ticketflow.io' },
+    privateKey,
+    { algorithm: 'RS256', expiresIn: '15m' }
+  );
+
+  await db.refreshTokens.insert({
+    tokenHash: await bcrypt.hash(newRefreshToken, 10),
+    userId: record.userId,
+    familyId: record.familyId,  // Inherit family from parent token
+    used: false,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+
+  return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+}</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architecture Note</span>
+          <p>Refresh tokens are stateful by necessity — you need to track which ones have been used. This is acceptable because the refresh endpoint is called infrequently (every 15 minutes per active session) compared to the access token check (every API call). The stateful overhead is bounded: O(active sessions) rows in the database, not O(requests/second).</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, JWT infrastructure spans key management, compliance, multi-cloud scenarios, and token binding for high-assurance systems.</p>
+
+        <h3 class="subsection-title">JWK Endpoints and Key Rotation</h3>
+        <p>Hard-coding a public key in each service creates a deployment problem: when the key rotates, every service must be redeployed or reconfigured. The solution is the JWKS (JSON Web Key Set) endpoint — a standardized URL where services fetch current public keys dynamically.</p>
+
+        <div class="code-wrapper" data-lang="json">
+<pre><code class="language-json">// GET /.well-known/jwks.json
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "kid": "key-2024-v3",      // Key ID — referenced in JWT header
+      "alg": "RS256",
+      "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbW...",
+      "e": "AQAB"
+    },
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "kid": "key-2023-v2",      // Old key — kept for in-flight tokens during rotation
+      "alg": "RS256",
+      "n": "sGu5kVpUFNa7GvVlBVe5a82WvCoEFRx94wDXEL...",
+      "e": "AQAB"
+    }
+  ]
+}</code></pre>
+        </div>
+
+        <p>The JWT header includes a <code>kid</code> (Key ID) field. The receiving service fetches the JWKS endpoint (cached with a short TTL), looks up the key matching the <code>kid</code>, and uses it for verification. Key rotation becomes a two-phase operation: add the new key to JWKS → wait for in-flight tokens signed with the old key to expire → remove the old key. Zero-downtime rotation with no service redeployment.</p>
+
+        <h3 class="subsection-title">Fetching JWKS with Caching</h3>
+        <div class="code-wrapper" data-lang="typescript">
+<pre><code class="language-typescript">// Service startup — cache JWKS, refresh every 12h or on cache miss
+import jwksClient from 'jwks-rsa';
+
+const client = jwksClient({
+  jwksUri: 'https://auth.ticketflow.io/.well-known/jwks.json',
+  cache: true,
+  cacheMaxEntries: 10,
+  cacheMaxAge: 12 * 60 * 60 * 1000, // 12 hours
+  rateLimit: true,
+  jwksRequestsPerMinute: 5,  // prevent JWKS DDoS from bad tokens
+});
+
+async function getPublicKey(kid: string): Promise&lt;string&gt; {
+  const key = await client.getSigningKey(kid);
+  return key.getPublicKey();
+}
+
+async function verifyToken(token: string): Promise&lt;JWTPayload&gt; {
+  const decoded = jwt.decode(token, { complete: true }) as any;
+  if (!decoded?.header?.kid) throw new Error('Missing kid in token header');
+
+  const publicKey = await getPublicKey(decoded.header.kid);
+
+  return jwt.verify(token, publicKey, {
+    algorithms: ['RS256'],
+    audience: process.env.SERVICE_NAME,
+    issuer: 'https://auth.ticketflow.io',
+  }) as JWTPayload;
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Token Binding</h3>
+        <p>A bearer token stolen from network traffic can be replayed from any client. Token binding cryptographically ties a JWT to a specific TLS connection, making captured tokens useless on other connections. The DPoP (Demonstrating Proof of Possession) RFC 9449 is the practical implementation: the client generates an asymmetric key pair per session, includes the public key as a claim in the JWT, and signs each request with the private key. The server verifies both the JWT signature and the DPoP proof. Even if a token is stolen, it cannot be used without the private key.</p>
+
+        <h3 class="subsection-title">Compliance Considerations</h3>
+        <ul>
+          <li><strong>GDPR / CCPA:</strong> JWT payloads are base64url decoded — not encrypted. Do not include PII (name, email, address) in standard JWTs unless you use JWE (JSON Web Encryption). Include only an opaque user ID and look up PII when needed. If a user requests data erasure, their token claims cannot be erased until the token expires.</li>
+          <li><strong>PCI-DSS:</strong> Tokens used in payment flows must have expiry enforced. Audit logs must record token issuance and validation events. Signing keys must be rotated per key management policy (typically annually, immediately on suspected compromise).</li>
+          <li><strong>HIPAA:</strong> PHI (Protected Health Information) must not appear in JWT payloads transmitted outside controlled networks. Use opaque references. Token lifetimes should reflect minimum necessary access.</li>
+          <li><strong>SOC 2:</strong> Key rotation procedures, access to private key material, and token issuance audit trails are scope items. Key storage in HSM (Hardware Security Module) or cloud KMS (AWS KMS, Azure Key Vault, GCP Cloud KMS) is expected for Type II certification.</li>
+        </ul>
+
+        <h3 class="subsection-title">Key Storage — Never in Code</h3>
+        <div class="code-wrapper" data-lang="typescript">
+<pre><code class="language-typescript">// Wrong — private key in source code or env var
+const privateKey = process.env.JWT_PRIVATE_KEY; // Bad: env vars leak in logs/crash dumps
+
+// Right — fetch from AWS KMS or Secrets Manager at startup
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+
+const secretsClient = new SecretsManagerClient({ region: 'eu-west-1' });
+
+async function loadSigningKey(): Promise&lt;string&gt; {
+  const response = await secretsClient.send(new GetSecretValueCommand({
+    SecretId: 'ticketflow/jwt/private-key',
+  }));
+  return response.SecretString!;
+}
+
+// For AWS KMS-backed signing (key never leaves KMS hardware):
+import { KMSClient, SignCommand } from '@aws-sdk/client-kms';
+
+const kmsClient = new KMSClient({ region: 'eu-west-1' });
+
+async function signWithKMS(message: string): Promise&lt;Buffer&gt; {
+  const response = await kmsClient.send(new SignCommand({
+    KeyId: 'arn:aws:kms:eu-west-1:123456789:key/mrk-abc123',
+    Message: Buffer.from(message),
+    MessageType: 'RAW',
+    SigningAlgorithm: 'RSASSA_PKCS1_V1_5_SHA_256',
+  }));
+  return Buffer.from(response.Signature!);
+}</code></pre>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Expert Consideration</span>
+          <p>For very high-throughput systems, asymmetric JWT signing (RS256/ES256) at the auth service can become a bottleneck — RSA signing is CPU-intensive. Mitigations: use ES256 (faster than RS256), cache signed tokens for identical requests within a short window, or use dedicated crypto hardware. At 100K logins/second, even ES256 signing may require horizontal scaling of the auth service itself.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Auth0 — Identity Platform for 10,000+ Companies (Mozilla, Atlassian, Siemens)</span>
+      <p><strong>Context:</strong> Auth0 is an identity-as-a-service platform that issues JWTs for thousands of client applications. It handles over 1 billion authentication events per month. Customers include Mozilla, Atlassian, Siemens, and JetBlue. Auth0 manages the entire JWT lifecycle — issuance, rotation, revocation — as a managed service so developers don't build it themselves.</p>
+      <p><strong>How Auth0 uses JWTs:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Auth0 issues <strong>RS256-signed access tokens</strong> with a 15-minute expiry. Each token includes <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>iat</code>, and custom claims defined by the customer (e.g. user roles, subscription tier).</li>
+        <li>The <strong>JWKS endpoint</strong> at <code>https://&lt;tenant&gt;.auth0.com/.well-known/jwks.json</code> is publicly available. Customer services fetch and cache the public keys — no coordination required across deployments.</li>
+        <li><strong>Refresh token rotation</strong> is enabled by default with absolute lifetime of 30 days and inactivity lifetime of 3 days. Reuse detection is automatic — a reused refresh token triggers revocation of the entire token family and notifies the customer via webhook.</li>
+        <li>Customers never see the private signing key. Key rotation is handled transparently by Auth0 — services pick up new keys via JWKS without any configuration change.</li>
+        <li>For enterprise customers, Auth0 offers <strong>custom domains</strong> (e.g. <code>auth.atlassian.com</code>) so JWTs appear to originate from the customer's domain — important for the <code>iss</code> claim consistency across environments.</li>
+      </ol>
+      <p><strong>Key metrics:</strong> Median token validation latency under 0.5ms (local verification with cached keys). Auth service availability 99.99% SLA. Supports 50,000+ concurrent logins per second at peak without degradation. Refresh token store runs on distributed Postgres with read replicas — refresh is rare enough that DB latency doesn't dominate.</p>
+      <p><strong>Lessons:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>JWKS caching is critical:</strong> At 1B auth events/month, the JWKS endpoint itself must be cached aggressively by clients. Auth0 uses CDN-backed JWKS with long cache headers — fetching the JWKS on every token validation would overwhelm any infrastructure.</li>
+        <li><strong>Refresh token reuse detection catches real attacks:</strong> Auth0's telemetry shows reuse detection fires on actual credential theft cases, not just implementation bugs. The automatic family revocation is what turns detection into remediation.</li>
+        <li><strong>Custom claims drive adoption:</strong> The most-used Auth0 feature after basic auth is custom claims in the access token — embedding subscription tier, user permissions, and tenant ID so downstream services don't need extra DB lookups for common authorization decisions.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Expiry — The Immortal Token</span>
+      <p>JWTs without an <code>exp</code> claim never expire. If such a token is leaked — from a log file, a compromised client, or a data breach — it grants permanent access to your system with no remediation option. This is the single most dangerous JWT misconfiguration. <strong>Always set a short expiry (5–15 minutes for access tokens).</strong></p>
+      <p>A common anti-pattern is setting expiry to 1 year "for convenience during development" and then deploying to production. Audit every JWT-issuing code path and enforce a maximum expiry at the token creation layer, not just documentation.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Skipping Audience Validation</span>
+      <p>If your services don't validate the <code>aud</code> claim, a token issued for <code>user-service</code> can be replayed against <code>admin-service</code> and accepted. In a microservices architecture, not every service has the same privilege level. A token valid for reading user profiles should not grant access to payment operations.</p>
+      <p>This becomes a real attack vector when one service is compromised: the attacker extracts tokens from that service's memory or logs and replays them against other services. Validating <code>aud</code> limits the blast radius. <strong>Every service must explicitly check that the token's <code>aud</code> matches its own service identifier.</strong></p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Storing Sensitive Data in the Payload</span>
+      <p>Base64url encoding is <strong>not encryption</strong>. Anyone who receives a JWT can decode the payload by running it through any base64 decoder — no key required. Yet developers routinely put passwords, credit card numbers, social security numbers, and other PII into JWT payloads.</p>
+      <p>The payload is visible to: the user's browser (if stored in localStorage), browser extensions, backend logs that record full request headers, CDN access logs, proxy servers, and anyone who intercepts unencrypted HTTP traffic. Store only non-sensitive identifiers in the payload (user ID, roles). Retrieve sensitive data from your database using those identifiers after validation. If you must embed sensitive data, use JWE (JSON Web Encryption) — not regular JWTs.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A JWT is a signed, self-contained token that carries identity claims — the server verifies the signature locally without a database lookup, enabling stateless authentication across distributed services.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "A JWT has three parts: header, payload, and signature — all base64url encoded and joined by dots. The payload carries standard claims like sub (user ID), exp (expiry), aud (intended audience), and custom claims like roles. The signature is computed with a private key by the auth service, and any service with the public key can verify it locally — no database round-trip required. This is the key trade-off: stateless validation is fast but you can't revoke tokens before they expire. In practice you mitigate this with short expiry — 15 minutes — combined with refresh token rotation. For algorithm choice, I'd use RS256 or ES256 in a multi-service system because the private key stays only in the auth service; downstream services can't forge tokens even if they're compromised. I'd avoid HS256 because every verifying service shares the secret, which multiplies the blast radius of a key leak."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between HS256 and RS256? Which would you choose and why?</li>
+        <li>How do you revoke a JWT before it expires?</li>
+        <li>What is refresh token rotation and why does it improve security?</li>
+        <li>Why is it dangerous to store sensitive data in a JWT payload?</li>
+        <li>What is the audience (<code>aud</code>) claim for and what happens if you don't validate it?</li>
+        <li>What is a JWKS endpoint and how does it enable zero-downtime key rotation?</li>
+        <li>How is a JWT different from an opaque session token?</li>
+        <li>What is the "algorithm confusion" (alg:none) attack and how do you prevent it?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "JWTs are encrypted" — they are signed, not encrypted. The payload is readable by anyone with the token unless you use JWE specifically.</li>
+        <li>Saying "just set a long expiry to avoid the refresh token complexity" — this misunderstands the security model. Long-lived tokens are the problem, not the solution.</li>
+        <li>Not mentioning the revocation problem — interviewers expect you to know this is the core limitation of stateless tokens and to have a concrete mitigation strategy.</li>
+        <li>Recommending HS256 for microservices — shows lack of understanding of shared-secret risk in multi-service environments.</li>
+        <li>Forgetting audience validation — a commonly-skipped security check that interviewers specifically probe.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>JWT (Stateless Token)</th>
+          <th>Session Cookie (Stateful)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Auth overhead per request</strong></td>
+          <td>Local signature verification — ~0.5ms, no I/O</td>
+          <td>Database/Redis lookup — 2–20ms round-trip</td>
+        </tr>
+        <tr>
+          <td><strong>Revocation</strong></td>
+          <td>Cannot revoke before expiry without a blocklist (which re-introduces state)</td>
+          <td>Instant revocation — delete the session record</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Excellent — no shared state between services; add servers freely</td>
+          <td>Requires session store (Redis) accessible to all servers</td>
+        </tr>
+        <tr>
+          <td><strong>Token size</strong></td>
+          <td>Larger — header + payload + signature (200–800 bytes typical)</td>
+          <td>Small — just a session ID (16–32 bytes)</td>
+        </tr>
+        <tr>
+          <td><strong>Data in transit</strong></td>
+          <td>Claims travel with every request — reduces backend calls for common data</td>
+          <td>Only session ID travels — backend fetches data on each authenticated request</td>
+        </tr>
+        <tr>
+          <td><strong>Cross-domain / mobile</strong></td>
+          <td>Works natively in Authorization header — CORS and mobile friendly</td>
+          <td>Cookies have same-origin restrictions; mobile apps need extra handling</td>
+        </tr>
+        <tr>
+          <td><strong>Best fit</strong></td>
+          <td>APIs, microservices, mobile backends, multi-tenant SaaS</td>
+          <td>Traditional web apps, systems needing instant logout, banking/healthcare</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="oauth.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">OAuth 2.0</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Authorization framework that JWTs are typically issued within.</span>
+      </a>
+      <a href="authentication.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Authentication</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Verifying identity — the process that produces tokens like JWTs.</span>
+      </a>
+      <a href="authorization.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Security</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Authorization</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Controlling what an authenticated identity is permitted to do.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Common enforcement point where JWT validation occurs for all services.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

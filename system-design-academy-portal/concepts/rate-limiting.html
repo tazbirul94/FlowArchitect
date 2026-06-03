@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiting — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="rate-limiting" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Rate Limiting</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Reliability <span>→</span> Rate Limiting</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1: PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Reliability</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Rate Limiting</h1>
+      <p class="page-subtitle">Controls how many requests a client can make in a given time window — protecting systems from abuse, controlling costs, and ensuring fair resource access for all users.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-intermediate">Intermediate</span>
+        <span class="tag">Reliability</span>
+        <span class="tag">API Design</span>
+        <span class="tag">Security</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2: DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Think of a nightclub with a velvet rope. The bouncer lets in 10 people per minute regardless of how many are queued outside. If you've already been let in 10 times tonight, you wait at the rope even if you're not causing trouble. The rule applies equally to everyone — the bouncer doesn't evaluate each person's intentions, just the count.</p>
+    </div>
+
+    <p>Rate limiting is a technique that restricts how frequently a client (a user, IP address, or API key) can call an endpoint within a defined time window. When the limit is exceeded, the server returns an HTTP <code>429 Too Many Requests</code> response instead of processing the request.</p>
+
+    <p>Without rate limiting, a single bad actor — or even a well-intentioned client with a bug in a retry loop — can consume all your server capacity, exhaust your database connection pool, run up your LLM API bill, or simply crowd out other legitimate users. Rate limiting is the mechanism that makes your API fair, affordable, and resilient.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3: THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fintech startup launched a public REST API for currency conversion. The API called a paid third-party exchange rate provider at $0.001 per request. The founders expected modest usage of a few thousand calls per day during beta.
+      </div>
+      <div class="story-problem">
+        Three days after launch, a developer integrating the API had a bug: their polling loop had no sleep interval. The loop fired 200 requests per second for 18 hours before they noticed. The startup received a $12,960 bill from the exchange rate provider in a single day. The API was also completely unresponsive to other beta testers for most of that day because the server's outbound connection pool was saturated.
+      </div>
+      <div class="story-solution">
+        The team implemented rate limiting using Redis with a sliding window counter. Each API key was limited to 100 requests per minute. Any key exceeding the limit received a <code>429</code> response with a <code>Retry-After: 43</code> header telling the client exactly how long to wait. The misbehaving client's integration immediately started seeing 429s and the developer was alerted.
+      </div>
+      <div class="story-outcome">
+        Third-party API costs dropped to $8/day — within budget. Other users regained consistent response times. The rate limit headers also helped every integration developer understand their usage patterns. Two enterprise customers later upgraded to paid plans specifically because they needed higher rate limits — rate limiting became a revenue mechanism, not just a protective one.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 4: LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine you're at an all-you-can-eat buffet. The rule is: you can take food as many times as you want, but no more than 5 trips in any 10-minute window. This is rate limiting. The restaurant isn't saying you can never eat — it's saying you can't eat so fast that you empty the buffet before other diners get a turn.</p>
+          <p>In software, when your app calls an API (like a weather service, a payment processor, or an AI assistant), the server on the other end is doing real work for every request. If you send 10,000 requests in a second, you're consuming the same resources that all other users share. Rate limiting says: "You get 100 requests per minute. After that, slow down."</p>
+          <p>The most common response you'll see when you hit a rate limit is <strong>HTTP 429</strong> with a message like "Too Many Requests" and a header like <code>Retry-After: 30</code> telling you to wait 30 seconds before trying again.</p>
+        </div>
+
+        <h3 class="subsection-title">Why APIs Rate Limit</h3>
+        <ul>
+          <li><strong>Prevent abuse</strong> — Stops scrapers, credential-stuffing bots, and DDoS-style floods from overwhelming the service.</li>
+          <li><strong>Control costs</strong> — APIs that call paid downstream services (LLMs, payment processors, SMS) need to cap spend per customer.</li>
+          <li><strong>Ensure fairness</strong> — One heavy user shouldn't starve 1,000 light users of capacity.</li>
+          <li><strong>Protect stability</strong> — Sudden traffic spikes are predictably absorbed rather than crashing servers.</li>
+        </ul>
+
+        <h3 class="subsection-title">Token Bucket — The Most Common Algorithm</h3>
+        <p>The <strong>token bucket</strong> algorithm is the most widely used approach. Picture a bucket that holds tokens:</p>
+        <ul>
+          <li>The bucket has a <strong>capacity</strong> (e.g., 10 tokens max).</li>
+          <li>Tokens are added at a constant <strong>refill rate</strong> (e.g., 2 tokens per second).</li>
+          <li>Each incoming request consumes 1 token.</li>
+          <li>If there are no tokens, the request is rejected with HTTP 429.</li>
+          <li>Burst traffic is allowed up to bucket capacity, then throttled.</li>
+        </ul>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A[Incoming Request] --> B{Tokens\navailable?}
+    B -- "Yes: consume 1 token" --> C[Process Request]
+    B -- "No: bucket empty" --> D[HTTP 429\nToo Many Requests]
+    E[⏱ Refill Timer\n+2 tokens/sec] --> F[(Token Bucket\ncapacity: 10)]
+    F --> B
+    C --> G[HTTP 200 Response]
+    D --> H[Retry-After header\nreturned to client]
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level you need to understand the four major algorithms, when to use each, and how to implement rate limiting with Redis — the standard backend for distributed rate limiting.</p>
+
+        <h3 class="subsection-title">The Four Algorithms Compared</h3>
+
+        <p><strong>1. Token Bucket</strong> — A bucket holds up to N tokens. Tokens refill at a constant rate. Each request consumes one token. Burst traffic up to bucket size is allowed. Most common in practice (GitHub API, AWS API Gateway, Stripe).</p>
+
+        <p><strong>2. Leaky Bucket</strong> — Requests enter a queue (the "bucket") and are processed at a constant drain rate. Excess requests overflow and are dropped. Smooths bursty traffic into a uniform output rate. Good for protecting downstream systems from load spikes. Implemented as a FIFO queue with a fixed drain interval.</p>
+
+        <p><strong>3. Fixed Window Counter</strong> — Count requests in fixed time windows (e.g., 0–60s, 60–120s). If count exceeds limit, reject. Simple and memory-efficient. Has a well-known boundary burst problem: a client can make N requests just before the window resets and N more just after — getting 2N requests in a very short interval.</p>
+
+        <p><strong>4. Sliding Window Log</strong> — Stores a timestamp for each request in a sorted set. On each new request, remove timestamps older than the window, count remaining entries. Exact — no boundary burst problem. Memory-intensive because every request timestamp is stored. Best for low-volume, high-accuracy requirements.</p>
+
+        <h3 class="subsection-title">Fixed Window Boundary Burst Problem</h3>
+        <p>If limit = 100 req/min with a fixed window at :00 seconds:</p>
+        <ul>
+          <li>Client sends 100 requests at 11:59:58 — all pass (window 1).</li>
+          <li>Window resets at 12:00:00.</li>
+          <li>Client sends 100 requests at 12:00:02 — all pass (window 2).</li>
+          <li>Result: 200 requests in 4 seconds — 50x the intended rate.</li>
+        </ul>
+
+        <h3 class="subsection-title">Redis Implementation — Fixed Window Counter</h3>
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python">import redis
+import time
+
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+def is_rate_limited(user_id: str, limit: int = 100, window_seconds: int = 60) -> bool:
+    """
+    Fixed-window counter using Redis INCR + EXPIRE.
+    Returns True if the request should be rate-limited (rejected).
+    """
+    # Key format: rate:<user_id>:<current_window>
+    current_window = int(time.time()) // window_seconds
+    key = f"rate:{user_id}:{current_window}"
+
+    # Increment the counter atomically
+    count = r.incr(key)
+
+    # On first increment, set expiry so keys auto-clean
+    if count == 1:
+        r.expire(key, window_seconds * 2)  # 2x window for safety
+
+    return count > limit
+
+
+def get_rate_limit_headers(user_id: str, limit: int = 100, window_seconds: int = 60) -> dict:
+    """Returns headers to include in every API response."""
+    current_window = int(time.time()) // window_seconds
+    key = f"rate:{user_id}:{current_window}"
+    count = int(r.get(key) or 0)
+    reset_time = (current_window + 1) * window_seconds
+
+    return {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(max(0, limit - count)),
+        "X-RateLimit-Reset": str(reset_time),
+    }
+
+
+# Flask middleware example
+from flask import Flask, request, jsonify, g
+
+app = Flask(__name__)
+
+@app.before_request
+def check_rate_limit():
+    user_id = request.headers.get("X-API-Key", request.remote_addr)
+    if is_rate_limited(user_id):
+        headers = get_rate_limit_headers(user_id)
+        headers["Retry-After"] = "60"
+        return jsonify({"error": "Too Many Requests"}), 429, headers
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Redis Implementation — Sliding Window with Sorted Sets</h3>
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python">import redis
+import time
+
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+def is_rate_limited_sliding(user_id: str, limit: int = 100, window_seconds: int = 60) -> bool:
+    """
+    Sliding window log using a Redis sorted set.
+    Score = timestamp, Member = unique request ID.
+    Exact accuracy — no boundary burst problem.
+    """
+    now = time.time()
+    window_start = now - window_seconds
+    key = f"ratelimit:sliding:{user_id}"
+
+    pipe = r.pipeline()
+    # Remove timestamps outside the window
+    pipe.zremrangebyscore(key, '-inf', window_start)
+    # Count remaining requests in window
+    pipe.zcard(key)
+    # Add current request with timestamp as score
+    pipe.zadd(key, {str(now): now})
+    # Expire the key after the window (cleanup)
+    pipe.expire(key, window_seconds + 1)
+    results = pipe.execute()
+
+    request_count = results[1]  # Count before adding current request
+    return request_count >= limit
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Rate Limit Keys — What to Limit On</h3>
+        <ul>
+          <li><strong>Per API key (authenticated)</strong> — Most common for developer APIs. Granular, traceable, supports tiered plans. <code>rate:{api_key}:{window}</code></li>
+          <li><strong>Per IP address (unauthenticated)</strong> — Only option for public endpoints before login. Vulnerable to IP spoofing and shared NAT (office building with one IP). <code>rate:{ip}:{window}</code></li>
+          <li><strong>Per user ID (post-auth)</strong> — Best for consumer apps after login. Survives IP changes. <code>rate:{user_id}:{window}</code></li>
+          <li><strong>Per endpoint</strong> — Different limits per route. <code>/search</code> might allow 10 req/min while <code>/profile</code> allows 1000 req/min. <code>rate:{user_id}:{endpoint}:{window}</code></li>
+          <li><strong>Composite</strong> — Combine multiple dimensions: per-user + per-endpoint + global. GitHub uses this approach.</li>
+        </ul>
+
+        <h3 class="subsection-title">HTTP 429 Response Pattern</h3>
+        <div class="code-wrapper" data-lang="HTTP">
+<pre><code class="language-http">HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1717430460
+Retry-After: 43
+
+{
+  "error": "rate_limit_exceeded",
+  "message": "You have exceeded 100 requests per minute.",
+  "retry_after_seconds": 43
+}
+</code></pre>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At advanced level, the key concerns are: accuracy vs. performance trade-offs across algorithms, atomic operations to prevent race conditions in distributed environments, and the subtle failure modes that appear at scale.</p>
+
+        <h3 class="subsection-title">Algorithm Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Algorithm</th>
+              <th>Accuracy</th>
+              <th>Memory</th>
+              <th>Burst Handling</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Token Bucket</strong></td>
+              <td class="good">Good — allows controlled bursts</td>
+              <td class="good">Low — just token count + timestamp</td>
+              <td>Allows burst up to bucket size</td>
+              <td>Most APIs — natural and flexible</td>
+            </tr>
+            <tr>
+              <td><strong>Leaky Bucket</strong></td>
+              <td class="good">Exact — constant output rate</td>
+              <td>Medium — queue of pending requests</td>
+              <td class="bad">No burst — excess always dropped</td>
+              <td>Protecting downstream services</td>
+            </tr>
+            <tr>
+              <td><strong>Fixed Window</strong></td>
+              <td class="bad">Poor — boundary burst problem</td>
+              <td class="good">Very low — one counter per window</td>
+              <td>Burst at window boundaries (2x limit)</td>
+              <td>Low-risk internal APIs, simple throttling</td>
+            </tr>
+            <tr>
+              <td><strong>Sliding Window Log</strong></td>
+              <td class="good">Exact — no boundary artifacts</td>
+              <td class="bad">High — stores every request timestamp</td>
+              <td>No burst — continuous enforcement</td>
+              <td>Low volume, strict compliance requirements</td>
+            </tr>
+            <tr>
+              <td><strong>Sliding Window Counter</strong></td>
+              <td>Good — approximation, small error</td>
+              <td class="good">Low — two counters only</td>
+              <td>Controlled</td>
+              <td>High-traffic APIs needing balance</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Sliding Window Counter — The Practical Hybrid</h3>
+        <p>Approximates a sliding window using only two fixed window counters — the current window and the previous window — weighted by how far the current request falls into the current window:</p>
+
+        <div class="code-wrapper" data-lang="Python">
+<pre><code class="language-python">import redis
+import time
+
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+def is_rate_limited_sliding_counter(
+    user_id: str, limit: int = 100, window_seconds: int = 60
+) -> tuple[bool, dict]:
+    """
+    Sliding window counter — approximates sliding window using two
+    fixed counters. Memory-efficient, ~0.003% error rate in practice.
+    """
+    now = time.time()
+    current_window = int(now) // window_seconds
+    prev_window = current_window - 1
+
+    # Position within the current window (0.0 to 1.0)
+    window_fraction = (now % window_seconds) / window_seconds
+
+    current_key = f"rate:{user_id}:{current_window}"
+    prev_key = f"rate:{user_id}:{prev_window}"
+
+    pipe = r.pipeline()
+    pipe.get(current_key)
+    pipe.get(prev_key)
+    pipe.incr(current_key)
+    pipe.expire(current_key, window_seconds * 2)
+    results = pipe.execute()
+
+    current_count = int(results[0] or 0)
+    prev_count = int(results[1] or 0)
+
+    # Weighted estimate: prev window contributes less as current window progresses
+    estimated_count = (prev_count * (1 - window_fraction)) + current_count
+
+    reset_at = (current_window + 1) * window_seconds
+    headers = {
+        "X-RateLimit-Limit": str(limit),
+        "X-RateLimit-Remaining": str(max(0, limit - int(estimated_count))),
+        "X-RateLimit-Reset": str(int(reset_at)),
+    }
+
+    return estimated_count > limit, headers
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Atomic Operations — Preventing Race Conditions</h3>
+        <p>In a distributed system, the check-then-increment pattern has a race condition: two requests can both read "count = 99" and both pass, exceeding the limit. Use Redis Lua scripts for atomic check-and-increment:</p>
+
+        <div class="code-wrapper" data-lang="Lua / Redis">
+<pre><code class="language-lua">-- Rate limit check + increment as atomic Lua script
+-- KEYS[1] = the rate limit key
+-- ARGV[1] = limit
+-- ARGV[2] = window TTL in seconds
+-- Returns: {current_count, is_limited}
+
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+
+local count = redis.call('INCR', key)
+
+if count == 1 then
+  redis.call('EXPIRE', key, ttl)
+end
+
+local is_limited = count > limit and 1 or 0
+return {count, is_limited}
+</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="Python (calling Lua)">
+<pre><code class="language-python">import redis
+
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+RATE_LIMIT_SCRIPT = """
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local count = redis.call('INCR', key)
+if count == 1 then
+  redis.call('EXPIRE', key, ttl)
+end
+local is_limited = count > limit and 1 or 0
+return {count, is_limited}
+"""
+
+rate_limit_sha = r.script_load(RATE_LIMIT_SCRIPT)
+
+def check_rate_limit_atomic(user_id: str, limit: int = 100, window: int = 60) -> bool:
+    import time
+    current_window = int(time.time()) // window
+    key = f"rate:{user_id}:{current_window}"
+    count, is_limited = r.evalsha(rate_limit_sha, 1, key, limit, window * 2)
+    return bool(is_limited)
+</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Distributed Rate Limiting Architecture</h3>
+        <p>Per-instance rate limiting is a common mistake at scale. If you have 10 API server instances each enforcing a 100 req/min limit, you effectively allow 1,000 req/min per user. The fix: centralize rate limit state in Redis (or a Redis Cluster for HA):</p>
+
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    C1[Client A] --> LB[Load Balancer]
+    C2[Client B] --> LB
+    LB --> S1[API Server 1]
+    LB --> S2[API Server 2]
+    LB --> S3[API Server 3]
+    S1 & S2 & S3 --> RC[(Redis Cluster\nShared Rate Limit\nCounters)]
+    RC -->|"429: limit exceeded"| S1
+    RC -->|"429: limit exceeded"| S2
+    RC -->|"429: limit exceeded"| S3
+          </div>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Performance Note</span>
+          <p>Redis INCR is O(1) and executes in &lt;0.1ms. Adding rate limiting via Redis to every API request adds ~1ms of latency in a well-configured deployment (Redis co-located in same AZ). This is acceptable overhead. If Redis is unavailable, decide your fallback policy: fail-open (allow all requests, risk abuse) or fail-closed (reject all requests, risk availability). Most APIs choose fail-open with alerting.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At expert scale, rate limiting becomes part of a multi-layered defense strategy and a product differentiator. The concerns shift to multi-region consistency, adaptive limits, and distinguishing legitimate high-volume users from abusive traffic.</p>
+
+        <h3 class="subsection-title">Rate Limiting vs. DDoS Protection — Critical Distinction</h3>
+        <p>Rate limiting and DDoS protection are complementary but distinct:</p>
+        <ul>
+          <li><strong>Rate limiting</strong> — Per-client enforcement at the application layer. Effective against: API abuse, credential stuffing, scraping, runaway retry loops. Operates at L7. Response: HTTP 429.</li>
+          <li><strong>DDoS protection</strong> — Volume-based traffic filtering at the network/CDN edge. Effective against: volumetric floods (100Gbps UDP floods), SYN floods, amplification attacks. Operates at L3/L4. Response: packet drop or BGP blackholing. Tools: AWS Shield Advanced, Cloudflare, Akamai.</li>
+          <li><strong>The gap</strong> — Application-layer DDoS (L7 floods like HTTP GET floods from botnets) fall in both categories. Cloudflare's rate limiting operates at the edge to handle this. Application-side rate limiting alone cannot protect against a 100K IP botnet each sending 1 req/min (all within per-IP limits).</li>
+        </ul>
+
+        <h3 class="subsection-title">Multi-Region Rate Limiting</h3>
+        <p>Globally distributed systems face a fundamental tension: strong consistency for rate limits requires cross-region coordination (adds 50–150ms latency to every request) versus eventual consistency (allows small overcounts during partition windows).</p>
+
+        <p>Most teams choose eventual consistency with bounded error:</p>
+        <ul>
+          <li>Each region tracks local counts in a regional Redis cluster.</li>
+          <li>Counts are periodically synchronized (every 1–5 seconds) to a global aggregator.</li>
+          <li>Local limits are set to <code>global_limit / num_regions * 1.2</code> (20% headroom for imbalanced traffic).</li>
+          <li>A user could briefly exceed the global limit during the sync window — acceptable for most rate limiting use cases.</li>
+          <li>For strict enforcement (financial APIs), use global coordination via a strongly-consistent store like Spanner or a custom two-phase check protocol.</li>
+        </ul>
+
+        <h3 class="subsection-title">Adaptive Rate Limiting</h3>
+        <p>Static limits are a blunt instrument. Production systems at scale use adaptive limits:</p>
+        <ul>
+          <li><strong>Server-side load-based throttling</strong> — When P95 latency exceeds SLO threshold, dynamically lower rate limits across all clients to shed load. Netflix's Concurrency Limiter adjusts based on round-trip time.</li>
+          <li><strong>Client reputation scoring</strong> — High-trust clients (verified enterprise accounts, known good bots like Googlebot) get elevated limits. New, unverified clients get conservative limits that grow with demonstrated good behavior.</li>
+          <li><strong>Request cost weighting</strong> — Not all requests are equal. GraphQL APIs assign "points" per query based on complexity. GitHub's GraphQL API uses a point system — a simple query costs 1 point, a query touching 100 nodes costs 100 points. Total budget: 5,000 points/hour.</li>
+        </ul>
+
+        <h3 class="subsection-title">GitHub API — Real Numbers</h3>
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Client Type</th>
+              <th>Endpoint</th>
+              <th>Limit</th>
+              <th>Key</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Unauthenticated</td>
+              <td>REST API</td>
+              <td>60 req/hr</td>
+              <td>Per IP</td>
+            </tr>
+            <tr>
+              <td>Authenticated</td>
+              <td>REST API</td>
+              <td>5,000 req/hr</td>
+              <td>Per OAuth token</td>
+            </tr>
+            <tr>
+              <td>Any</td>
+              <td>Search API</td>
+              <td>10 req/min (unauth), 30 req/min (auth)</td>
+              <td>Per IP / Per token</td>
+            </tr>
+            <tr>
+              <td>Authenticated</td>
+              <td>GraphQL API</td>
+              <td>5,000 points/hr</td>
+              <td>Per OAuth token</td>
+            </tr>
+            <tr>
+              <td>GitHub Actions</td>
+              <td>REST API</td>
+              <td>1,000 req/hr per repository</td>
+              <td>Per repo + workflow</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Rate Limit Tiers as a Business Model</h3>
+        <p>Rate limits directly drive revenue for API-first businesses:</p>
+        <ul>
+          <li><strong>Free tier</strong> — 100 req/min. Good for exploration, personal projects. No SLA.</li>
+          <li><strong>Starter ($99/mo)</strong> — 1,000 req/min. Startup use cases. 99.9% SLA.</li>
+          <li><strong>Professional ($499/mo)</strong> — 10,000 req/min. Growing businesses. Priority queue.</li>
+          <li><strong>Enterprise (custom)</strong> — Unlimited or negotiated. Dedicated infrastructure, committed spend.</li>
+        </ul>
+        <p>Twilio, Stripe, OpenAI, and Cloudflare all use this model. The rate limit is not just a technical constraint — it's a product tier feature.</p>
+
+        <h3 class="subsection-title">Production Rate Limiting Checklist</h3>
+        <ul class="checklist">
+          <li>All public API endpoints have rate limits configured</li>
+          <li>Rate limits enforced centrally (Redis cluster), not per-instance</li>
+          <li>429 responses always include Retry-After and X-RateLimit-* headers</li>
+          <li>Redis unavailability has a defined fallback policy (fail-open or fail-closed)</li>
+          <li>Different limits per endpoint sensitivity (/search stricter than /status)</li>
+          <li>Internal services are rate-limited separately from external clients</li>
+          <li>Rate limit events are logged and dashboarded (top offenders visible)</li>
+          <li>Alerting when any single key consumes &gt; 20% of global capacity</li>
+          <li>Lua scripts used for atomic check-and-increment (no race conditions)</li>
+          <li>Documentation published for developer-facing limits with examples</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 5: ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">OpenAI API — Multi-Dimensional Rate Limiting at Massive Scale</span>
+      <p><strong>Context:</strong> OpenAI's API serves millions of developers and enterprise customers. LLM inference is computationally expensive — a single GPT-4 request can cost $0.03–$0.12 in GPU time. Without rate limiting, a single misconfigured client could run up tens of thousands of dollars in costs in minutes and crowd out other users from GPU capacity.</p>
+      <p><strong>How it works:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>Rate limits are enforced on <strong>two dimensions simultaneously</strong>: RPM (requests per minute) and TPM (tokens per minute).</li>
+        <li>For GPT-4 on the free tier: 3 RPM and 40,000 TPM. For Tier 5 (enterprise): 10,000 RPM and 800,000 TPM.</li>
+        <li>The TPM limit is more meaningful than RPM for LLMs — a single request that generates a 4,000-token response consumes more GPU than 20 small requests.</li>
+        <li>Headers returned on every response: <code>x-ratelimit-limit-requests</code>, <code>x-ratelimit-limit-tokens</code>, <code>x-ratelimit-remaining-requests</code>, <code>x-ratelimit-remaining-tokens</code>, <code>x-ratelimit-reset-requests</code>, <code>x-ratelimit-reset-tokens</code>.</li>
+        <li>The official client libraries implement exponential backoff with jitter automatically on 429 responses — preventing client thundering herds on rate limit reset.</li>
+        <li>Tier upgrades are automatic based on cumulative spend — as customers demonstrate responsible usage and pay more, their limits increase without manual approval.</li>
+      </ol>
+      <p><strong>Architectural decision:</strong> Token-bucket algorithm per API key. The bucket refills based on token count consumed, not request count alone. This prevents a client from burning through the token budget in one huge batch request and then being frozen, while still smoothing out traffic fairly.</p>
+      <p><strong>Lesson for architects:</strong> Rate limiting dimensions should match the actual resource being protected. For a database API, limit by query complexity. For a video processing API, limit by minutes of video per hour. For an LLM API, limit by tokens. Generic "requests per minute" is often the wrong metric.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 6: COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Per-Instance Rate Limiting (The Most Dangerous Mistake)</span>
+      <p>Each application server instance enforces its own local rate limit in memory. If you have 10 instances with a limit of 100 req/min each, you've actually allowed 1,000 req/min per user — 10x your intended limit. This mistake is invisible during development (single instance) and only reveals itself in production under load.</p>
+      <p><strong>Fix:</strong> Always store rate limit counters in a centralized shared store (Redis, Memcached) accessible to all instances. The rate limit state must live outside any individual server.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Retry-After Header (Causing Thundering Herds)</span>
+      <p>When clients receive a 429 without a <code>Retry-After</code> header, well-behaved clients retry immediately — often thousands of times per second — creating a feedback loop that makes the problem worse. This turns a rate limit event into a partial DDoS from your own clients. Every client SDK that retries on 429 needs to know when to retry.</p>
+      <p><strong>Fix:</strong> Always include <code>Retry-After: N</code> (seconds to wait) and <code>X-RateLimit-Reset</code> (Unix timestamp of window reset) on every 429 response. Add jitter recommendations in your API documentation to prevent synchronized retry storms.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Not Rate Limiting Internal Services</span>
+      <p>Teams implement rate limiting only on the public-facing API gateway but leave internal service-to-service calls unrestricted. A runaway background job or a cascading retry storm between internal services can exhaust shared resources (database connections, message queue consumers) just as effectively as external abuse. The payment-service calling the notification-service 50,000 times/second during an incident is an internal rate limiting failure.</p>
+      <p><strong>Fix:</strong> Apply rate limiting at every service boundary, not just the public edge. Use service mesh policies (Istio, Linkerd) or implement per-caller limits in each service's ingress middleware. Internal callers should be identified by service account or mTLS identity, not IP.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 7: INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Rate limiting restricts how many requests a client can make in a time window, protecting systems from abuse, controlling costs, and ensuring fair access — enforced via algorithms like token bucket or sliding window, with HTTP 429 responses and Retry-After headers when limits are exceeded.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Rate limiting controls how frequently a client can call an API. There are three main reasons to rate limit: prevent abuse like scraping or credential stuffing, control costs when downstream calls are expensive, and ensure fairness so one heavy user doesn't starve others. The most common algorithm is the token bucket — clients get a bucket of tokens that refill at a constant rate. Each request consumes one token; when empty, you get HTTP 429 with a Retry-After header. The critical implementation detail is that rate limits must be centralized — storing counts per-instance means each of your 20 servers allows the full limit, so users get 20x the intended quota. Redis is the standard backend because INCR is atomic and O(1). In distributed systems, you also want Lua scripts to make the check-and-increment operation atomic, preventing the race condition where two requests both see 'count=99' and both pass."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>How would you design rate limiting for a system with 50 API server instances and 10 million users?</li>
+        <li>What's the difference between rate limiting and circuit breaking?</li>
+        <li>How do you handle rate limiting across multiple data centers?</li>
+        <li>What happens if your Redis instance goes down? Fail-open or fail-closed?</li>
+        <li>How would you implement rate limiting without Redis?</li>
+        <li>How does GitHub implement its API rate limits? What headers does it return?</li>
+        <li>What's the boundary burst problem with fixed window counters?</li>
+        <li>How would you rate limit a GraphQL API where some queries are much more expensive than others?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Proposing per-instance in-memory rate limiting — always call out centralized storage.</li>
+        <li>Forgetting the Retry-After header — interviewers who work on APIs will notice.</li>
+        <li>Only mentioning fixed window counters — demonstrate knowledge of token bucket and why it's preferred.</li>
+        <li>Treating rate limiting and DDoS protection as the same thing — they operate at different layers.</li>
+        <li>Not mentioning what key to rate limit on (IP vs. user ID vs. API key) — context matters significantly.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 8: TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Consideration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Accuracy</strong></td>
+          <td>Sliding window log — exact enforcement, no boundary artifacts</td>
+          <td>Memory cost: O(N) per user per window — infeasible at scale</td>
+        </tr>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>Fixed window counter — O(1), single Redis INCR, minimal overhead</td>
+          <td>Allows 2x limit at window boundary — acceptable for most use cases</td>
+        </tr>
+        <tr>
+          <td><strong>Burst Tolerance</strong></td>
+          <td>Token bucket — absorbs legitimate bursts up to bucket capacity</td>
+          <td>Harder to reason about than simple counters; needs two values (count + refill time)</td>
+        </tr>
+        <tr>
+          <td><strong>Distributed Consistency</strong></td>
+          <td>Centralized Redis — single source of truth, correct enforcement</td>
+          <td>Redis becomes a latency dependency; outage needs defined fallback</td>
+        </tr>
+        <tr>
+          <td><strong>Granularity</strong></td>
+          <td>Per-endpoint limits — protects expensive resources more aggressively</td>
+          <td>Operational complexity — more limit rules to configure and monitor</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-Region</strong></td>
+          <td>Local enforcement — near-zero latency overhead</td>
+          <td>Eventual consistency — brief overcounting during partition windows</td>
+        </tr>
+        <tr>
+          <td><strong>User Experience</strong></td>
+          <td>Clear 429 + Retry-After — clients can implement respectful backoff</td>
+          <td>Requires client-side handling — poorly written clients ignore headers anyway</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 9: RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="circuit-breaker.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Circuit Breaker</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Stops cascading failures by cutting traffic to failing services.</span>
+      </a>
+      <a href="retry-idempotency.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Retry &amp; Idempotency</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Safe retry patterns that work alongside rate limiting without thundering herds.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">The common enforcement point for rate limiting across all API routes.</span>
+      </a>
+      <a href="caching.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Performance</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Caching</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Redis serves dual purpose: rate limit counters and response caching.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

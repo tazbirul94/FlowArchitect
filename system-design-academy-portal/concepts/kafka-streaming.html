@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kafka Streaming — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="kafka-streaming" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Kafka Streaming</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Messaging <span>→</span> Kafka Streaming</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Messaging</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Advanced</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~20 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Kafka Streaming</h1>
+      <p class="page-subtitle">A distributed, fault-tolerant event streaming platform that stores and processes millions of events per second with replay, ordering, and exactly-once guarantees.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-advanced">Advanced</span>
+        <span class="tag">Messaging</span>
+        <span class="tag">Event Streaming</span>
+        <span class="tag">Distributed Systems</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>Kafka is like a newspaper printing press combined with an enormous archive room. The press (producers) prints thousands of newspapers per second. Each newspaper goes into a specific shelf (partition) in a numbered slot (offset). Any reader (consumer) can walk in, pick a shelf, start from any numbered slot — today's, yesterday's, or two weeks ago — and read at their own pace. The archive never throws papers away until a configured retention period expires.</p>
+      <p>Traditional message queues are more like a mailroom: a letter gets delivered once and then it's gone. Kafka keeps every letter in the archive so multiple recipients, and even the same recipient on a different day, can come back and read it.</p>
+    </div>
+
+    <p>Apache Kafka was created at LinkedIn in 2011 to handle real-time activity feeds and operational metrics at a scale that existing message brokers could not sustain. It reframes messaging as a <strong>distributed commit log</strong> — an ordered, immutable, persistent sequence of records — instead of a queue. This architectural decision enables replay, high throughput, horizontal scalability, and decoupling of producers from consumers in ways that traditional brokers cannot match.</p>
+
+    <p>Where a typical message queue delivers a message to one consumer and deletes it, Kafka retains every event for a configurable period. Multiple independent consumer groups can each read every event from the beginning. This "event log" model makes Kafka the backbone of modern data pipelines, microservice event buses, and real-time analytics systems.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A ride-sharing company processes booking events in a monolithic MySQL-backed system. Every booking triggers six downstream operations: payment authorization, driver notification, fraud detection, pricing analytics, customer email, and audit log. Engineers wired these directly via synchronous REST calls in a chain. Everything worked fine at 500 bookings per minute.
+      </div>
+      <div class="story-problem">
+        Traffic grew to 12,000 bookings per minute during a promotional campaign. The fraud detection service, hosted by a third-party vendor, started returning 504s under load. Because it was in the synchronous call chain, every booking hung for 30 seconds waiting for a timeout. The entire booking flow stalled. Payment authorization queue backed up. Drivers stopped receiving jobs. The promotion had to be cancelled after 40 minutes. Engineers discovered they had built a tightly coupled distributed system that failed as a unit.
+      </div>
+      <div class="story-solution">
+        The team redesigned the booking flow around a Kafka topic called <code>booking-created</code>. The booking service publishes a single event to Kafka and returns HTTP 200 immediately. Six independent consumer services — payment, notification, fraud, analytics, email, audit — each have their own consumer group subscribed to <code>booking-created</code>. Each processes events at its own pace. The fraud service's consumer group falls behind when it's slow; its consumer lag grows, but no other consumer is affected. When the fraud service recovers, it replays the backlog without any data loss.
+      </div>
+      <div class="story-outcome">
+        The system handled 50,000 bookings per minute during the next promotional event without incident. When the fraud service had a 2-hour outage for a hotfix deployment, bookings continued processing uninterrupted. The fraud service replayed the 2 hours of backlogged events in 14 minutes after restart. Engineers added two new consumers — a machine learning feature store and a regulatory reporting consumer — without touching any existing code or redeploying any service.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine a busy post office that receives thousands of letters per hour. Instead of sorting them into individual mailboxes (where letters disappear once picked up), the post office stores every letter on a long numbered shelf, organized by destination city (topic). Each recipient gets their own bookmark (offset) and can read from wherever they stopped, or even go back to read old letters.</p>
+          <p>In Kafka terms: services that send data are <strong>producers</strong>. Kafka's servers are <strong>brokers</strong>. Data is organized into <strong>topics</strong> (like "user-signups" or "payment-events"). Each topic is split into <strong>partitions</strong> — independent ordered logs. Every record in a partition gets a sequential number called an <strong>offset</strong>. Services that read data are <strong>consumers</strong>.</p>
+          <p>Multiple teams can each read the same topic independently. One team's consumer being slow or offline does not affect any other team's consumer. When the slow team's consumer comes back online, it picks up exactly where it left off.</p>
+        </div>
+
+        <h3 class="subsection-title">Core Concepts at a Glance</h3>
+        <ul>
+          <li><strong>Broker</strong> — A Kafka server that stores and serves event logs. A production cluster typically has 3+ brokers for redundancy.</li>
+          <li><strong>Topic</strong> — A named category of events. Think of it as a database table for a stream of events. Example: <code>order-placed</code>, <code>user-login</code>.</li>
+          <li><strong>Partition</strong> — A topic is split into N partitions. Each partition is an ordered, immutable sequence of records stored on disk. Partitions enable parallel reads and writes.</li>
+          <li><strong>Offset</strong> — The position of a record within a partition. Record 0 is the first, record 1 the second, and so on. Consumers track their own offset — they decide when to advance it.</li>
+          <li><strong>Consumer Group</strong> — A named group of consumers that collectively read a topic. Each partition is assigned to exactly one consumer in the group. If your topic has 6 partitions and your group has 3 consumers, each consumer reads 2 partitions in parallel.</li>
+          <li><strong>Retention</strong> — How long Kafka keeps records. Default is 7 days. After that, old records are deleted. You can replay any event within the retention window.</li>
+        </ul>
+
+        <h3 class="subsection-title">Partition, Offset &amp; Consumer Group Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    subgraph TOPIC["Topic: order-placed (3 partitions)"]
+        subgraph P0["Partition 0"]
+            direction LR
+            O0_0["offset 0"] --> O0_1["offset 1"] --> O0_2["offset 2"] --> O0_3["offset 3"]
+        end
+        subgraph P1["Partition 1"]
+            direction LR
+            O1_0["offset 0"] --> O1_1["offset 1"] --> O1_2["offset 2"]
+        end
+        subgraph P2["Partition 2"]
+            direction LR
+            O2_0["offset 0"] --> O2_1["offset 1"] --> O2_2["offset 2"] --> O2_3["offset 3"]
+        end
+    end
+
+    PROD["Producer (order-service)"] --> P0
+    PROD --> P1
+    PROD --> P2
+
+    subgraph CG1["Consumer Group: payment-service"]
+        C1A["Consumer 1 (P0)"]
+        C1B["Consumer 2 (P1)"]
+        C1C["Consumer 3 (P2)"]
+    end
+
+    subgraph CG2["Consumer Group: analytics-service"]
+        C2A["Consumer A (P0 + P1)"]
+        C2B["Consumer B (P2)"]
+    end
+
+    P0 --> C1A
+    P1 --> C1B
+    P2 --> C1C
+    P0 --> C2A
+    P1 --> C2A
+    P2 --> C2B
+          </div>
+        </div>
+
+        <p>Notice that <code>payment-service</code> has 3 consumers for 3 partitions — perfect parallelism, one consumer per partition. The <code>analytics-service</code> only has 2 consumers, so Consumer A handles two partitions (less parallelism but still works). Both groups receive every event independently — Kafka does not "remove" a message once one group reads it.</p>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>Understanding Kafka's producer and consumer configuration is critical for building reliable streaming applications. The defaults are not safe for production use in most cases.</p>
+
+        <h3 class="subsection-title">Producer Acknowledgement Modes (acks)</h3>
+        <p>The <code>acks</code> config controls when the broker tells the producer "I got it." This is the primary reliability knob for producers.</p>
+        <ul>
+          <li><strong>acks=0</strong> (Fire and forget) — Producer sends and does not wait for any broker acknowledgement. Maximum throughput, zero durability guarantee. If the broker crashes mid-write, the message is lost silently. Only use for non-critical metrics where occasional loss is acceptable.</li>
+          <li><strong>acks=1</strong> (Leader only) — The partition leader acknowledges receipt. If the leader crashes before replicating to followers, the message is lost. This is the old default and is misleadingly named "durable" in some docs — it is not.</li>
+          <li><strong>acks=all</strong> (or <code>acks=-1</code>) — The leader waits for all in-sync replicas (ISR) to acknowledge before confirming to the producer. No message is lost even if the leader crashes immediately after. This is the correct default for production. Set alongside <code>min.insync.replicas=2</code> on the broker.</li>
+        </ul>
+
+        <h3 class="subsection-title">Idempotent Producer</h3>
+        <p>When a producer retries a failed send (network timeout, broker restart), it risks writing the same message twice. Setting <code>enable.idempotence=true</code> assigns each producer a unique ID and sequence number per partition. If a duplicate arrives, the broker detects it and silently drops it. Always enable this in combination with <code>acks=all</code> and <code>retries=Integer.MAX_VALUE</code>.</p>
+
+        <div class="code-wrapper" data-lang="properties">
+          <pre><code class="language-properties"># Producer configuration for reliable delivery
+acks=all
+enable.idempotence=true
+retries=2147483647
+max.in.flight.requests.per.connection=5
+compression.type=lz4</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Consumer Groups and Partition Assignment</h3>
+        <p>A consumer group is a horizontal scaling unit for a Kafka consumer. Kafka assigns each partition to exactly one active consumer in the group. Key rules:</p>
+        <ul>
+          <li>If consumers &lt; partitions: some consumers handle multiple partitions.</li>
+          <li>If consumers = partitions: perfect parallelism, one consumer per partition.</li>
+          <li>If consumers &gt; partitions: extra consumers are idle. Adding more consumers than partitions gives no throughput benefit — scale by adding partitions instead.</li>
+          <li>When a consumer joins or leaves, a <strong>rebalance</strong> occurs: Kafka reassigns partitions. During rebalance, consumption pauses briefly. Cooperative sticky rebalancing (Kafka 2.4+) minimizes disruption by only moving partitions that need to move.</li>
+        </ul>
+
+        <h3 class="subsection-title">Offset Management</h3>
+        <p>Kafka does not delete messages when a consumer reads them. Instead, consumers commit their current offset to a special internal topic (<code>__consumer_offsets</code>). On restart, the consumer resumes from the last committed offset. Two strategies:</p>
+        <ul>
+          <li><strong>Auto-commit</strong> (<code>enable.auto.commit=true</code>, default) — Kafka commits the offset automatically every 5 seconds. Risk: if the consumer processes a record but crashes before the 5-second auto-commit, the record is re-processed on restart. Can cause duplicates in downstream systems.</li>
+          <li><strong>Manual commit</strong> (<code>enable.auto.commit=false</code>) — The application commits the offset only after successfully processing the record. This ensures at-least-once delivery. Combine with idempotent downstream writes for effectively-once semantics without full exactly-once overhead.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">// Manual commit pattern — commit after processing
+consumer.subscribe(List.of("order-placed"));
+
+while (true) {
+    ConsumerRecords&lt;String, String&gt; records = consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord&lt;String, String&gt; record : records) {
+        processOrder(record.value());   // your business logic
+    }
+    // Only commit AFTER processing succeeds
+    consumer.commitSync();
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Partitioning Strategy</h3>
+        <p>When a producer sends a message with a key, Kafka hashes the key to determine which partition receives it. All messages with the same key go to the same partition, guaranteeing ordering for that key. This is essential when ordering matters — for example, all events for <code>order-id-123</code> must be processed in order by the same consumer.</p>
+        <p>If no key is supplied, Kafka uses a round-robin or sticky-partition strategy (Kafka 2.4+) to distribute messages across partitions. This maximizes throughput but loses ordering guarantees.</p>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Insight: Partition Count is Permanent</span>
+          <p>Choosing a partition count is a near-irreversible decision. You can increase partitions later, but it breaks key-based ordering for existing keys (the hash mapping changes). Start with 3–6 partitions for most topics and increase conservatively. For high-throughput topics where ordering matters per key (user events, order events), choose a count that matches your expected peak consumer parallelism — typically 12, 24, or 48 for large systems.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <h3 class="subsection-title">Kafka vs RabbitMQ Trade-off Table</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Apache Kafka</th>
+              <th>RabbitMQ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Throughput</strong></td>
+              <td class="good">Millions of messages/sec; sequential disk I/O optimized</td>
+              <td class="bad">Hundreds of thousands/sec; message metadata overhead per message</td>
+            </tr>
+            <tr>
+              <td><strong>Latency</strong></td>
+              <td class="bad">2–10ms typical; batching adds latency; not optimal for sub-ms</td>
+              <td class="good">Sub-millisecond possible; push model reduces polling lag</td>
+            </tr>
+            <tr>
+              <td><strong>Message Persistence</strong></td>
+              <td class="good">All messages stored on disk; configurable retention (days/GB)</td>
+              <td class="bad">Messages deleted after consumer acknowledgement by default</td>
+            </tr>
+            <tr>
+              <td><strong>Replay</strong></td>
+              <td class="good">Any consumer can re-read from offset 0 within retention window</td>
+              <td class="bad">No replay; once consumed and acked, message is gone</td>
+            </tr>
+            <tr>
+              <td><strong>Consumer Model</strong></td>
+              <td class="good">Pull-based; consumer controls pace; backpressure is natural</td>
+              <td class="bad">Push-based; fast producer can overwhelm slow consumer</td>
+            </tr>
+            <tr>
+              <td><strong>Routing Complexity</strong></td>
+              <td class="bad">Topic-based only; complex routing requires multiple topics + code</td>
+              <td class="good">Rich exchange types (direct, fanout, topic, headers); flexible routing</td>
+            </tr>
+            <tr>
+              <td><strong>Message TTL / Expiry</strong></td>
+              <td class="bad">Topic-level retention only; no per-message TTL</td>
+              <td class="good">Per-message TTL, dead-letter exchanges, priority queues</td>
+            </tr>
+            <tr>
+              <td><strong>Operational Complexity</strong></td>
+              <td class="bad">ZooKeeper/KRaft, ISR management, partition rebalancing; steep learning curve</td>
+              <td class="good">Simpler cluster setup; built-in management UI; easier for small teams</td>
+            </tr>
+            <tr>
+              <td><strong>Best Use Case</strong></td>
+              <td class="good">Event sourcing, CDC, log aggregation, analytics pipelines, audit trails</td>
+              <td class="good">Task queues, RPC patterns, complex routing, low-latency job dispatch</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Kafka Streams vs ksqlDB</h3>
+        <p>Both allow stream processing on Kafka data, but at different abstraction levels:</p>
+        <ul>
+          <li><strong>Kafka Streams</strong> — A Java library you embed in your application. No separate cluster needed. Supports stateful operations (count, aggregate, join, windowing), fault-tolerant state stored in local RocksDB backed by changelog topics. Best when you need code-level control and want to deploy as a standard JVM microservice.</li>
+          <li><strong>ksqlDB</strong> — A SQL engine that runs as a separate cluster. Write streaming SQL queries interactively or via application code. Persistent queries run continuously. Best for analytics teams or when you want to avoid embedding a Java library. Internally built on Kafka Streams.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">// Kafka Streams: Count orders per customer in 5-minute tumbling windows
+StreamsBuilder builder = new StreamsBuilder();
+
+KStream&lt;String, Order&gt; orders = builder.stream("order-placed",
+    Consumed.with(Serdes.String(), orderSerde));
+
+KTable&lt;Windowed&lt;String&gt;, Long&gt; orderCounts = orders
+    .groupByKey()
+    .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(5)))
+    .count(Materialized.as("order-count-store"));
+
+orderCounts.toStream()
+    .map((key, count) -&gt; KeyValue.pair(key.key(), count))
+    .to("order-counts-5min", Produced.with(Serdes.String(), Serdes.Long()));
+
+KafkaStreams streams = new KafkaStreams(builder.build(), config);
+streams.start();</code></pre>
+        </div>
+
+        <div class="code-wrapper" data-lang="sql">
+          <pre><code class="language-sql">-- ksqlDB equivalent: persistent streaming query
+CREATE TABLE order_counts_5min AS
+  SELECT
+    customer_id,
+    COUNT(*) AS order_count,
+    WINDOWSTART AS window_start
+  FROM order_placed
+    WINDOW TUMBLING (SIZE 5 MINUTES)
+  GROUP BY customer_id
+EMIT CHANGES;</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Exactly-Once Semantics (EOS)</h3>
+        <p>Kafka supports three delivery guarantees:</p>
+        <ul>
+          <li><strong>At-most-once</strong> — Messages may be lost but never duplicated. Achieved with <code>acks=0</code> or by committing offset before processing.</li>
+          <li><strong>At-least-once</strong> — Messages never lost but may be duplicated on retry. Achieved with <code>acks=all</code> + manual commit after processing.</li>
+          <li><strong>Exactly-once</strong> — Messages delivered and processed precisely once, even with producer retries and consumer restarts. Requires transactional producers + idempotent consumers. Within Kafka (producer → Kafka → consumer → Kafka output), this is fully supported since Kafka 0.11. Cross-system EOS (Kafka → database) requires idempotent writes on the database side.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="java">
+          <pre><code class="language-java">// Transactional producer for exactly-once within Kafka
+Properties props = new Properties();
+props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "order-service-producer-1");
+props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+props.put(ProducerConfig.ACKS_CONFIG, "all");
+
+KafkaProducer&lt;String, String&gt; producer = new KafkaProducer&lt;&gt;(props);
+producer.initTransactions();
+
+try {
+    producer.beginTransaction();
+    producer.send(new ProducerRecord&lt;&gt;("payment-events", orderId, paymentJson));
+    producer.send(new ProducerRecord&lt;&gt;("audit-log", orderId, auditJson));
+    producer.commitTransaction();   // both or neither
+} catch (ProducerFencedException e) {
+    producer.close();
+} catch (KafkaException e) {
+    producer.abortTransaction();    // rolls back both sends
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <h3 class="subsection-title">Schema Registry and Avro</h3>
+        <p>Without a schema registry, consumers break silently when producers rename a field. The Confluent Schema Registry enforces schema contracts between producers and consumers using Avro, Protobuf, or JSON Schema. Producers register schemas before sending; consumers fetch the schema by ID embedded in each message. Compatibility modes:</p>
+        <ul>
+          <li><strong>BACKWARD</strong> — New schema can read data written with the old schema. Consumers must upgrade first. Safe for adding optional fields with defaults.</li>
+          <li><strong>FORWARD</strong> — Old schema can read data written with the new schema. Producers upgrade first. Safe for removing fields.</li>
+          <li><strong>FULL</strong> — Both backward and forward compatible. Most restrictive but safest for long-lived schemas.</li>
+          <li><strong>NONE</strong> — No compatibility check. Useful only in development.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">// Avro schema: order-placed-v2.avsc
+{
+  "type": "record",
+  "name": "OrderPlaced",
+  "namespace": "io.ticketflow.events",
+  "fields": [
+    {"name": "orderId",    "type": "string"},
+    {"name": "customerId", "type": "string"},
+    {"name": "amount",     "type": "double"},
+    {"name": "currency",   "type": "string", "default": "USD"},
+    // Adding a new field with default = BACKWARD COMPATIBLE
+    {"name": "channel",    "type": ["null", "string"], "default": null}
+  ]
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Kafka Connect</h3>
+        <p>Kafka Connect is a framework for streaming data between Kafka and external systems without writing custom code. Two connector types:</p>
+        <ul>
+          <li><strong>Source connectors</strong> — Pull data from external systems into Kafka. Examples: Debezium (CDC from MySQL/Postgres → Kafka), JDBC Source Connector (DB table → Kafka), S3 Source Connector.</li>
+          <li><strong>Sink connectors</strong> — Push data from Kafka into external systems. Examples: Elasticsearch Sink, S3 Sink (data lake), JDBC Sink (Kafka → database), Splunk Sink.</li>
+        </ul>
+        <p>Connectors run in a Connect cluster (separate from brokers), scale horizontally, and checkpoint their own offsets. No Kafka producer/consumer code needed — just a JSON configuration file.</p>
+
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">// Debezium source connector: MySQL CDC → Kafka
+{
+  "name": "ticketflow-mysql-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "database.hostname": "mysql.ticketflow.internal",
+    "database.port": "3306",
+    "database.user": "debezium",
+    "database.password": "${file:/opt/kafka/secrets:mysql.password}",
+    "database.server.name": "ticketflow",
+    "database.include.list": "orders",
+    "table.include.list": "orders.order_items",
+    "database.history.kafka.topic": "schema-changes.orders",
+    "transforms": "route",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "key.converter": "io.confluent.kafka.serializers.KafkaAvroSerializer",
+    "value.converter": "io.confluent.kafka.serializers.KafkaAvroSerializer",
+    "schema.registry.url": "http://schema-registry:8081"
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Compacted Topics</h3>
+        <p>Log compaction is an alternative to time-based retention. Instead of deleting records older than 7 days, Kafka retains only the <em>latest</em> value for each key. This creates an eventually-consistent snapshot of the latest state per entity, useful for materializing a changelog into a state store.</p>
+        <p>Use cases: configuration updates (consumers always see the latest config), user profile snapshots, database changelog replication. To delete a key from a compacted topic, produce a <strong>tombstone</strong> — a message with the key and a null value. Compaction will eventually remove the key entirely.</p>
+
+        <div class="code-wrapper" data-lang="properties">
+          <pre><code class="language-properties"># Create a compacted topic via CLI
+kafka-topics.sh --create \
+  --bootstrap-server kafka:9092 \
+  --topic user-profiles \
+  --partitions 12 \
+  --replication-factor 3 \
+  --config cleanup.policy=compact \
+  --config min.compaction.lag.ms=3600000 \
+  --config delete.retention.ms=86400000</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Multi-Region Kafka (MirrorMaker 2)</h3>
+        <p>For disaster recovery or active-active multi-region deployments, MirrorMaker 2 (MM2) replicates topics across Kafka clusters. MM2 is built on Kafka Connect and supports:</p>
+        <ul>
+          <li><strong>Active-Passive</strong> — One primary cluster, one replica for DR. Failover requires consumer offset translation (MM2 translates offsets between clusters). RTO typically 5–15 minutes depending on DNS propagation and offset translation.</li>
+          <li><strong>Active-Active</strong> — Both regions produce and consume. Requires topic namespacing to prevent infinite replication loops (MM2 handles this with source cluster prefixes). Complex to implement; reserved for systems with strict regional latency requirements.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Production Architecture Pattern</span>
+          <p>At scale, separate the cluster into tiers: an <strong>edge cluster</strong> (receives all producer writes, lightly retained, 4 hours) and a <strong>processing cluster</strong> (fed from edge via MirrorMaker 2, full retention, Kafka Streams jobs run here). This isolates producer latency from stream processing load and allows each cluster to be right-sized independently. LinkedIn and Uber both use tiered Kafka architectures at their scale.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">LinkedIn — The Company That Invented Kafka (2011)</span>
+      <p><strong>Scale:</strong> LinkedIn processes over 7 trillion messages per day across a Kafka deployment of 700+ brokers, 1.4 million topics, and over 100 trillion messages stored. Kafka handles real-time feed ranking, job recommendations, InMail delivery, activity stream processing, and operational metrics — all on the same platform.</p>
+      <p><strong>How they use it:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li><strong>Activity feed</strong> — Every user action (like, share, comment, profile view) is published as an event. Feed ranking services consume these events, update user activity scores in real time, and emit ranked feed updates. A single viral post can generate millions of downstream events in minutes.</li>
+        <li><strong>Job recommendations</strong> — Job view and application events flow through Kafka into a Kafka Streams job that maintains per-user feature vectors. The recommendation model reads these features to surface relevant jobs in near-real-time without querying a database per request.</li>
+        <li><strong>Operational metrics</strong> — Every service publishes heartbeats and metrics to dedicated Kafka topics. A centralized metrics aggregation pipeline consumes from these topics, aggregates in 10-second windows, and feeds dashboards and alerting systems. This replaced a brittle polling-based metrics system that didn't scale past 500 services.</li>
+        <li><strong>Schema governance</strong> — LinkedIn operates the Confluent Schema Registry at scale with FULL compatibility enforcement on production topics. Schema evolution proposals go through a PR review process before registration. Field renames are handled by adding a new field with a default, deprecating the old field (kept for 6 months), then deleting the old field — no breaking changes.</li>
+      </ol>
+      <p><strong>Key architectural decisions:</strong></p>
+      <ul style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Topic naming convention enforced via automation</strong> — <code>{domain}.{entity}.{event-type}</code> (e.g., <code>feed.post.liked</code>). Enforced by a custom Kafka broker plugin that rejects topics not matching the pattern. Prevents the "topic sprawl" that plagues most large Kafka deployments.</li>
+        <li><strong>Consumer lag as a primary SLO</strong> — Each consumer group has a maximum acceptable lag (measured in number of records, not time). An alert fires when lag exceeds the SLO. This is more meaningful than throughput metrics because lag directly measures whether downstream processing is keeping up with real-time load.</li>
+        <li><strong>Tiered storage</strong> — After 7 days, segments are offloaded to AWS S3 via Kafka's tiered storage feature. Consumers can still read old data transparently. This reduced broker disk costs by 60% while maintaining full replay capability.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Too Few Partitions — Cannot Scale Later Without Breaking Ordering</span>
+      <p>Engineers often start a topic with 1 or 3 partitions, thinking they can add more later. While you can increase partitions, doing so breaks key-based ordering: the same key may hash to a different partition after the count changes. Any consumer that depends on per-key ordering — processing all events for a given <code>orderId</code> in sequence — will silently receive events out of order after repartitioning.</p>
+      <p>The fix is to provision with headroom upfront. For topics where ordering matters per key, choose a partition count based on your expected 2-year peak consumer parallelism — typically 12, 24, or 48. The cost of extra empty partitions is negligible; the cost of repartitioning a production topic with billions of messages is enormous.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No Schema Registry — Consumer Breaks on Producer Field Rename</span>
+      <p>Publishing raw JSON to Kafka without schema enforcement seems simple until a producer team renames <code>userId</code> to <code>user_id</code> in a "backwards compatible" refactor. Every consumer silently starts receiving null for the field they were reading. No error is thrown during publishing. The bug surfaces hours later when downstream aggregates produce wrong numbers or null pointer exceptions crash consumer processes.</p>
+      <p>The fix is to register Avro or Protobuf schemas in Confluent Schema Registry from day one and set <code>BACKWARD</code> or <code>FULL</code> compatibility mode on all production topics. Schema changes that would break consumers are rejected at produce time — before they reach production traffic. This is a five-minute setup that prevents a class of production incidents that are notoriously hard to debug.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Ignoring Consumer Lag — Unbounded Backlog Fills Disks and Misses SLOs</span>
+      <p>A consumer that processes 900 events/second on a topic receiving 1,000 events/second will fall behind by 6 million events per day. With a 7-day retention window, it will be evicted from its position in the log before it can catch up. When Kafka deletes the segments a consumer hasn't read yet, the consumer receives an <code>OffsetOutOfRangeException</code> and must reset to the earliest available offset — losing all unprocessed events permanently.</p>
+      <p>The fix is to monitor consumer lag as a first-class SLO using Kafka's <code>kafka-consumer-groups.sh</code> command or Prometheus JMX exporter metrics (<code>kafka_consumer_group_lag</code>). Alert when lag exceeds a threshold that — at current lag growth rate — would exhaust retention before the team can respond. Also ensure that <code>auto.offset.reset=earliest</code> is not set on production consumers unless you have tooling to replay from a known-good offset.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Kafka is a distributed commit log where producers append events to ordered, partitioned topics and consumers read from those partitions at their own pace, with full replay capability within the retention window — enabling high-throughput, durable, decoupled event streaming between services.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "Kafka is a distributed event streaming platform built around the idea of an append-only log. Producers write events to named topics, which are split into partitions for parallelism. Each record in a partition gets a sequential offset — its permanent address. Consumers track their own position in the log and pull at their own pace. Because Kafka retains all events for a configurable period, multiple independent consumer groups can each read the entire topic, and any consumer can replay from any offset. This is fundamentally different from traditional queues like RabbitMQ, where messages are deleted after consumption. The key trade-offs: Kafka achieves very high throughput — millions of messages per second — through sequential disk I/O and batching, but at the cost of higher operational complexity and slightly higher latency than push-based brokers. I'd use Kafka for event sourcing, CDC pipelines, audit logs, and anything requiring replay. I'd use RabbitMQ for low-latency task queues with complex routing requirements."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What happens if a consumer is slower than the producer? How does Kafka handle backpressure?</li>
+        <li>Explain the difference between at-least-once, at-most-once, and exactly-once delivery.</li>
+        <li>How does Kafka guarantee ordering? When does ordering break down?</li>
+        <li>You have a topic with 3 partitions and you want to scale consumers to 10. What happens?</li>
+        <li>How would you design a Kafka topic for a multi-tenant SaaS application?</li>
+        <li>What is the purpose of ZooKeeper in older Kafka versions, and what replaces it in KRaft mode?</li>
+        <li>How does Kafka Connect differ from writing a custom consumer?</li>
+        <li>Walk me through what happens during a consumer group rebalance.</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "Kafka guarantees exactly-once" without qualification — it requires transactional producers, idempotent consumers, and is limited to within-Kafka operations without extra work at the sink.</li>
+        <li>Confusing consumer group lag with latency — lag is measured in records (how many messages behind), not milliseconds. A consumer might have high lag but low latency if it processes records quickly when it does run.</li>
+        <li>Claiming you can increase partitions freely — increasing partitions breaks per-key ordering for existing data and requires careful coordination with consumer teams.</li>
+        <li>Saying Kafka is always better than RabbitMQ — Kafka has higher operational complexity and worse latency for simple task queue patterns. RabbitMQ is legitimately better for sub-millisecond, complex-routing workloads.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost / Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Throughput</strong></td>
+          <td>Millions of events/second via sequential I/O and producer batching</td>
+          <td>Batching adds 5–50ms latency; not optimal for &lt;1ms latency requirements</td>
+        </tr>
+        <tr>
+          <td><strong>Durability</strong></td>
+          <td>Events written to disk, replicated to ISR; survives broker crashes</td>
+          <td>acks=all + ISR replication adds write latency; requires careful min.insync.replicas config</td>
+        </tr>
+        <tr>
+          <td><strong>Replay</strong></td>
+          <td>Any consumer can reprocess historical events within retention window</td>
+          <td>Retention requires significant disk; at 1TB/day, 7-day retention = 7TB per partition set</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Add partitions and consumers to scale throughput linearly</td>
+          <td>Increasing partition count breaks key ordering; partition count is near-permanent</td>
+        </tr>
+        <tr>
+          <td><strong>Decoupling</strong></td>
+          <td>Producer and consumer completely independent; neither knows about the other</td>
+          <td>Consumer lag is invisible to producers; slow consumers cause unbounded backlog silently</td>
+        </tr>
+        <tr>
+          <td><strong>Operational Complexity</strong></td>
+          <td>Managed services (Confluent Cloud, AWS MSK, Aiven) reduce ops burden</td>
+          <td>Self-managed Kafka requires expertise: ISR tuning, partition rebalancing, schema governance, lag monitoring</td>
+        </tr>
+        <tr>
+          <td><strong>Exactly-Once</strong></td>
+          <td>Supported within Kafka pipeline via transactional API</td>
+          <td>Requires transactional producers + idempotent writes; ~20–30% throughput overhead; complex to implement correctly</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="message-queues.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Message Queues</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Traditional broker model — at-most-once delivery, push semantics.</span>
+      </a>
+      <a href="pub-sub.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Messaging</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Pub/Sub</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Publisher-subscriber pattern — fanout messaging to multiple consumers.</span>
+      </a>
+      <a href="event-driven-architecture.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Event-Driven Architecture</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Design pattern where services communicate through immutable events.</span>
+      </a>
+      <a href="cqrs.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">CQRS</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Separates reads from writes — Kafka often powers the write projection.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  // Highlight.js
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.code-wrapper').forEach(wrapper => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', () => {
+        const code = wrapper.querySelector('code');
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      });
+      wrapper.appendChild(btn);
+    });
+  });
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

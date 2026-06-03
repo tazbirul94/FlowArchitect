@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REST — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="rest" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">REST</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> APIs <span>→</span> REST</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">APIs</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">Beginner–Intermediate</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~18 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">REST</h1>
+      <p class="page-subtitle">The architectural style that powers the web — how applications communicate over HTTP using stateless, resource-based requests.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-all-levels">All Levels</span>
+        <span class="tag">APIs</span>
+        <span class="tag">HTTP</span>
+        <span class="tag">Web</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>A waiter at a restaurant takes your order (request), walks to the kitchen (server), retrieves your food (resource), and brings it back — without needing to remember who you are between visits. Each interaction is self-contained. REST APIs work exactly the same way: every request carries all the information the server needs, and the server returns a resource without storing any session state.</p>
+    </div>
+
+    <p>REST (Representational State Transfer) is an architectural style for designing networked applications. It was defined by Roy Fielding in his 2000 doctoral dissertation and has since become the dominant pattern for building web APIs. REST is not a protocol or standard — it is a set of constraints that, when followed, produce scalable, maintainable, and interoperable systems.</p>
+
+    <p>The six REST constraints are: client-server separation, statelessness, cacheability, uniform interface, layered system, and code-on-demand (optional). In practice, the most impactful constraints are <strong>statelessness</strong> and <strong>uniform interface</strong> — these are what most engineers mean when they say "RESTful API."</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A fintech startup was building a mobile banking app. The backend team had built a working internal API, but it used custom HTTP calls like <code>GET /getAccountBalance?accountId=123</code>, <code>POST /doTransfer</code>, and <code>GET /deleteTransaction?id=456</code>. Every mobile client, web app, and third-party integration had to learn bespoke conventions.
+      </div>
+      <div class="story-problem">
+        When they onboarded a new mobile contractor, it took two weeks just to understand the API. The <code>GET /deleteTransaction</code> endpoint caused a production incident when a caching layer cached the "delete" call and replayed it. Third-party integrators complained the API was unpredictable. Developers couldn't use standard HTTP tooling because nothing followed convention.
+      </div>
+      <div class="story-solution">
+        The team redesigned the API following REST conventions. Accounts became <code>/v1/accounts/{id}</code>. Transactions were <code>/v1/accounts/{id}/transactions</code>. They used <code>GET</code> for reads, <code>POST</code> for creates, <code>PUT</code> for full updates, <code>PATCH</code> for partial updates, and <code>DELETE</code> for removals. Status codes became meaningful: 201 for created, 404 for not found, 409 for conflicts.
+      </div>
+      <div class="story-outcome">
+        New developers were productive in one day instead of two weeks. Standard HTTP clients, caching proxies, and API gateways worked out of the box. The accidental replay incident became impossible because GET requests are now safe (no side effects) and DELETE requests are idempotent. Third-party integrations doubled in six months. The API documentation wrote itself because the conventions were predictable.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Think about how you use a website. You type a URL, press enter, and the page loads. Behind the scenes, your browser sent an HTTP request to a server, and the server responded with HTML. REST APIs work the same way — but instead of HTML pages, they return data (usually JSON), and instead of a browser, it might be your mobile app or another service calling the API.</p>
+          <p>REST has four core operations that map to everyday actions:</p>
+          <ul>
+            <li><strong>GET</strong> — Read something. Like looking up a contact in your phone.</li>
+            <li><strong>POST</strong> — Create something new. Like adding a new contact.</li>
+            <li><strong>PUT / PATCH</strong> — Update something. Like editing a contact's phone number.</li>
+            <li><strong>DELETE</strong> — Remove something. Like deleting a contact.</li>
+          </ul>
+          <p>These operations work on <strong>resources</strong> — things your API manages, like users, orders, or products. Each resource has a URL (called an endpoint), like <code>/users/42</code> or <code>/orders/789</code>.</p>
+        </div>
+
+        <h3 class="subsection-title">HTTP Request-Response Flow</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant C as Client (Browser/App)
+    participant S as REST API Server
+    participant D as Database
+
+    C->>S: GET /users/42
+    S->>D: SELECT * FROM users WHERE id=42
+    D-->>S: {id:42, name:"Alice", email:"..."}
+    S-->>C: 200 OK + JSON body
+
+    C->>S: POST /users {"name":"Bob","email":"..."}
+    S->>D: INSERT INTO users ...
+    D-->>S: id=43
+    S-->>C: 201 Created + Location: /users/43
+
+    C->>S: DELETE /users/42
+    S->>D: DELETE FROM users WHERE id=42
+    D-->>S: OK
+    S-->>C: 204 No Content
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Key Status Codes to Know</h3>
+        <ul>
+          <li><strong>200 OK</strong> — Request succeeded. For GET, PUT, PATCH.</li>
+          <li><strong>201 Created</strong> — New resource created. For POST.</li>
+          <li><strong>204 No Content</strong> — Success, nothing to return. For DELETE.</li>
+          <li><strong>400 Bad Request</strong> — Client sent invalid data.</li>
+          <li><strong>401 Unauthorized</strong> — Not authenticated (no valid token).</li>
+          <li><strong>403 Forbidden</strong> — Authenticated but not allowed.</li>
+          <li><strong>404 Not Found</strong> — Resource doesn't exist.</li>
+          <li><strong>500 Internal Server Error</strong> — Server crashed.</li>
+        </ul>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>At the intermediate level, REST is about designing URLs and using HTTP correctly. Good API design follows predictable conventions that let developers reason about your API before reading documentation.</p>
+
+        <h3 class="subsection-title">Resource Design Rules</h3>
+        <ul>
+          <li><strong>Use nouns, not verbs</strong> — <code>/users</code> not <code>/getUsers</code>; <code>/orders</code> not <code>/createOrder</code>. The HTTP method IS the verb.</li>
+          <li><strong>Use plural nouns</strong> — <code>/users</code> not <code>/user</code>; <code>/products</code> not <code>/product</code>.</li>
+          <li><strong>Nest related resources</strong> — <code>/users/42/orders</code> for orders belonging to user 42. But keep nesting shallow (max 2 levels).</li>
+          <li><strong>Lowercase, hyphens for multi-word</strong> — <code>/ticket-types</code> not <code>/ticketTypes</code> or <code>/TicketTypes</code>.</li>
+        </ul>
+
+        <h3 class="subsection-title">HTTP Methods and Idempotency</h3>
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Use For</th>
+              <th>Idempotent?</th>
+              <th>Safe?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>GET</strong></td>
+              <td>Read a resource or list</td>
+              <td>Yes</td>
+              <td>Yes (no side effects)</td>
+            </tr>
+            <tr>
+              <td><strong>POST</strong></td>
+              <td>Create a new resource</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><strong>PUT</strong></td>
+              <td>Full replace of a resource</td>
+              <td>Yes</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><strong>PATCH</strong></td>
+              <td>Partial update of a resource</td>
+              <td>Not always</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><strong>DELETE</strong></td>
+              <td>Remove a resource</td>
+              <td>Yes</td>
+              <td>No</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p><strong>Idempotent</strong> means calling the operation multiple times produces the same result as calling it once. DELETE /users/42 called twice should return 204 or 404 — not delete two different users. <strong>Safe</strong> means the operation has no side effects; GET requests must never modify state.</p>
+
+        <h3 class="subsection-title">Pagination Patterns</h3>
+        <p>Never return all records for a large collection. Two common strategies:</p>
+
+        <p><strong>Offset-based pagination</strong> — simple but has gaps with concurrent writes:</p>
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http">GET /users?page=2&per_page=20
+GET /users?offset=40&limit=20
+
+Response:
+{
+  "data": [...],
+  "meta": {
+    "total": 1543,
+    "page": 2,
+    "per_page": 20,
+    "total_pages": 78
+  }
+}</code></pre>
+        </div>
+
+        <p><strong>Cursor-based pagination</strong> — stable with concurrent writes, preferred for real-time feeds:</p>
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http">GET /users?cursor=eyJpZCI6NDB9&limit=20
+
+Response:
+{
+  "data": [...],
+  "meta": {
+    "next_cursor": "eyJpZCI6NjB9",
+    "has_more": true
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">API Versioning Strategies</h3>
+        <p>Your API will change. Versioning prevents breaking existing clients:</p>
+        <ul>
+          <li><strong>URL path versioning</strong> (most common) — <code>/v1/users</code>, <code>/v2/users</code>. Simple, visible, cacheable. GitHub uses this.</li>
+          <li><strong>Header versioning</strong> — <code>Accept: application/vnd.myapi.v2+json</code>. Cleaner URLs but harder to test in a browser.</li>
+          <li><strong>Query param versioning</strong> — <code>/users?version=2</code>. Easy but pollutes query strings.</li>
+        </ul>
+
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http"># URL versioning — recommended for public APIs
+GET https://api.github.com/v3/repos/octocat/Hello-World
+
+# Accept header versioning
+GET https://api.example.com/users/42
+Accept: application/vnd.example.v2+json</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Complete Status Code Reference</h3>
+        <ul>
+          <li><strong>200 OK</strong> — Successful GET, PUT, PATCH.</li>
+          <li><strong>201 Created</strong> — POST succeeded, include <code>Location</code> header pointing to new resource.</li>
+          <li><strong>204 No Content</strong> — DELETE or PATCH with no response body needed.</li>
+          <li><strong>400 Bad Request</strong> — Malformed JSON, missing required fields, invalid values.</li>
+          <li><strong>401 Unauthorized</strong> — Token missing or expired. Client must authenticate.</li>
+          <li><strong>403 Forbidden</strong> — Authenticated but lacks permission. Don't reveal resource existence to unauthorized users.</li>
+          <li><strong>404 Not Found</strong> — Resource doesn't exist at this URL.</li>
+          <li><strong>409 Conflict</strong> — State conflict — e.g. creating a user with a duplicate email.</li>
+          <li><strong>422 Unprocessable Entity</strong> — Valid JSON but semantically invalid (e.g. end date before start date).</li>
+          <li><strong>429 Too Many Requests</strong> — Rate limit exceeded. Include <code>Retry-After</code> header.</li>
+          <li><strong>500 Internal Server Error</strong> — Unexpected server failure.</li>
+        </ul>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At the advanced level, REST design is about consistency at scale, trade-offs against alternatives, and operational concerns like rate limiting, caching headers, and idempotency keys.</p>
+
+        <h3 class="subsection-title">REST vs GraphQL vs gRPC Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>REST</th>
+              <th>GraphQL</th>
+              <th>gRPC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Over-fetching</strong></td>
+              <td class="bad">Common — fixed response shapes return unused fields</td>
+              <td class="good">Eliminated — client requests exact fields</td>
+              <td class="good">Minimal — typed contract defines exact payload</td>
+            </tr>
+            <tr>
+              <td><strong>Under-fetching</strong></td>
+              <td class="bad">Requires multiple round trips for related resources</td>
+              <td class="good">Single query fetches nested data</td>
+              <td class="good">Single RPC call returns structured data</td>
+            </tr>
+            <tr>
+              <td><strong>Cacheability</strong></td>
+              <td class="good">HTTP cache headers work natively (CDN, browser)</td>
+              <td class="bad">POST-based queries bypass HTTP caching</td>
+              <td class="bad">Not HTTP-cacheable by default</td>
+            </tr>
+            <tr>
+              <td><strong>Tooling &amp; ecosystem</strong></td>
+              <td class="good">Curl, Postman, browsers, OpenAPI — universal</td>
+              <td>Good but less universal</td>
+              <td class="bad">Requires gRPC clients, proto toolchain</td>
+            </tr>
+            <tr>
+              <td><strong>Performance</strong></td>
+              <td>Good (HTTP/1.1 or HTTP/2)</td>
+              <td>Good</td>
+              <td class="good">Excellent — binary Protocol Buffers, HTTP/2</td>
+            </tr>
+            <tr>
+              <td><strong>Learning curve</strong></td>
+              <td class="good">Low — HTTP is universal knowledge</td>
+              <td>Medium — schema, resolvers, N+1 problem</td>
+              <td class="bad">High — proto files, code gen, streaming</td>
+            </tr>
+            <tr>
+              <td><strong>Best for</strong></td>
+              <td class="good">Public APIs, mobile, browser clients</td>
+              <td>Data-heavy UIs, multiple client types</td>
+              <td>Internal microservice-to-microservice calls</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">HTTP Caching Headers</h3>
+        <p>REST's cacheability is a key advantage. Use it correctly:</p>
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http"># Immutable resources (e.g. CDN-hosted versioned assets)
+Cache-Control: public, max-age=31536000, immutable
+
+# Short-lived public resources (product listings)
+Cache-Control: public, max-age=60, s-maxage=300
+
+# Private user data (never cache in shared proxies)
+Cache-Control: private, max-age=0, no-store
+
+# Conditional GET — efficient revalidation
+ETag: "abc123"
+Last-Modified: Wed, 01 Jan 2025 00:00:00 GMT
+
+# Client revalidation
+If-None-Match: "abc123"
+# Server responds 304 Not Modified if unchanged (0 bytes payload)</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Idempotency Keys for Non-Idempotent Operations</h3>
+        <p>POST requests are not idempotent — retrying a failed payment POST could charge a customer twice. Idempotency keys solve this:</p>
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http">POST /v1/payments
+Idempotency-Key: 7a8f3b2e-1c4d-4e6f-a9b0-c2d3e4f5a6b7
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "currency": "usd",
+  "source": "card_abc123"
+}
+
+# Server stores the result keyed by Idempotency-Key.
+# If client retries with the same key within 24h, server
+# returns the original stored response — no double charge.</code></pre>
+        </div>
+
+        <h3 class="subsection-title">HATEOAS — Hypermedia as the Engine of Application State</h3>
+        <p>A fully RESTful API includes links in responses that tell clients what actions are available next. Few APIs implement this fully, but it's the purist definition:</p>
+        <div class="code-wrapper" data-lang="json">
+          <pre><code class="language-json">{
+  "id": 42,
+  "status": "pending",
+  "amount": 5000,
+  "_links": {
+    "self":    { "href": "/orders/42" },
+    "cancel":  { "href": "/orders/42/cancellation", "method": "POST" },
+    "payment": { "href": "/orders/42/payment",      "method": "POST" }
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">When NOT to Use REST</h3>
+        <ul>
+          <li><strong>Real-time bidirectional communication</strong> — REST is request-response. Use WebSockets or Server-Sent Events for live feeds (chat, notifications, price tickers).</li>
+          <li><strong>High-performance internal microservice calls</strong> — gRPC's binary encoding and HTTP/2 multiplexing is significantly faster. REST overhead is measurable at 100K+ req/sec.</li>
+          <li><strong>Complex, nested data fetching in SPAs</strong> — If every page requires 5 REST calls that could be one GraphQL query, the over/under-fetching problem is real.</li>
+          <li><strong>Streaming large payloads</strong> — REST works but gRPC's native streaming is more ergonomic for server-streaming scenarios.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Architect Insight</span>
+          <p>REST is not a binary — it's a spectrum. Most real-world APIs are "REST-ish" rather than fully RESTful (HATEOAS is rarely implemented). That's fine. The practical value is in the predictable URL structure, correct HTTP method usage, meaningful status codes, and statelessness. Chasing full REST compliance often delivers diminishing returns.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, REST API design intersects with governance, breaking change management, security posture, and platform economics.</p>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Expert Considerations</span>
+          <span class="enterprise-card-company">Enterprise REST API Platform</span>
+          <p><strong>API governance at scale:</strong> When you have 200 microservices each exposing REST APIs, inconsistency compounds. Teams use different error formats, different pagination conventions, different versioning schemes. The solution is an API style guide enforced via linting (Spectral + OpenAPI) in CI. Every PR that touches an API spec runs the linter. Violations block merge. GitHub's API style guide is public and used as a reference by many orgs.</p>
+          <p><strong>Breaking vs non-breaking changes:</strong> Adding fields to a response is non-breaking (clients ignore unknown fields). Removing fields, renaming fields, changing types, or changing URL structure are breaking changes requiring a version bump. Deprecation windows of 6–12 months are standard for public APIs. Internal APIs can be shorter — but communicate via Slack/email and give teams a sprint to migrate before removal.</p>
+          <p><strong>Security at the API layer:</strong> REST APIs are the most common attack surface. Every endpoint needs authentication (OAuth 2.0 bearer tokens), authorization (RBAC/ABAC checks), rate limiting (429 with Retry-After), input validation (reject oversized payloads — default to 1MB max), and structured logging of every request with user ID, path, method, latency, and status. OWASP API Security Top 10 is the checklist.</p>
+          <p><strong>Cost model:</strong> REST over HTTP/1.1 means one connection per request at high concurrency. HTTP/2 multiplexing reduces connection overhead. At 1M req/sec, the difference between an optimized REST API (HTTP/2, connection pooling, response compression) and a naive one is 40–60% infrastructure cost. gzip or brotli on JSON responses routinely reduces payload size by 80%, cutting bandwidth bills significantly at scale.</p>
+          <p><strong>Multi-region REST APIs:</strong> Statelessness is a superpower here — any region can serve any request. Route 53 latency-based routing directs clients to the nearest region. Read operations can be served from any replica. Write operations must route to the primary region or use eventual-consistency patterns. The hardest problem is user-created resources: if a user registers in EU-WEST and then calls the US-EAST endpoint before replication completes, they get a 404. Solve with global databases (CockroachDB, Aurora Global), strong routing consistency (always route user X to region Y), or async replication with read-your-writes consistency tokens.</p>
+        </div>
+
+        <h3 class="subsection-title">OpenAPI Specification in Practice</h3>
+        <div class="code-wrapper" data-lang="yaml">
+          <pre><code class="language-yaml">openapi: 3.1.0
+info:
+  title: TicketFlow API
+  version: 1.0.0
+paths:
+  /v1/events/{eventId}/tickets:
+    get:
+      summary: List tickets for an event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        '200':
+          description: Paginated ticket list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      summary: Purchase a ticket
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketPurchaseRequest'
+      responses:
+        '201':
+          description: Ticket purchased
+          headers:
+            Location:
+              schema: { type: string }
+        '409':
+          description: Ticket sold out
+        '422':
+          description: Validation error</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Rate Limiting Design</h3>
+        <div class="code-wrapper" data-lang="http">
+          <pre><code class="language-http"># Standard rate limit headers (IETF draft — widely adopted)
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 4823
+X-RateLimit-Reset: 1735689600
+
+# When exceeded
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1735689600
+
+{
+  "error": "rate_limit_exceeded",
+  "message": "API rate limit of 5000 requests/hour exceeded",
+  "retry_after_seconds": 60
+}</code></pre>
+        </div>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>OpenAPI spec checked into version control and validated in CI (Spectral lint)</li>
+          <li>All endpoints authenticated — no accidental public routes</li>
+          <li>Rate limiting applied at API gateway level (not per-service)</li>
+          <li>Request size limits enforced (default 1MB, media uploads separate)</li>
+          <li>Structured logs include: user_id, path, method, status, latency_ms, request_id</li>
+          <li>Correlation/request IDs propagated across microservices (X-Request-ID header)</li>
+          <li>Deprecation warnings returned in headers for sunset endpoints</li>
+          <li>CORS policy explicitly configured (not wildcard * in production)</li>
+          <li>HTTP/2 enabled on load balancer (reduces connection overhead)</li>
+          <li>Response compression enabled (gzip/brotli — typically 70–80% JSON reduction)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">GitHub REST API — api.github.com</span>
+      <p><strong>Context:</strong> GitHub's REST API has been public since 2009. It serves billions of requests per month across millions of developers, CI/CD pipelines, bots, and integrations. The base URL is <code>https://api.github.com</code>. As of 2024, they're on API version 3 (path-based), and have been carefully maintaining backward compatibility for 15+ years while adding features.</p>
+      <p><strong>Resource design in practice:</strong> GitHub's URLs are textbook REST. Repositories are <code>/repos/{owner}/{repo}</code>. Pull requests are <code>/repos/{owner}/{repo}/pulls/{pull_number}</code>. Commits are <code>/repos/{owner}/{repo}/commits</code>. Every resource is a noun. Every nested resource follows the parent chain. Collections are plural. IDs are in the path.</p>
+      <div class="code-wrapper" data-lang="http">
+        <pre><code class="language-http"># Get a repository
+GET https://api.github.com/repos/octocat/Hello-World
+Authorization: Bearer ghp_xxxxxxxxxxxx
+
+# List open pull requests with cursor pagination
+GET https://api.github.com/repos/octocat/Hello-World/pulls?state=open&per_page=30&page=2
+
+# Create a new issue
+POST https://api.github.com/repos/octocat/Hello-World/issues
+Content-Type: application/json
+
+{
+  "title": "Found a bug",
+  "body": "I'm having a problem with this.",
+  "labels": ["bug"]
+}
+# Returns 201 Created with Location header
+
+# Update an issue (partial update)
+PATCH https://api.github.com/repos/octocat/Hello-World/issues/1
+{
+  "state": "closed"
+}
+# Returns 200 OK</code></pre>
+      </div>
+      <p><strong>Rate limiting:</strong> GitHub rate limits unauthenticated requests to 60/hour and authenticated requests to 5,000/hour. Enterprise Cloud gets 15,000/hour. Rate limit state is returned in every response via <code>X-RateLimit-*</code> headers. When exceeded, 403 (not 429 — a non-standard choice) with a <code>Retry-After</code> header.</p>
+      <p><strong>Versioning strategy:</strong> GitHub uses a hybrid approach — the URL path has <code>/v3/</code> as an implied convention (the base URL itself is the version), while individual endpoint behavior can be customized via <code>Accept</code> header media types for experimental features: <code>Accept: application/vnd.github.v3.full+json</code>.</p>
+      <p><strong>Metrics (2024):</strong> The GitHub API processes over 2 billion requests per day. Average P50 latency is under 100ms. The API surface has over 400 endpoints. Breaking changes require 12-month deprecation windows. They use OpenAPI specs for documentation generation and SDK generation (official SDKs in Python, Go, .NET, Ruby, JS).</p>
+      <p><strong>Lessons learned:</strong> GitHub's original API had inconsistencies they've had to live with for decades because they can't break existing clients. Their blog cites maintaining backward compatibility as the single hardest ongoing cost of running a public API. The lesson: design your URL structure and response shapes carefully up front — changing them later is enormously expensive at scale.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Using GET for Mutations</span>
+      <p><code>GET /deleteUser?id=42</code> or <code>GET /sendEmail?userId=5</code> are dangerous anti-patterns. GET requests are assumed to be safe — browsers prefetch them, CDNs cache them, link crawlers follow them, and caching layers replay them. In 2010, a malicious image tag (<code>&lt;img src="https://example.com/deleteAccount"&gt;</code>) became a widespread CSRF attack vector precisely because GET requests were used for destructive actions. Always use the appropriate HTTP method: DELETE to delete, POST to trigger actions with side effects.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Returning 200 OK for Errors</span>
+      <p>A common mistake is returning <code>200 OK</code> with an error in the body: <code>{"success": false, "error": "User not found"}</code>. This breaks every tool in the HTTP ecosystem — monitoring systems that alert on 5xx rates, load balancers that remove unhealthy backends, retry logic that replays on 5xx, and CDN caching policies that cache 200s but not 4xx/5xx. Use correct status codes: 404 for not found, 400 for validation errors, 500 for server errors. Your monitoring, alerting, and client error handling will all work correctly without custom logic.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">No API Versioning Strategy</span>
+      <p>Launching a public API without versioning is a time bomb. When you need to change a response structure, rename a field, or remove an endpoint, you'll break every client simultaneously. Retrofitting versioning into an existing API is painful — you can't easily add <code>/v2/</code> in the path when existing clients have hardcoded <code>api.example.com/users</code>. Start with versioning from day one (<code>/v1/</code> in the path). When you're ready to introduce breaking changes, add <code>/v2/</code> and give clients a 6-12 month migration window. Deprecate with <code>Sunset</code> and <code>Deprecation</code> response headers so clients can detect and act on the signal automatically.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        REST is an architectural style for building APIs over HTTP using stateless, resource-based interactions where the HTTP method expresses the action (GET/POST/PUT/DELETE) and URL paths identify the resources.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "REST is an architectural style that Roy Fielding defined in 2000, built on top of HTTP. Its core idea is that your API exposes resources — like users, orders, or products — each with a stable URL, and clients interact with those resources using standard HTTP methods: GET to read, POST to create, PUT or PATCH to update, DELETE to remove. The key constraint is statelessness: every request must contain all the information the server needs — no session stored on the server. This makes REST APIs easy to scale horizontally because any server can handle any request. The main trade-off is over-fetching and under-fetching — you get a fixed response shape, which can mean multiple round trips or returning more data than needed. GraphQL solves that for data-heavy clients, and gRPC solves it for internal service-to-service calls where performance is critical. But REST's universal tooling and HTTP cacheability make it the right default for public-facing APIs."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between PUT and PATCH?</li>
+        <li>Which HTTP methods are idempotent and why does it matter?</li>
+        <li>How would you design pagination for a large dataset?</li>
+        <li>When would you choose GraphQL or gRPC over REST?</li>
+        <li>How do you handle API versioning without breaking existing clients?</li>
+        <li>What status code do you return when a user tries to create a duplicate resource?</li>
+        <li>How do you prevent double-charging a customer if a POST request is retried?</li>
+        <li>What does statelessness mean in REST and why is it important?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Confusing 401 and 403 — 401 means "not authenticated" (no valid credentials), 403 means "authenticated but not authorized." They have different client-side responses.</li>
+        <li>Saying PATCH is always idempotent — it's not. <code>PATCH /counter {"operation": "increment"}</code> is not idempotent. A PATCH that sets a field to a fixed value is. The operation defines idempotency, not the method.</li>
+        <li>Designing URLs with verbs — <code>/createUser</code> instead of <code>POST /users</code>. This is the most common REST design mistake in real codebases.</li>
+        <li>Not mentioning caching — REST's HTTP cacheability is a genuine architectural advantage over GraphQL/gRPC. Interviewers notice when candidates miss this.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>REST Strength</th>
+          <th>REST Weakness</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cacheability</strong></td>
+          <td>HTTP caching works natively — CDNs, browsers, proxies all understand GET semantics</td>
+          <td>POST/PUT/DELETE responses are not cacheable without extra headers</td>
+        </tr>
+        <tr>
+          <td><strong>Tooling</strong></td>
+          <td>Curl, Postman, browser DevTools, OpenAPI, API gateways — universal ecosystem</td>
+          <td>No built-in schema enforcement (OpenAPI is additive, not enforced by the protocol)</td>
+        </tr>
+        <tr>
+          <td><strong>Over/Under-fetching</strong></td>
+          <td>Simple for simple use cases — one URL, one resource</td>
+          <td>Fixed response shapes cause N+1 round trips or bloated payloads for complex UIs</td>
+        </tr>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>JSON over HTTP/2 is fast enough for most use cases</td>
+          <td>Verbose text encoding vs gRPC's binary Protocol Buffers — measurable at very high throughput</td>
+        </tr>
+        <tr>
+          <td><strong>Discoverability</strong></td>
+          <td>Predictable URL conventions — developers can guess endpoints</td>
+          <td>HATEOAS (links in responses) is rarely implemented in practice</td>
+        </tr>
+        <tr>
+          <td><strong>Statelessness</strong></td>
+          <td>Enables horizontal scaling without sticky sessions</td>
+          <td>Every request must carry auth token, API version, context — slightly larger payloads</td>
+        </tr>
+        <tr>
+          <td><strong>Versioning</strong></td>
+          <td>URL versioning is explicit and cacheable</td>
+          <td>Multiple API versions are expensive to maintain long-term</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="graphql.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">APIs</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">GraphQL</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Query language for APIs — fetch exactly the data you need.</span>
+      </a>
+      <a href="grpc.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">APIs</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">gRPC</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">High-performance binary RPC protocol for microservices.</span>
+      </a>
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Entry point that handles auth, routing, and rate limiting for APIs.</span>
+      </a>
+      <a href="rate-limiting.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Rate Limiting</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Throttling requests to protect APIs from abuse and overload.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>
