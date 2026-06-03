@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Design Academy — FlowArchitect</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    /* Academy-specific overrides and additions */
+    .concept-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.875rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--bg-secondary);
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+    }
+    .concept-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 12px rgba(59,130,246,0.12);
+      transform: translateY(-2px);
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+    .concept-card-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .concept-card-arrow {
+      color: var(--accent);
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-left: 0.5rem;
+    }
+    .concept-category-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      margin-top: 0.2rem;
+    }
+    .cat-networking  { background: rgba(59,130,246,0.12); color: #2563eb; }
+    .cat-apis        { background: rgba(139,92,246,0.12); color: #7c3aed; }
+    .cat-data        { background: rgba(16,185,129,0.12); color: #059669; }
+    .cat-security    { background: rgba(239,68,68,0.12); color: #dc2626; }
+    .cat-messaging   { background: rgba(245,158,11,0.12); color: #d97706; }
+    .cat-reliability { background: rgba(249,115,22,0.12); color: #ea580c; }
+    .cat-architecture{ background: rgba(99,102,241,0.12); color: #4f46e5; }
+
+    html.dark .cat-networking  { background: rgba(59,130,246,0.18); color: #93c5fd; }
+    html.dark .cat-apis        { background: rgba(139,92,246,0.18); color: #c4b5fd; }
+    html.dark .cat-data        { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+    html.dark .cat-security    { background: rgba(239,68,68,0.18); color: #fca5a5; }
+    html.dark .cat-messaging   { background: rgba(245,158,11,0.18); color: #fde68a; }
+    html.dark .cat-reliability { background: rgba(249,115,22,0.18); color: #fdba74; }
+    html.dark .cat-architecture{ background: rgba(99,102,241,0.18); color: #a5b4fc; }
+
+    .category-heading {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .level-card-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .level-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .level-card-question {
+      font-size: 0.8125rem;
+      font-style: italic;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .level-card-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .step-card {
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      position: relative;
+    }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 9999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+    }
+    .step-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.375rem;
+    }
+    .step-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(59,130,246,0.12);
+      color: var(--accent);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      padding: 0.35rem 1rem;
+      border-radius: 9999px;
+      letter-spacing: 0.04em;
+      margin-bottom: 1.25rem;
+      border: 1px solid rgba(59,130,246,0.25);
+    }
+
+    .cta-secondary {
+      display: inline-block;
+      background: transparent;
+      color: var(--accent);
+      padding: 0.875rem 2rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      border: 2px solid var(--accent);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+    }
+    .cta-secondary:hover {
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+
+    .academy-footer {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: 4rem;
+    }
+
+    .content-wrapper {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .section-block {
+      padding: 3rem 1.5rem;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .section-heading {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin: 0 0 0.5rem;
+      line-height: 1.2;
+    }
+    .section-subheading {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      line-height: 1.6;
+      margin: 0 0 2rem;
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-title">Networking</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/load-balancer.html"><span class="nav-item-title">Load Balancer</span></a>
+        <a class="nav-item" href="concepts/api-gateway.html"><span class="nav-item-title">API Gateway</span></a>
+        <a class="nav-item" href="concepts/cdn.html"><span class="nav-item-title">CDN</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">APIs</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/rest.html"><span class="nav-item-title">REST</span></a>
+        <a class="nav-item" href="concepts/graphql.html"><span class="nav-item-title">GraphQL</span></a>
+        <a class="nav-item" href="concepts/grpc.html"><span class="nav-item-title">gRPC</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Data</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/caching.html"><span class="nav-item-title">Caching</span></a>
+        <a class="nav-item" href="concepts/databases.html"><span class="nav-item-title">Databases</span></a>
+        <a class="nav-item" href="concepts/sql-vs-nosql.html"><span class="nav-item-title">SQL vs NoSQL</span></a>
+        <a class="nav-item" href="concepts/indexing.html"><span class="nav-item-title">Indexing</span></a>
+        <a class="nav-item" href="concepts/sharding.html"><span class="nav-item-title">Sharding</span></a>
+        <a class="nav-item" href="concepts/replication.html"><span class="nav-item-title">Replication</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Security</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/authentication.html"><span class="nav-item-title">Authentication</span></a>
+        <a class="nav-item" href="concepts/authorization.html"><span class="nav-item-title">Authorization</span></a>
+        <a class="nav-item" href="concepts/oauth.html"><span class="nav-item-title">OAuth</span></a>
+        <a class="nav-item" href="concepts/jwt.html"><span class="nav-item-title">JWT</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Messaging</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/message-queues.html"><span class="nav-item-title">Message Queues</span></a>
+        <a class="nav-item" href="concepts/pub-sub.html"><span class="nav-item-title">Pub/Sub</span></a>
+        <a class="nav-item" href="concepts/event-driven-architecture.html"><span class="nav-item-title">Event-Driven Architecture</span></a>
+        <a class="nav-item" href="concepts/kafka-streaming.html"><span class="nav-item-title">Kafka Streaming</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Reliability</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/circuit-breaker.html"><span class="nav-item-title">Circuit Breaker</span></a>
+        <a class="nav-item" href="concepts/rate-limiting.html"><span class="nav-item-title">Rate Limiting</span></a>
+        <a class="nav-item" href="concepts/retry-idempotency.html"><span class="nav-item-title">Retry &amp; Idempotency</span></a>
+        <a class="nav-item" href="concepts/cap-theorem.html"><span class="nav-item-title">CAP Theorem</span></a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Architecture</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="concepts/microservices.html"><span class="nav-item-title">Microservices</span></a>
+        <a class="nav-item" href="concepts/monolith.html"><span class="nav-item-title">Monolith</span></a>
+        <a class="nav-item" href="concepts/cqrs.html"><span class="nav-item-title">CQRS</span></a>
+        <a class="nav-item" href="concepts/saga-pattern.html"><span class="nav-item-title">Saga Pattern</span></a>
+      </div>
+    </div>
+  </nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">System Design Academy</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">System Design Academy</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" style="padding:5rem 2rem 4rem;">
+    <div style="max-width:760px;margin:0 auto;">
+      <div class="hero-badge">44 Concepts · 4 Levels Each</div>
+      <h1 class="hero-title">System Design Academy</h1>
+      <p class="hero-subtitle">
+        From beginner mental models to enterprise architecture decisions.
+        Every concept explained the way real engineers think.
+      </p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;">
+        <a href="concepts/load-balancer.html" class="cta-button">Start Learning →</a>
+        <a href="#concepts" class="cta-secondary">View All Concepts</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== STATS BAR ===================== -->
+  <section style="background:var(--bg-secondary);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:2rem 1.5rem;">
+    <div class="content-wrapper" style="padding:0 1.5rem;">
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div class="stat-card">
+          <span class="stat-number">44</span>
+          <span class="stat-label">Concepts</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">4</span>
+          <span class="stat-label">Levels per concept</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">3</span>
+          <span class="stat-label">Real-world stories per concept</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">100%</span>
+          <span class="stat-label">Interview prep integrated</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section id="how-it-works" class="section-block">
+    <div class="content-wrapper">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-heading">Three steps to architecture mastery</h2>
+      <p class="section-subheading">No prerequisites. No fluff. Start with any concept and go as deep as you need.</p>
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <div class="step-title">Pick a Concept</div>
+          <p class="step-desc">Choose from 8 categories — networking, APIs, data, security, messaging, reliability, or architecture. Start anywhere, follow any order.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <div class="step-title">Learn at Your Level</div>
+          <p class="step-desc">Every concept has 4 depth levels. Tab between Beginner, Intermediate, Advanced, and Expert. Re-read the same concept as you grow.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <div class="step-title">Apply It</div>
+          <p class="step-desc">Real company stories, enterprise use cases, hands-on scenarios, and integrated interview Q&amp;A with every concept you learn.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LEARNING PATH ===================== -->
+  <section style="background:var(--bg-secondary);border-top:1px solid var(--border);border-bottom:1px solid var(--border);" class="section-block">
+    <div class="content-wrapper">
+      <div class="section-label">Learning Path</div>
+      <h2 class="section-heading">Four levels of depth per concept</h2>
+      <p class="section-subheading">Every concept is explained four ways — you choose how deep to go.</p>
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+        <div class="level-card">
+          <div class="level-card-icon">🌱</div>
+          <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:0.375rem;">
+            <div class="level-card-title">Beginner</div>
+            <span class="level-badge badge-beginner">Level 1</span>
+          </div>
+          <div class="level-card-question">"What is this thing?"</div>
+          <p class="level-card-desc">Mental models, real-world analogies, and simple diagrams. You'll understand <em>what</em> the concept is before a single line of code.</p>
+        </div>
+
+        <div class="level-card">
+          <div class="level-card-icon">⚙️</div>
+          <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:0.375rem;">
+            <div class="level-card-title">Intermediate</div>
+            <span class="level-badge badge-intermediate">Level 2</span>
+          </div>
+          <div class="level-card-question">"How does it work?"</div>
+          <p class="level-card-desc">Request flows, component interaction, failure scenarios, and configuration. See the mechanics behind the concept in full detail.</p>
+        </div>
+
+        <div class="level-card">
+          <div class="level-card-icon">🔬</div>
+          <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:0.375rem;">
+            <div class="level-card-title">Advanced</div>
+            <span class="level-badge badge-advanced">Level 3</span>
+          </div>
+          <div class="level-card-question">"When and why?"</div>
+          <p class="level-card-desc">Trade-offs, scale considerations, performance implications, and critically — when <em>not</em> to use this pattern. Engineering judgment lives here.</p>
+        </div>
+
+        <div class="level-card">
+          <div class="level-card-icon">🏛️</div>
+          <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:0.375rem;">
+            <div class="level-card-title">Expert</div>
+            <span class="level-badge badge-expert">Level 4</span>
+          </div>
+          <div class="level-card-question">"How do we operate it?"</div>
+          <p class="level-card-desc">Enterprise context, compliance requirements, cost models, multi-region strategies, and the decisions that distinguish architects from engineers.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BROWSE ALL CONCEPTS ===================== -->
+  <section id="concepts" class="section-block">
+    <div class="content-wrapper">
+      <div class="section-label">Browse All Concepts</div>
+      <h2 class="section-heading">44 concepts across 7 categories</h2>
+      <p class="section-subheading">Every concept follows the same structured 4-level format. Pick any starting point.</p>
+
+      <!-- Networking -->
+      <div class="category-heading">Networking</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/load-balancer.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Load Balancer</div>
+            <span class="concept-category-badge cat-networking">Networking</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/api-gateway.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">API Gateway</div>
+            <span class="concept-category-badge cat-networking">Networking</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/cdn.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">CDN</div>
+            <span class="concept-category-badge cat-networking">Networking</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- APIs -->
+      <div class="category-heading">APIs</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/rest.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">REST</div>
+            <span class="concept-category-badge cat-apis">APIs</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/graphql.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">GraphQL</div>
+            <span class="concept-category-badge cat-apis">APIs</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/grpc.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">gRPC</div>
+            <span class="concept-category-badge cat-apis">APIs</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- Data -->
+      <div class="category-heading">Data</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/caching.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Caching</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/databases.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Databases</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/sql-vs-nosql.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">SQL vs NoSQL</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/indexing.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Indexing</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/sharding.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Sharding</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/replication.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Replication</div>
+            <span class="concept-category-badge cat-data">Data</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- Security -->
+      <div class="category-heading">Security</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/authentication.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Authentication</div>
+            <span class="concept-category-badge cat-security">Security</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/authorization.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Authorization</div>
+            <span class="concept-category-badge cat-security">Security</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/oauth.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">OAuth</div>
+            <span class="concept-category-badge cat-security">Security</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/jwt.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">JWT</div>
+            <span class="concept-category-badge cat-security">Security</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- Messaging -->
+      <div class="category-heading">Messaging</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/message-queues.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Message Queues</div>
+            <span class="concept-category-badge cat-messaging">Messaging</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/pub-sub.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Pub/Sub</div>
+            <span class="concept-category-badge cat-messaging">Messaging</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/event-driven-architecture.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Event-Driven Architecture</div>
+            <span class="concept-category-badge cat-messaging">Messaging</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/kafka-streaming.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Kafka Streaming</div>
+            <span class="concept-category-badge cat-messaging">Messaging</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- Reliability -->
+      <div class="category-heading">Reliability</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/circuit-breaker.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Circuit Breaker</div>
+            <span class="concept-category-badge cat-reliability">Reliability</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/rate-limiting.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Rate Limiting</div>
+            <span class="concept-category-badge cat-reliability">Reliability</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/retry-idempotency.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Retry &amp; Idempotency</div>
+            <span class="concept-category-badge cat-reliability">Reliability</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/cap-theorem.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">CAP Theorem</div>
+            <span class="concept-category-badge cat-reliability">Reliability</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+      <!-- Architecture -->
+      <div class="category-heading">Architecture</div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="concepts/microservices.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Microservices</div>
+            <span class="concept-category-badge cat-architecture">Architecture</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/monolith.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Monolith</div>
+            <span class="concept-category-badge cat-architecture">Architecture</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/cqrs.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">CQRS</div>
+            <span class="concept-category-badge cat-architecture">Architecture</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+        <a href="concepts/saga-pattern.html" class="concept-card">
+          <div>
+            <div class="concept-card-title">Saga Pattern</div>
+            <span class="concept-category-badge cat-architecture">Architecture</span>
+          </div>
+          <span class="concept-card-arrow">→</span>
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="academy-footer">
+    System Design Academy &nbsp;·&nbsp; FlowArchitect &nbsp;·&nbsp; All concepts explained 4 ways
+  </footer>
+
+</main>
+
+<script>
+  // Minimal sidebar init for landing page (no full app.js NAV_ITEMS needed)
+  // Theme toggle wiring
+  function applyTheme() {
+    const saved = localStorage.getItem('theme');
+    const isDark = saved === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.querySelectorAll('#theme-toggle').forEach(btn => {
+      btn.textContent = isDark ? '☀️' : '🌙';
+    });
+  }
+  function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    document.querySelectorAll('#theme-toggle').forEach(btn => {
+      btn.textContent = isDark ? '☀️' : '🌙';
+    });
+  }
+  applyTheme();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    applyTheme();
+
+    // Wire theme buttons
+    document.querySelectorAll('#theme-toggle').forEach(btn => {
+      btn.addEventListener('click', toggleTheme);
+    });
+
+    // Keyboard shortcut Alt+T
+    document.addEventListener('keydown', e => {
+      if (e.altKey && e.key === 't') { e.preventDefault(); toggleTheme(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const inp = document.getElementById('search-input');
+        if (inp) inp.focus();
+      }
+    });
+
+    // Mobile hamburger
+    const hamburger = document.getElementById('hamburger');
+    const sidebar   = document.getElementById('sidebar');
+    if (hamburger && sidebar) {
+      let overlay = document.createElement('div');
+      overlay.id = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+
+      hamburger.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = sidebar.classList.toggle('open');
+        overlay.classList.toggle('active', open);
+        document.body.style.overflow = open ? 'hidden' : '';
+      });
+      overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+      });
+    }
+
+    // Sidebar nav group collapse/expand
+    document.querySelectorAll('#sidebar-nav .nav-group-title').forEach(title => {
+      title.style.cursor = 'pointer';
+      title.addEventListener('click', () => {
+        title.parentElement.classList.toggle('collapsed');
+      });
+    });
+
+    // Sidebar search filter
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        document.querySelectorAll('#sidebar-nav .nav-group').forEach(group => {
+          const items = group.querySelectorAll('.nav-item');
+          let anyVisible = false;
+          items.forEach(item => {
+            const text = item.querySelector('.nav-item-title')?.textContent.toLowerCase() || '';
+            const show = !q || text.includes(q);
+            item.style.display = show ? '' : 'none';
+            if (show) anyVisible = true;
+          });
+          group.style.display = anyVisible ? '' : 'none';
+        });
+      });
+    }
+
+    // Progress bar
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;height:3px;width:0%;background:var(--accent,#3b82f6);z-index:9999;transition:width 0.1s linear;pointer-events:none;';
+    document.body.appendChild(bar);
+    window.addEventListener('scroll', () => {
+      const scrollable = document.body.scrollHeight - window.innerHeight;
+      bar.style.width = scrollable > 0 ? Math.min(100, (window.scrollY / scrollable) * 100) + '%' : '100%';
+    }, { passive: true });
+
+    // Back to top
+    const btt = document.createElement('button');
+    btt.id = 'back-to-top';
+    btt.setAttribute('aria-label', 'Back to top');
+    btt.textContent = '↑';
+    document.body.appendChild(btt);
+    window.addEventListener('scroll', () => {
+      btt.classList.toggle('visible', window.scrollY > 400);
+    }, { passive: true });
+    btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  });
+</script>
+</body>
+</html>

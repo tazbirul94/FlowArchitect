@@ -13,7 +13,9 @@
       "Bash(Select-Object -ExpandProperty Lines)",
       "Bash(python3 *)",
       "Bash(awk END{print NR} *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(mkdir -p \"C:/Users/mhaque/Downloads/Myself/Coding/FlowArchitect/system-design-academy-portal/assets\")",
+      "Bash(mkdir -p \"C:/Users/mhaque/Downloads/Myself/Coding/FlowArchitect/system-design-academy-portal/concepts\")"
     ]
   }
 }

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caching — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="caching" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<div id="sidebar-overlay"></div>
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.25rem;font-weight:800;color:white;">System Design Academy</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Concept Library</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-title">Architecture</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="#">CAP Theorem</a>
+        <a class="nav-item" href="#">Eventual Consistency</a>
+        <a class="nav-item" href="#">Microservices</a>
+        <a class="nav-item" href="#">Event-Driven Architecture</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Data</div>
+      <div class="nav-group-items">
+        <a class="nav-item active" href="caching.html">Caching</a>
+        <a class="nav-item" href="databases.html">Databases</a>
+        <a class="nav-item" href="cdn.html">CDN</a>
+        <a class="nav-item" href="#">Replication</a>
+        <a class="nav-item" href="#">Sharding</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Infrastructure</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="load-balancer.html">Load Balancer</a>
+        <a class="nav-item" href="#">DNS</a>
+        <a class="nav-item" href="#">API Gateway</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Reliability</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="#">Circuit Breaker</a>
+        <a class="nav-item" href="#">Rate Limiting</a>
+        <a class="nav-item" href="#">Fault Tolerance</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Messaging</div>
+      <div class="nav-group-items">
+        <a class="nav-item" href="#">Message Queues</a>
+        <a class="nav-item" href="#">Pub/Sub</a>
+        <a class="nav-item" href="#">Kafka</a>
+      </div>
+    </div>
+  </nav>
+</aside>
+
+<div id="mobile-header">
+  <button id="hamburger">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+  <span style="font-weight:700;flex:1;text-align:center;">System Design Academy</span>
+  <button id="theme-toggle" style="font-size:1.25rem;">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb">
+      <a href="../index.html">Academy</a>
+      <span>→</span>
+      <a href="#">Data</a>
+      <span>→</span>
+      Caching
+    </span>
+    <button id="theme-toggle" aria-label="Toggle theme">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="page-content">
+
+    <!-- =====================================================
+         SECTION 1: Page Header
+         ===================================================== -->
+    <div class="page-header">
+      <div class="page-meta">
+        <span class="level-badge badge-all-levels">All Levels</span>
+        <span class="tag">Data</span>
+        <span class="tag">Performance</span>
+        <span class="tag">⏱ ~12 min read</span>
+      </div>
+      <h1 class="page-title">Caching</h1>
+      <p class="page-subtitle">Stores copies of frequently requested data in fast-access storage so repeated requests can be served without hitting the original, slower data source.</p>
+    </div>
+
+    <div class="concept-meta-bar">
+      <div class="concept-meta-item">
+        <span class="meta-label">Category</span>
+        <span class="meta-value">Data</span>
+      </div>
+      <div class="concept-meta-item">
+        <span class="meta-label">Difficulty</span>
+        <span class="meta-value">All Levels</span>
+      </div>
+      <div class="concept-meta-item">
+        <span class="meta-label">Read Time</span>
+        <span class="meta-value">~12 min</span>
+      </div>
+      <div class="concept-meta-item">
+        <span class="meta-label">Related</span>
+        <span class="meta-value">CDN, Databases, Load Balancer</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- =====================================================
+         SECTION 2: Definition & Analogy
+         ===================================================== -->
+    <h2 id="definition" class="section-title">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Real-World Analogy</span>
+      <p>A chef who keeps frequently used ingredients on the counter (the cache) instead of walking to the pantry every time (the database). The counter has limited space, so only the most-used items stay there. When someone asks for salt, the chef grabs it from the counter instantly. For a rare spice, they walk to the pantry.</p>
+    </div>
+
+    <p>Databases are slow relative to memory. A database query might take 50–200 ms. Serving the same result from an in-memory cache takes 1–5 ms. For read-heavy systems where the same data is requested thousands of times per second, caching is the difference between a system that works and one that doesn't. Without caching, popular content causes database overload even when the data hasn't changed.</p>
+
+    <p>At its core, caching is a trade-off: you accept a degree of data staleness in exchange for dramatically lower latency and reduced backend load. Choosing the right TTL, eviction policy, and invalidation strategy turns that trade-off into a controlled, measurable engineering decision rather than a liability.</p>
+
+    <!-- =====================================================
+         SECTION 3: The Story
+         ===================================================== -->
+    <h2 id="story" class="section-title">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Scenario</span>
+      <div class="story-scenario">
+        <strong>Scenario:</strong> A social media platform shows a "Trending Topics" sidebar on every page. The trending topics query runs against a database that aggregates 50 million posts from the last hour. The query itself takes 800 ms and hits a complex aggregation pipeline.
+      </div>
+      <div class="story-problem">
+        <strong>The Problem:</strong> With 5 million daily active users, the trending topics query was executing 2 million times per hour — even though the results changed only once every 5 minutes. The database was spending 60% of its capacity running the same expensive query repeatedly. Response times degraded, other queries slowed, and at peak hours the database became a bottleneck for the entire platform.
+      </div>
+      <div class="story-solution">
+        <strong>The Solution:</strong> The team cached the trending topics result in Redis with a 5-minute TTL (time-to-live). The first request each 5 minutes runs the expensive database query and stores the result in Redis. All subsequent requests within that 5-minute window read from Redis in under 2 ms. A single cache-aside pattern, one Redis cluster, zero application rewrites.
+      </div>
+      <div class="story-outcome">
+        <strong>What Changed:</strong> Database load dropped 94%. Trending topics response time fell from 800 ms to 2 ms. The database recovered capacity for user-generated writes and other complex queries. Peak-hour performance stabilized. Cost: one Redis cluster.
+      </div>
+    </div>
+
+    <!-- =====================================================
+         SECTION 4: Learn at Your Level
+         ===================================================== -->
+    <h2 id="learn-by-level" class="section-title">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner" data-tab="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate" data-tab="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced" data-tab="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert" data-tab="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-panel="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Your computer is fast but your hard drive is slow. That's why your computer uses RAM — it copies your most-used files into fast memory so you don't have to wait for the hard drive every time. That's caching.</p>
+          <p>In web systems, the "hard drive" is a database — it stores everything permanently but takes time to answer questions. The "RAM" is a cache — it stores recent answers in fast memory.</p>
+          <p>When your app gets a question it has answered recently (like "what are the trending topics?"), it checks the cache first. If the answer is there (a <strong>cache hit</strong>), it returns it instantly. If not (a <strong>cache miss</strong>), it goes to the database, gets the answer, stores a copy in the cache, and returns it.</p>
+          <p>The catch: the cache has limited space, and data in it can become stale (outdated) if the original data changes. That's why each cached item has an <strong>expiry time (TTL)</strong> — after which it's removed and the next request goes back to the database for a fresh answer.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Cache hit</strong> — The requested data is found in the cache. Fast. Cheap.</li>
+          <li><strong>Cache miss</strong> — The data is not in the cache. Must go to the database. Slow. Expensive.</li>
+          <li><strong>TTL (Time to Live)</strong> — How long a cached item stays before it expires and is deleted.</li>
+          <li><strong>Eviction</strong> — Removing items from the cache when it's full to make room for new ones.</li>
+        </ul>
+
+        <h3 class="subsection-title">How It Works — Cache Hit &amp; Miss</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart LR
+    A[Client] --> B{Cache}
+    B -->|HIT ⚡ 2ms| A
+    B -->|MISS| C[(Database)]
+    C -->|result| B
+    B -->|store + return| A
+          </div>
+        </div>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Mental Model</span>
+          <p>Think of caching as a "cheat sheet." The first time you solve a hard problem, you write the answer down. The next time someone asks the same question, you read the cheat sheet instead of re-solving it. The cheat sheet eventually goes out of date — that's TTL.</p>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-panel="intermediate">
+        <p>Caches live at multiple layers of a system. Each layer serves a different purpose and has different characteristics.</p>
+
+        <h3 class="subsection-title">Cache Layers</h3>
+        <ul>
+          <li><strong>Client-side cache (browser)</strong> — Stores static assets (JS, CSS, images) locally. HTTP cache headers control TTL. Zero network cost on hit.</li>
+          <li><strong>CDN cache</strong> — Serves static and semi-static content from edge nodes near the user. No origin hit needed. Geographic distribution of cached content.</li>
+          <li><strong>Application cache (Redis / Memcached)</strong> — Stores computed results, session data, or frequently read records in shared memory. The most commonly added cache layer in backend systems.</li>
+          <li><strong>Database query cache</strong> — Database engines can cache query results internally. Less common in practice — often disabled in favor of application-level caching where developers have more control.</li>
+        </ul>
+
+        <h3 class="subsection-title">Cache-Aside Pattern (Most Common)</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+sequenceDiagram
+    participant Client
+    participant App
+    participant Redis
+    participant DB
+
+    Client->>App: GET /trending-topics
+    App->>Redis: GET trending:global
+    Redis-->>App: (nil) — CACHE MISS
+    App->>DB: SELECT ... aggregation
+    DB-->>App: [{topic:"AI", count:1.2M}]
+    App->>Redis: SET trending:global &lt;data&gt; EX 300
+    App-->>Client: 200 [{...}] 800ms
+
+    Note over Client,DB: 30 seconds later — cache warm
+
+    Client->>App: GET /trending-topics
+    App->>Redis: GET trending:global
+    Redis-->>App: [{topic:"AI", count:1.2M}] — HIT
+    App-->>Client: 200 [{...}] 2ms
+          </div>
+        </div>
+
+        <h3 class="subsection-title">Write-Through Pattern</h3>
+        <ol>
+          <li>Application writes new data</li>
+          <li>Write to cache AND database simultaneously</li>
+          <li>Cache always has the latest version</li>
+          <li>Higher write latency, but reads never go stale</li>
+        </ol>
+
+        <h3 class="subsection-title">Redis vs Memcached</h3>
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Redis</th>
+              <th>Memcached</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Data types</td>
+              <td>Strings, hashes, sets, sorted sets, lists</td>
+              <td>Strings only</td>
+            </tr>
+            <tr>
+              <td>Persistence</td>
+              <td>Optional (RDB snapshots, AOF log)</td>
+              <td>None (pure in-memory)</td>
+            </tr>
+            <tr>
+              <td>Clustering</td>
+              <td>Built-in Redis Cluster</td>
+              <td>Client-side sharding</td>
+            </tr>
+            <tr>
+              <td>Use case</td>
+              <td>General purpose, complex data, pub/sub</td>
+              <td>Simple high-throughput key-value</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="common-mistake">
+          <span class="common-mistake-label">Failure Scenario: Cache Stampede</span>
+          <p>Redis cluster loses its primary node. Failover to replica takes 30–60 seconds. During that window, all cache reads miss. Every request hits the database. If the database isn't sized for 100% traffic load (it usually isn't, because the cache absorbs 90%+), it gets overwhelmed. This is a <strong>cache stampede</strong> — the scenario that breaks systems after a cache outage.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-panel="advanced">
+        <p>Caching introduces consistency trade-offs that become harder to manage at scale. The choice of invalidation strategy is the most consequential architectural decision in a caching system.</p>
+
+        <h3 class="subsection-title">Cache Invalidation Strategies</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Pros</th>
+              <th>Cons</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>TTL-based expiry</strong></td>
+              <td class="good">Simple, no coordination needed</td>
+              <td class="bad">Stale data for up to TTL duration</td>
+              <td>Read-heavy, freshness not critical</td>
+            </tr>
+            <tr>
+              <td><strong>Write-through</strong></td>
+              <td class="good">Always consistent with source</td>
+              <td class="bad">Higher write latency, double writes</td>
+              <td>User settings, profile data</td>
+            </tr>
+            <tr>
+              <td><strong>Write-behind (write-back)</strong></td>
+              <td class="good">Fastest writes</td>
+              <td class="bad">Data loss risk on cache failure, complex</td>
+              <td>Write-heavy, async persistence OK</td>
+            </tr>
+            <tr>
+              <td><strong>Event-driven invalidation</strong></td>
+              <td class="good">Precise, low staleness window</td>
+              <td class="bad">High complexity, requires event bus</td>
+              <td>Financial data, inventory, real-time</td>
+            </tr>
+            <tr>
+              <td><strong>Cache-aside (lazy loading)</strong></td>
+              <td class="good">Flexible, only caches what's read</td>
+              <td class="bad">Thundering herd on miss, stale risk</td>
+              <td>General-purpose read optimization</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Eviction Policies</h3>
+        <ul>
+          <li><strong>LRU (Least Recently Used)</strong> — Evicts the key that hasn't been accessed for the longest time. Best for most workloads with temporal locality.</li>
+          <li><strong>LFU (Least Frequently Used)</strong> — Evicts the key accessed the fewest times overall. Better for long-lived hot keys. Requires frequency counters.</li>
+          <li><strong>TTL-based (volatile-ttl)</strong> — Evicts keys with the nearest expiry first. Good when you want to control freshness budget.</li>
+          <li><strong>Random</strong> — Evicts a random key. Surprisingly effective under uniform access patterns, zero overhead.</li>
+          <li><strong>No eviction (noeviction)</strong> — Returns errors when memory is full. Only use for caches where you guarantee bounded key growth.</li>
+        </ul>
+
+        <h3 class="subsection-title">Scale Considerations</h3>
+        <div class="architect-note">
+          <span class="architect-note-label">Architect's Scale Model</span>
+          <p><strong>At 1K req/sec:</strong> Single Redis instance is sufficient. Hit rate optimization matters more than infrastructure. Focus on choosing the right keys and TTLs.</p>
+          <p><strong>At 100K req/sec:</strong> Redis Cluster with 3+ shards. The hot key problem emerges — a single popular key overwhelms one shard. Use key replication (prefix sharding) or local in-process cache as a second layer in front of Redis.</p>
+          <p><strong>At 1M req/sec:</strong> Multi-layer caching is mandatory. Local in-process LRU cache (1,000-item limit per instance) → Redis Cluster → Database. The local cache absorbs 80–90% of reads within each app server, Redis handles cross-instance sharing, and the database handles only misses through both layers.</p>
+        </div>
+
+        <h3 class="subsection-title">When NOT to Use Caching</h3>
+        <ul>
+          <li><strong>Highly dynamic data with strict consistency:</strong> Financial balances, inventory counts. Cache invalidation complexity outweighs benefits. Use read replicas instead.</li>
+          <li><strong>Data unique per request:</strong> User-specific pages where no two requests share a cache key. Hit rate approaches zero — all overhead, no benefit.</li>
+          <li><strong>Write-heavy with rare reads:</strong> Caching adds write complexity for data that's rarely read back. Measure before adding cache.</li>
+        </ul>
+
+        <div class="production-tip">
+          <span class="production-tip-label">Performance Reference</span>
+          <p>Redis get/set latency: ~0.1–0.3 ms on local network. Compare to database query: 5–200 ms. At 100K reads/sec, caching a 50 ms query saves 5,000 seconds of database CPU per second. That translates to significant infrastructure cost reduction at any meaningful scale.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-panel="expert">
+        <p>At enterprise scale, caching is a distributed consistency problem wrapped in a performance optimization. The infrastructure is the easy part; the hard parts are key design, ownership, compliance, and stampede protection.</p>
+
+        <h3 class="subsection-title">Multi-Region Cache Architecture</h3>
+        <p>Each region has its own Redis cluster. Cross-region cache synchronization is generally not worth it — network latency defeats the purpose of a cache. Accept that each region's cache warms independently. On failover or traffic switchover, expect cold-cache performance for 5–15 minutes. Design your application to handle this gracefully: circuit breakers on cache misses, graceful degradation to slower DB reads, and auto-warming scripts triggered on deploy.</p>
+
+        <h3 class="subsection-title">Compliance: GDPR &amp; HIPAA</h3>
+        <ul>
+          <li>Redis is typically not an approved long-term data store. Cache must not store raw PII.</li>
+          <li>Cache user IDs as keys, not names, emails, or health identifiers.</li>
+          <li>PHI in cache requires the same encryption at rest and in transit as the primary database.</li>
+          <li>Cache eviction must be auditable for compliance reporting — document TTL policy per key pattern.</li>
+        </ul>
+
+        <h3 class="subsection-title">Security Posture</h3>
+        <div class="common-mistake">
+          <span class="common-mistake-label">Default Redis is Insecure</span>
+          <p>Redis default config has no authentication and binds to all interfaces. Production Redis must have: AUTH password enabled, TLS in transit, network-level access controls (VPC security groups, no public exposure). Cache poisoning is a real attack vector — never allow user input to directly form cache keys. Always namespace and sanitize keys.</p>
+        </div>
+
+        <h3 class="subsection-title">Migration Path: Adding Cache to an Existing System</h3>
+        <ol>
+          <li>Identify top 5 most expensive, most frequent read queries using the slow query log.</li>
+          <li>Implement cache-aside for those 5 queries. Measure hit rate after 24 hours.</li>
+          <li>If hit rate &gt; 60%, proceed. If &lt; 60%, reconsider TTL or query selection — you may be caching the wrong things.</li>
+          <li>Add monitoring: hit/miss ratio, memory usage, and eviction rate per key prefix.</li>
+          <li>Expand to more queries. Aim for 80%+ overall hit rate.</li>
+          <li>Add stampede protection (mutex lock or probabilistic early expiry) for keys that cause DB spikes on miss.</li>
+        </ol>
+
+        <h3 class="subsection-title">Vendor Evaluation</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Build (custom in-memory)</th>
+              <th>Buy (Redis / Memcached OSS)</th>
+              <th>Managed (ElastiCache / Upstash)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cost</strong></td>
+              <td class="bad">High engineering cost</td>
+              <td class="good">Low infra cost</td>
+              <td>Medium (pay for convenience)</td>
+            </tr>
+            <tr>
+              <td><strong>Control</strong></td>
+              <td class="good">Full</td>
+              <td class="good">Full</td>
+              <td class="bad">Limited config options</td>
+            </tr>
+            <tr>
+              <td><strong>Ops overhead</strong></td>
+              <td class="bad">Very high</td>
+              <td class="bad">High (patching, HA setup)</td>
+              <td class="good">Low (managed failover, scaling)</td>
+            </tr>
+            <tr>
+              <td><strong>Features</strong></td>
+              <td>Custom only</td>
+              <td class="good">Full Redis feature set</td>
+              <td class="good">Full, less admin surface</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Memory usage alerting per service key prefix configured</li>
+          <li>Hit rate monitoring dashboard active — alert if below 70% for 15 minutes</li>
+          <li>Eviction rate alert set (high eviction rate = cache too small)</li>
+          <li>Redis replica lag monitored and alerting in place</li>
+          <li>Cache stampede protection implemented (mutex lock or background refresh)</li>
+          <li>TTLs documented per key pattern in team runbook</li>
+          <li>PII/PHI confirmed not stored in cache (audit date recorded)</li>
+          <li>Redis AUTH enabled and TLS verified in production</li>
+          <li>Key expiry and eviction policy set explicitly (not using Redis default noeviction)</li>
+          <li>Key prefix namespacing enforced per service (no shared namespaces)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         SECTION 5: Enterprise Use Case
+         ===================================================== -->
+    <h2 id="enterprise" class="section-title">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Scenario</span>
+      <span class="enterprise-card-company">High-Scale SaaS Analytics Platform (Salesforce-scale CRM)</span>
+      <p><strong>Context:</strong> A SaaS analytics platform serves dashboards to 500,000 business users. Dashboard data aggregates transactions across hundreds of tables. Each dashboard has 20+ widgets. During business hours, 50,000 users refresh dashboards simultaneously. The underlying data warehouse processes 10 billion rows. Warehouse queries take 3–30 seconds. Users expect dashboard load times under 2 seconds.</p>
+      <p><strong>Multi-layer caching strategy deployed:</strong></p>
+      <p>1. <strong>CDN layer:</strong> Static assets (JS, CSS, images) cached at edge nodes with 30-day TTL via cache-control headers. Zero origin hits for static content.</p>
+      <p>2. <strong>Application cache (Redis Cluster):</strong> Computed dashboard results cached per user, per dashboard, per time range with a 5-minute TTL. Each cache key encodes the user ID, dashboard ID, and query time bucket.</p>
+      <p>3. <strong>Query result cache (materialized views):</strong> Common aggregations materialized at the database level and refreshed every 15 minutes. Reduces query complexity for cache misses.</p>
+      <p>4. <strong>Object cache:</strong> Individual records (company profiles, user settings) cached with 60-second TTL and write-through invalidation on update. Always consistent for profile data.</p>
+      <p>5. <strong>Cache warming:</strong> New deployments pre-warm caches for the top 10,000 dashboards (by access frequency) before cutover. Users on hot dashboards never see a cold-cache latency spike after deploy.</p>
+      <p><strong>Results:</strong> Average dashboard load time fell from 8 seconds to 1.4 seconds. User satisfaction score rose from 3.1 to 4.3 out of 5. Support tickets about slowness dropped from 400/week to 40/week. Database compute cost reduced 35%.</p>
+    </div>
+
+    <!-- =====================================================
+         SECTION 6: Common Mistakes
+         ===================================================== -->
+    <h2 id="mistakes" class="section-title">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 1 — No TTL Set (Unbounded Cache Growth)</span>
+      <p>Caching without expiry fills memory until Redis starts evicting randomly or crashes under memory pressure. Every cache key must have a TTL. If you can't decide on a TTL, start at 60 seconds and tune up from there based on measured staleness tolerance. The default Redis policy <code>noeviction</code> returns errors when full — a cache that errors is worse than no cache.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 2 — Caching Data That Changes on Every Write</span>
+      <p>Caching something that gets invalidated more often than it gets read means you pay the write complexity without getting the read benefit. If your cache is being invalidated on every write and the data is only read once between writes, your hit rate approaches zero. Measure hit rate. If it's under 40%, the caching strategy is wrong — you're adding a write-path cost with no read benefit.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Mistake 3 — Cache Stampede on Expiry</span>
+      <p>At peak load, a popular key expires. Thousands of requests simultaneously miss the cache and hammer the database with the same expensive query. The database spikes, latency climbs, and cascading failures begin. Three protection patterns: <strong>probabilistic early expiry</strong> (start refreshing before TTL expires based on a random probability), <strong>mutex lock</strong> (first miss acquires lock, other requests wait for it to populate, then serve from cache), or <strong>background refresh</strong> (async job refreshes popular keys before they expire, key never goes cold under load).</p>
+    </div>
+
+    <!-- =====================================================
+         SECTION 7: Interview Prep
+         ===================================================== -->
+    <h2 id="interview" class="section-title">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        Caching stores copies of expensive-to-compute data in fast storage so repeated requests can be served without going to the original slow source.
+      </div>
+
+      <h3 class="subsection-title">Structured Answer (2 minutes)</h3>
+      <div class="interview-structured">
+        <p>"Caching stores results of expensive operations in fast memory so future requests for the same data skip the slow path. It solves the read amplification problem — when the same data is requested thousands of times per second but only changes occasionally. For example, Twitter caches tweet content and user timelines in Redis — the tweet exists once in the database but might be read 50 million times."</p>
+        <p>"The main trade-off is freshness vs performance: a long TTL means more cache hits but potentially stale data; a short TTL means fresher data but more database load. The hardest problem is cache invalidation — knowing when to remove stale data — which is why 'there are only two hard problems in computer science: cache invalidation and naming things.'"</p>
+        <p>"In production I always monitor hit rate (target 80%+), eviction rate (signals the cache is too small), and replica lag. For high-traffic keys I implement stampede protection via mutex or probabilistic early expiry."</p>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between cache-aside and write-through?</li>
+        <li>How would you handle a cache stampede?</li>
+        <li>What data should you NOT cache?</li>
+        <li>How does a CDN differ from an application cache?</li>
+        <li>What eviction policies does Redis support, and when would you use each?</li>
+        <li>How do you handle cache consistency in a multi-region deployment?</li>
+        <li>What happens to your system if Redis goes down?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Describing caching only as "making things faster" without addressing invalidation — interviewers always follow up on invalidation</li>
+        <li>Not knowing what data to NOT cache (PII, financial balances, highly dynamic records) — shows lack of production experience</li>
+        <li>Forgetting to discuss failure modes — what happens when the cache is down or cold</li>
+        <li>Treating cache consistency as binary — in practice it's a spectrum controlled by TTL and invalidation strategy</li>
+      </ul>
+
+      <h3 class="subsection-title">Practice Questions</h3>
+      <div class="interview-section">
+        <div class="interview-q">
+          <details>
+            <summary>What is the difference between cache-aside and write-through caching?</summary>
+            <div class="answer-content">
+              <p><strong>Cache-aside (lazy loading):</strong> The application is responsible for reading from the cache and populating it on miss. On a miss: read from DB, write to cache, return data. The cache only contains data that has actually been requested. Risk: cache miss causes a "thundering herd" if many requests miss simultaneously for a popular key.</p>
+              <p><strong>Write-through:</strong> Every write goes to both cache and database simultaneously. The cache is always consistent with the source. Risk: higher write latency (two writes instead of one), and the cache may contain data that's never read (write amplification for write-heavy datasets).</p>
+              <p>Cache-aside is better for read-heavy systems with occasional writes. Write-through is better when consistency is critical and write volume is manageable.</p>
+            </div>
+          </details>
+        </div>
+        <div class="interview-q">
+          <details>
+            <summary>How would you prevent a cache stampede?</summary>
+            <div class="answer-content">
+              <p>A cache stampede (thundering herd) occurs when a popular key expires and many requests simultaneously miss the cache, hammering the database. Three mitigations:</p>
+              <p><strong>1. Mutex / lock:</strong> The first request to miss acquires a distributed lock (e.g., Redis SETNX), queries the DB, and repopulates the cache. All other requests wait for the lock and then read from the newly populated cache. Simple but adds latency for waiting requests.</p>
+              <p><strong>2. Probabilistic early expiry (XFetch):</strong> Before the TTL expires, each request has a small random probability of triggering a background refresh. The probability increases as the key approaches expiry. The cache key is refreshed proactively without ever going cold.</p>
+              <p><strong>3. Background refresh:</strong> A background process (cron or event-driven) refreshes keys asynchronously before they expire. The key is never served stale to the user, and the database is hit by exactly one process per refresh cycle, not by thousands of users simultaneously.</p>
+            </div>
+          </details>
+        </div>
+        <div class="interview-q">
+          <details>
+            <summary>What data should you NOT cache?</summary>
+            <div class="answer-content">
+              <p><strong>Financial balances and inventory counts:</strong> Staleness is unacceptable. If your cache says a user has $500 and the real balance is $0, you have a fraud risk. Use read replicas for read scaling instead of application caches.</p>
+              <p><strong>Highly unique per-request data:</strong> If every request has a different cache key (e.g., personalized recommendations with 10+ parameters), hit rate approaches zero. You pay the overhead of a cache check and store with no benefit.</p>
+              <p><strong>Raw PII or PHI:</strong> Unless your cache is encrypted at rest and in transit with the same controls as your database, personal data (names, emails, health data) should not be stored in Redis. Use IDs as cache keys, look up names from the DB only when needed.</p>
+              <p><strong>Write-heavy data with rare reads:</strong> If data is updated every second but only read once per hour, caching it means you're doing constant cache invalidation with almost no cache hits. The write complexity is pure overhead.</p>
+            </div>
+          </details>
+        </div>
+        <div class="interview-q">
+          <details>
+            <summary>How does Redis Cluster handle hot keys?</summary>
+            <div class="answer-content">
+              <p>In Redis Cluster, each key is assigned to a hash slot, and each shard owns a range of hash slots. A "hot key" — a single key with extremely high read/write volume — routes all its traffic to one shard, creating a hotspot regardless of cluster size.</p>
+              <p><strong>Solutions:</strong></p>
+              <p><strong>1. Key replication with local scatter:</strong> Store the same value under N keys (e.g., <code>trending:global:0</code> through <code>trending:global:9</code>) and randomly select one on read. Each shard handles 1/N of the load.</p>
+              <p><strong>2. Local in-process cache:</strong> Add an in-process LRU cache (e.g., a 1,000-entry map) per application server in front of Redis. Hot keys are served entirely from process memory. Only misses hit Redis. This eliminates the hot-key problem for read-only data entirely.</p>
+              <p><strong>3. Redis read replicas:</strong> Route reads to replicas of the hot shard. Adds read capacity without sharding the key.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         SECTION 8: Trade-Offs Summary
+         ===================================================== -->
+    <h2 id="tradeoffs" class="section-title">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>Read latency 10–100× lower (ms vs sub-ms)</td>
+          <td>Write complexity — invalidation strategy required on every write</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>Simple to add cache-aside to an existing system</td>
+          <td>Hard to get right: invalidation, stampede protection, consistency windows</td>
+        </tr>
+        <tr>
+          <td><strong>Cost</strong></td>
+          <td>Reduces DB compute cost significantly — cache pays for itself at modest scale</td>
+          <td>Redis/Memcached cluster cost + ops overhead + monitoring</td>
+        </tr>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Configurable freshness window per key pattern</td>
+          <td>Potential for stale data reads within TTL window</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Dramatically extends DB read capacity without DB hardware changes</td>
+          <td>Cache itself needs scaling: cluster, hot key mitigation, multi-layer</td>
+        </tr>
+        <tr>
+          <td><strong>Reliability</strong></td>
+          <td>Reduces DB load so DB handles failures more gracefully</td>
+          <td>Cache failure causes DB stampede — system must be designed for cache-down scenarios</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- =====================================================
+         SECTION 9: Related Concepts
+         ===================================================== -->
+    <h2 id="related" class="section-title">Related Concepts</h2>
+
+    <p>Caching does not operate in isolation. Understanding these adjacent concepts gives you the full picture of where caching fits in a distributed system.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;margin:1.5rem 0;">
+      <a href="load-balancer.html" style="display:block;padding:1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:0.375rem;">Load Balancer</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);">Distributes traffic across servers. Caching reduces the load each server must process, changing the required number of instances behind a load balancer.</div>
+        <div style="font-size:0.75rem;color:var(--accent);margin-top:0.5rem;">Infrastructure →</div>
+      </a>
+      <a href="databases.html" style="display:block;padding:1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:0.375rem;">Databases</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);">The authoritative source caching offloads from. Understanding DB read latency characteristics tells you how much a cache is worth in your system.</div>
+        <div style="font-size:0.75rem;color:var(--accent);margin-top:0.5rem;">Data →</div>
+      </a>
+      <a href="cdn.html" style="display:block;padding:1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:0.375rem;">CDN</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);">A geographically distributed cache layer for static and semi-static content. CDN is caching at the network edge; Redis is caching at the application layer.</div>
+        <div style="font-size:0.75rem;color:var(--accent);margin-top:0.5rem;">Infrastructure →</div>
+      </a>
+    </div>
+
+    <div class="page-nav">
+      <a href="load-balancer.html" class="prev-page">← Load Balancer</a>
+      <a href="databases.html" class="next-page">Databases →</a>
+    </div>
+
+  </div>
+</main>
+
+<button id="back-to-top" aria-label="Back to top">↑</button>
+
+<script src="../assets/app.js" defer></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Level tabs
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`.level-tab-panel[data-panel="${tab}"]`).classList.add('active');
+    });
+  });
+
+  // Nav group collapse
+  document.querySelectorAll('.nav-group-title').forEach(title => {
+    title.addEventListener('click', () => {
+      title.closest('.nav-group').classList.toggle('collapsed');
+    });
+  });
+</script>
+</body>
+</html>

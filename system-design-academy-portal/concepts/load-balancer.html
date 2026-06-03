@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Load Balancer — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="load-balancer" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<aside id="sidebar">
+  <div class="logo">
+    <div style="font-size:1.1rem;font-weight:800;color:white;">System Design</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;">Academy by FlowArchitect</div>
+  </div>
+  <input type="text" id="search-input" placeholder="Search concepts... (Ctrl+K)">
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<div id="sidebar-overlay"></div>
+
+<div id="mobile-header">
+  <button id="hamburger">☰</button>
+  <span style="font-weight:700;">Load Balancer</span>
+  <button id="theme-toggle">🌙</button>
+</div>
+
+<main id="main-content">
+  <div class="top-bar">
+    <span class="breadcrumb"><a href="../index.html">Academy</a> <span>→</span> Networking <span>→</span> Load Balancer</span>
+    <button id="theme-toggle">🌙</button>
+  </div>
+  <div class="page-content">
+
+    <!-- ══════════════════════════════════════════════════════
+         PAGE HEADER
+    ══════════════════════════════════════════════════════ -->
+    <div class="page-header">
+      <div class="concept-meta-bar">
+        <div class="concept-meta-item">
+          <span class="meta-label">Category</span>
+          <span class="meta-value">Networking</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value">All Levels</span>
+        </div>
+        <div class="concept-meta-item">
+          <span class="meta-label">Read time</span>
+          <span class="meta-value">~15 min</span>
+        </div>
+      </div>
+      <h1 class="page-title">Load Balancer</h1>
+      <p class="page-subtitle">Distributes incoming network traffic across multiple servers so no single server gets overwhelmed.</p>
+      <div class="page-meta">
+        <span class="level-badge badge-all-levels">All Levels</span>
+        <span class="tag">Networking</span>
+        <span class="tag">Infrastructure</span>
+      </div>
+    </div>
+
+    <div class="toc-placeholder"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         1. DEFINITION & ANALOGY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="definition">Definition &amp; Analogy</h2>
+
+    <div class="analogy-box">
+      <span class="analogy-label">Simple Analogy</span>
+      <p>A maître d' at a restaurant who sees which tables are free and seats each new guest at the least-busy table — so no single waiter is running while others are idle.</p>
+    </div>
+
+    <p>Without a load balancer, all traffic hits one server. When that server gets busy, response times climb. When it crashes, the whole system goes down. A load balancer splits work across many servers and routes around failures automatically. It's the reason a single website can serve millions of users.</p>
+
+    <!-- ══════════════════════════════════════════════════════
+         2. THE STORY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="story">The Story</h2>
+
+    <div class="story-section">
+      <span class="story-label">Real-World Story</span>
+      <div class="story-scenario">
+        A popular e-commerce startup launched a flash sale for Black Friday. Their checkout page ran on a single server. The engineering team was confident — the server handled 5,000 concurrent users in load testing.
+      </div>
+      <div class="story-problem">
+        At 9:00 AM on sale day, 80,000 users hit the site simultaneously. The single server's CPU hit 100% within 30 seconds. Response times went from 200ms to 45 seconds. Checkout started timing out. The server crashed at 9:07 AM. The company lost an estimated $2M in sales in two hours.
+      </div>
+      <div class="story-solution">
+        The team added three more servers and placed a load balancer in front of them. The load balancer received all incoming traffic and distributed requests across all four servers using a round-robin algorithm — sending request 1 to Server A, request 2 to Server B, request 3 to Server C, request 4 to Server D, and then repeating.
+      </div>
+      <div class="story-outcome">
+        The next flash sale handled 120,000 concurrent users without degradation. When Server B had a memory leak and became slow, the load balancer detected it via health checks and stopped sending traffic there. Engineers fixed it without any user impact.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         3. LEARN AT YOUR LEVEL
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="learn">Learn at Your Level</h2>
+
+    <div class="level-tabs">
+      <div class="level-tab-buttons">
+        <button class="level-tab-btn active" data-level="beginner">Beginner</button>
+        <button class="level-tab-btn" data-level="intermediate">Intermediate</button>
+        <button class="level-tab-btn" data-level="advanced">Advanced</button>
+        <button class="level-tab-btn" data-level="expert">Expert</button>
+      </div>
+
+      <!-- BEGINNER PANEL -->
+      <div class="level-tab-panel active" data-level="beginner">
+        <div class="beginner-note">
+          <span class="beginner-note-label">Beginner</span>
+          <p>Imagine a call center with 10 support agents. If all calls went to Agent 1, they'd be overwhelmed while the other nine sit idle. The solution is a receptionist who routes each incoming call to the next available agent.</p>
+          <p>A <strong>load balancer</strong> is that receptionist for web servers. When a user opens your app, their request goes to the load balancer first. The load balancer then decides which server to send that request to, based on which servers are available and how busy they are.</p>
+          <p>Without a load balancer, adding more servers doesn't help — traffic still hammers the one server users know about. The load balancer gives you one address that users hit, while hiding the fact that there are many servers behind it.</p>
+        </div>
+
+        <h3 class="subsection-title">Key Terms</h3>
+        <ul>
+          <li><strong>Server instance</strong> — One copy of your application running on one machine.</li>
+          <li><strong>Round-robin</strong> — Sending requests to servers in turn (1→2→3→1→2→3…) — the simplest routing strategy.</li>
+          <li><strong>Health check</strong> — A periodic ping to each server to verify it's alive and responding correctly.</li>
+        </ul>
+
+        <h3 class="subsection-title">Component Diagram</h3>
+        <div class="mermaid-wrapper">
+          <div class="mermaid">
+flowchart TD
+    A[Internet / Clients] --> B[Load Balancer]
+    B --> C[App Server 1]
+    B --> D[App Server 2]
+    B --> E[App Server 3]
+    C & D & E --> F[(Database)]
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERMEDIATE PANEL -->
+      <div class="level-tab-panel" data-level="intermediate">
+        <p>A load balancer operates at Layer 4 (TCP) or Layer 7 (HTTP) of the network stack. The difference matters for what routing decisions it can make.</p>
+
+        <ul>
+          <li><strong>Layer 4 (TCP/UDP)</strong> — routes based on IP address and port. Fast but blind to request content.</li>
+          <li><strong>Layer 7 (HTTP/HTTPS)</strong> — inspects request headers, URLs, and cookies. Can route <code>/api/video</code> to video servers and <code>/api/payment</code> to payment servers. More flexible and the standard for modern web applications.</li>
+        </ul>
+
+        <h3 class="subsection-title">Request Flow</h3>
+        <ol>
+          <li>Client sends <code>GET /products</code> to <code>api.example.com</code></li>
+          <li>DNS resolves to the load balancer's IP address</li>
+          <li>Load balancer receives the request</li>
+          <li>Load balancer selects a healthy backend server (using routing algorithm)</li>
+          <li>Load balancer forwards the request to the selected server</li>
+          <li>Server processes the request and responds to the load balancer</li>
+          <li>Load balancer returns the response to the client</li>
+        </ol>
+
+        <h3 class="subsection-title">Common Configurations</h3>
+        <ul>
+          <li><strong>Round-Robin</strong> — Each server gets one request in turn. Simple, effective when servers have equal capacity.</li>
+          <li><strong>Least Connections</strong> — New request goes to the server with the fewest active connections. Better for variable request durations.</li>
+          <li><strong>Weighted Round-Robin</strong> — Faster servers get more requests (Server A: weight 3, Server B: weight 1 → A gets 3× the traffic).</li>
+          <li><strong>IP Hash</strong> — Client's IP determines server assignment. Ensures the same user always hits the same server (useful for session state, but creates hot spots).</li>
+        </ul>
+
+        <div class="common-mistake">
+          <span class="common-mistake-label">Failure Scenario</span>
+          <p>Server 2 crashes mid-flight. Its health check fails (5 consecutive checks return no response). Load balancer marks it as unhealthy and removes it from rotation. The 12 requests that were in-flight to Server 2 fail — the clients receive errors. New requests route to Servers 1, 3, and 4. Clients that retry see success.</p>
+          <p><strong>Total impact:</strong> 12 failed requests, ~50ms of elevated latency during rebalancing.</p>
+        </div>
+      </div>
+
+      <!-- ADVANCED PANEL -->
+      <div class="level-tab-panel" data-level="advanced">
+        <p>At scale, load balancers themselves become points of failure and performance bottlenecks.</p>
+
+        <h3 class="subsection-title">High Availability Configurations</h3>
+        <ul>
+          <li><strong>Active-Passive HA</strong> — Two load balancers — one active, one standby. Keepalive messages detect failure. Failover in 1–5 seconds. Simple but the active handles 100% of traffic.</li>
+          <li><strong>Active-Active HA</strong> — Two load balancers sharing traffic. DNS round-robins between them. Better utilization, more complex health check coordination. Used by most high-traffic deployments.</li>
+        </ul>
+
+        <h3 class="subsection-title">Routing Algorithm Trade-Offs</h3>
+        <table class="tradeoff-table">
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Pros</th>
+              <th>Cons</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Round-Robin</strong></td>
+              <td class="good">Simple, even distribution, zero state</td>
+              <td class="bad">Ignores server load; slow servers still get equal share</td>
+              <td>Homogeneous servers, short-lived requests</td>
+            </tr>
+            <tr>
+              <td><strong>Least Connections</strong></td>
+              <td class="good">Adapts to server load; better for variable request durations</td>
+              <td class="bad">Requires connection state tracking in load balancer</td>
+              <td>Long-lived connections, mixed workloads</td>
+            </tr>
+            <tr>
+              <td><strong>IP Hash</strong></td>
+              <td class="good">Stateful routing, same client → same server</td>
+              <td class="bad">Hot spots if popular IP ranges overload one server; breaks with NAT</td>
+              <td>Session-dependent apps (without Redis)</td>
+            </tr>
+            <tr>
+              <td><strong>Weighted</strong></td>
+              <td class="good">Right-sizes traffic to server capacity</td>
+              <td class="bad">Manual configuration; needs updating when adding servers</td>
+              <td>Heterogeneous server fleet</td>
+            </tr>
+            <tr>
+              <td><strong>Random</strong></td>
+              <td class="good">Simple, no state</td>
+              <td class="bad">Less even distribution at low traffic volumes</td>
+              <td>Low-stakes, uniform workloads</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Scale Considerations</h3>
+        <ul>
+          <li><strong>At 1K req/sec</strong> — Single load balancer, any algorithm works, performance is a non-issue.</li>
+          <li><strong>At 100K req/sec</strong> — Single load balancer CPU becomes measurable. SSL termination is the biggest cost. Consider hardware LB or dedicated SSL offloading.</li>
+          <li><strong>At 1M req/sec</strong> — Load balancer itself must be distributed. DNS-based global load balancing (Route 53, Cloudflare). Regional load balancers + DSR (Direct Server Return) to bypass return path through LB.</li>
+        </ul>
+
+        <h3 class="subsection-title">When NOT to Use a Load Balancer</h3>
+        <ul>
+          <li><strong>Single-instance development environments</strong> — Adds latency and complexity for no benefit.</li>
+          <li><strong>Stateful legacy systems that can't be horizontally scaled</strong> — Load balancing without horizontal scalability is theater.</li>
+          <li><strong>Very low traffic applications (&lt; 100 req/min)</strong> — Operational overhead isn't worth it. A single well-monitored server is simpler.</li>
+        </ul>
+
+        <div class="architect-note">
+          <span class="architect-note-label">Performance Notes</span>
+          <p>SSL/TLS termination at the load balancer costs ~0.5ms per request but saves that cost on each backend server. At 100K TLS handshakes/sec, dedicated SSL hardware or offloading to a CDN is materially cheaper.</p>
+        </div>
+      </div>
+
+      <!-- EXPERT PANEL -->
+      <div class="level-tab-panel" data-level="expert">
+        <p>At enterprise scale, load balancing is a multi-layer strategy, not a single component.</p>
+
+        <div class="enterprise-card">
+          <span class="enterprise-card-label">Enterprise Considerations</span>
+          <span class="enterprise-card-company">Multi-Region Production Architecture</span>
+          <p><strong>Multi-region:</strong> Global load balancing uses DNS-based routing (latency-based, geolocation, failover policies). Route 53, Cloudflare, or GCP's Global Load Balancing. Regional load balancers handle intra-region distribution. Traffic must not cross regions unnecessarily — latency and data residency costs.</p>
+          <p><strong>Compliance:</strong> GDPR requires that EU user data not leave the EU. Load balancer routing rules must enforce regional stickiness for EU-origin traffic. Healthcare (HIPAA) has similar data residency requirements for PHI. Load balancer configuration must be auditable — routing rules in version control, changes reviewed.</p>
+          <p><strong>Security posture:</strong> Load balancer is the first line of defense. WAF (Web Application Firewall) integrates at L7. DDoS mitigation (AWS Shield, Cloudflare) at load balancer layer. mTLS between load balancer and backend for zero-trust architecture. Load balancer TLS policy must be up to date (TLS 1.2 minimum, TLS 1.3 preferred).</p>
+          <p><strong>Cost model:</strong> Managed load balancers (AWS ALB: ~$0.008/LCU-hour) vs self-managed NGINX (compute cost + engineering overhead). At 10B monthly requests, ALB ~$800/month. NGINX on equivalent instances ~$300/month compute but $50K+/year engineering overhead. Most teams choose managed.</p>
+          <p><strong>Team ownership:</strong> Network or platform engineering team owns load balancer config. Application teams request routing rules via PR process. Changes are terraformed — no console clicks. Runbook defines who can approve emergency routing changes at 2 AM.</p>
+        </div>
+
+        <h3 class="subsection-title">Migration Path (Zero-Downtime)</h3>
+        <p>Migrating from no load balancer to load balancer without downtime:</p>
+        <ol>
+          <li>Stand up load balancer alongside existing single server</li>
+          <li>Update DNS TTL to 60 seconds (from 3600) — prepare for fast cutover</li>
+          <li>Add original server as backend on load balancer</li>
+          <li>Switch DNS to point to load balancer</li>
+          <li>Monitor for 30 minutes — roll back if error rate increases</li>
+          <li>Add additional server instances behind load balancer</li>
+          <li>Restore DNS TTL to 300–900 seconds</li>
+        </ol>
+
+        <h3 class="subsection-title">Vendor Evaluation</h3>
+        <table class="decision-table">
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Build (NGINX/HAProxy)</th>
+              <th>Buy (SaaS)</th>
+              <th>Managed (Cloud)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cost</strong></td>
+              <td>Low infra, high ops</td>
+              <td>High per-unit</td>
+              <td>Medium, scales predictably</td>
+            </tr>
+            <tr>
+              <td><strong>Control</strong></td>
+              <td>Full</td>
+              <td>Limited</td>
+              <td>Good</td>
+            </tr>
+            <tr>
+              <td><strong>Ops overhead</strong></td>
+              <td>High (patching, HA config)</td>
+              <td>None</td>
+              <td>Low</td>
+            </tr>
+            <tr>
+              <td><strong>Advanced routing</strong></td>
+              <td>Manual config</td>
+              <td>Varies by vendor</td>
+              <td>Layer 7 routing built-in</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="subsection-title">Production Operations Checklist</h3>
+        <ul class="checklist">
+          <li>Health check endpoints verified (not just port check)</li>
+          <li>Alerting on 5xx rate &gt; 1% for 2 minutes</li>
+          <li>Alerting on healthy host count &lt; 2</li>
+          <li>SSL certificate expiry monitoring (alert at 30 days)</li>
+          <li>Load balancer access logs enabled and shipped to SIEM</li>
+          <li>Routing rules in version control (Terraform/Pulumi)</li>
+          <li>Runbook for emergency traffic cutover documented</li>
+          <li>Failover tested in staging environment (quarterly)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         4. ENTERPRISE USE CASE
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="enterprise">Enterprise Use Case</h2>
+
+    <div class="enterprise-card">
+      <span class="enterprise-card-label">Enterprise Use Case</span>
+      <span class="enterprise-card-company">Large-scale E-commerce (Amazon-scale regional setup)</span>
+      <p><strong>Context:</strong> A major retail platform processes 50,000 requests/second on peak days. They run 200+ application server instances across three availability zones. Traffic patterns spike 10x during seasonal events. The system must maintain 99.99% uptime per their SLA.</p>
+      <p><strong>How it's used:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0.75rem;">
+        <li>AWS Application Load Balancer (ALB) sits in front of all application servers</li>
+        <li>Health checks run every 5 seconds per instance — any instance returning 5xx errors for 10 seconds is removed from the rotation</li>
+        <li>Sticky sessions are disabled for stateless application tier (session state lives in Redis)</li>
+        <li>Weighted routing sends 90% of traffic to stable instances, 10% to canary deployment for new releases</li>
+        <li>Layer 7 routing directs <code>/api/checkout</code> traffic to high-memory instances and <code>/api/search</code> to high-CPU instances</li>
+        <li>Auto-scaling policy triggers when average CPU across instances exceeds 70% for 3 minutes — new instances register automatically with the load balancer</li>
+      </ol>
+      <p><strong>Business Impact:</strong> Before — single-region single-ALB setup caused 15-minute outages during us-east-1 incidents (twice in 2024, $8M impact each). After — multi-region active-active with global load balancing via Route 53 + regional ALBs. Regional failure now causes automatic traffic shift. No outage in 18 months. Checkout error rate under 0.01%.</p>
+      <p><strong>Lessons learned:</strong></p>
+      <ol style="color:#cbd5e1;margin-left:1.25rem;margin-bottom:0;">
+        <li><strong>Health checks must match your app's actual health</strong> — checking port 80 is open is not enough. Use <code>/health</code> endpoints that verify DB connectivity and cache reachability. Shallow health checks let broken servers stay in rotation.</li>
+        <li><strong>Session affinity (sticky sessions) creates hot spots</strong> — if one server has 30% of sticky sessions and crashes, those users lose state. Move session state to Redis and eliminate stickiness.</li>
+        <li><strong>Layer 7 routing unlocks cost optimization</strong> — splitting traffic by path lets you right-size instances per workload. Search gets CPU-optimized, checkout gets memory-optimized. Significant cost savings at scale.</li>
+      </ol>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         5. COMMON MISTAKES
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="mistakes">Common Mistakes</h2>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Shallow Health Checks</span>
+      <p>Checking that port 80 responds is not enough. A server can accept connections but be broken — DB connection pool exhausted, downstream service unreachable. Health check endpoints must validate internal dependencies. A server that returns HTTP 200 on <code>/</code> but can't reach the database should be marked unhealthy before it starts failing real requests.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Sticky Sessions Without Externalized Session State</span>
+      <p>IP Hash routing to maintain session state is fragile. Server crashes lose sessions. Scaling up or down breaks affinity. Move session state to Redis or another shared store and eliminate sticky sessions entirely. Stateless application servers are horizontally scalable; stateful ones are not.</p>
+    </div>
+
+    <div class="common-mistake">
+      <span class="common-mistake-label">Single Load Balancer as a Single Point of Failure</span>
+      <p>Engineers add load balancers to eliminate SPOF on app servers, then leave the load balancer itself as a SPOF. Production systems need HA load balancer configurations — Active-Passive at minimum, Active-Active for high-traffic. This is the most common architectural irony in distributed systems.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         6. INTERVIEW PREP
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="interview">Interview Prep</h2>
+
+    <div class="interview-prep">
+      <div class="interview-one-liner">
+        A load balancer distributes incoming traffic across multiple servers to improve performance and prevent any single server from becoming a bottleneck or single point of failure.
+      </div>
+
+      <h3 class="subsection-title">2-Minute Structured Answer</h3>
+      <div class="interview-structured">
+        <blockquote style="border-left:3px solid var(--accent);margin:0;padding-left:1.25rem;color:var(--text-secondary);font-style:italic;line-height:1.75;">
+          "A load balancer sits in front of a pool of servers and distributes incoming requests across them. It solves two problems: scale and availability. Without one, all traffic hits a single server — you can't add more servers without changing where clients point. With a load balancer, you scale horizontally by just adding more servers behind it. For example, Netflix uses load balancers to distribute video streaming requests across thousands of servers, routing based on geography and server health. The main trade-off is between simple algorithms like round-robin — easy but ignores server load — and smarter algorithms like least-connections, which adapt but require tracking state."
+        </blockquote>
+      </div>
+
+      <h3 class="subsection-title">Follow-Up Questions to Expect</h3>
+      <ul class="interview-followups">
+        <li>What's the difference between L4 and L7 load balancing?</li>
+        <li>How does a load balancer know when a server is unhealthy?</li>
+        <li>What happens to in-flight requests when a server goes down?</li>
+        <li>How would you load balance WebSocket connections?</li>
+        <li>What's the difference between a load balancer and an API gateway?</li>
+      </ul>
+
+      <h3 class="subsection-title">Common Interview Mistakes</h3>
+      <ul class="interview-mistakes">
+        <li>Saying "round-robin is always fine" — interviewers expect awareness that algorithm choice depends on workload characteristics.</li>
+        <li>Forgetting that the load balancer itself can be a SPOF — always mention HA configuration in production context.</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         7. TRADE-OFFS SUMMARY
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="tradeoffs">Trade-Offs Summary</h2>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Benefit</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Performance</strong></td>
+          <td>Removes bottleneck, enables horizontal scale</td>
+          <td>Small latency added per hop (~0.5–2ms)</td>
+        </tr>
+        <tr>
+          <td><strong>Complexity</strong></td>
+          <td>One entry point, simple client config</td>
+          <td>Added infra component to manage and monitor</td>
+        </tr>
+        <tr>
+          <td><strong>Cost</strong></td>
+          <td>Cheap relative to larger servers</td>
+          <td>Load balancer + health check infra cost</td>
+        </tr>
+        <tr>
+          <td><strong>Consistency</strong></td>
+          <td>Requests can hit any server (stateless friendly)</td>
+          <td>Stateful apps require session management strategy</td>
+        </tr>
+        <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Linear horizontal scale possible</td>
+          <td>Load balancer itself requires HA at high traffic</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════════════════════════════
+         8. RELATED CONCEPTS
+    ══════════════════════════════════════════════════════ -->
+    <h2 class="section-title" id="related">Related Concepts</h2>
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;">
+      <a href="api-gateway.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Networking</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">API Gateway</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Entry point that handles auth, routing, rate limiting for APIs.</span>
+      </a>
+      <a href="circuit-breaker.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Reliability</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Circuit Breaker</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Stops cascading failures by cutting traffic to failing services.</span>
+      </a>
+      <a href="microservices.html" style="display:flex;flex-direction:column;gap:0.25rem;padding:1rem 1.25rem;border:1px solid var(--border);border-radius:0.5rem;background:var(--bg-secondary);text-decoration:none;min-width:160px;transition:border-color 0.15s,background 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">Architecture</span>
+        <span style="font-size:0.9375rem;font-weight:700;color:var(--text-primary);">Microservices</span>
+        <span style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">Breaking a system into independent deployable services.</span>
+      </a>
+    </div>
+
+    <button id="back-to-top" title="Back to top">↑</button>
+
+  </div>
+</main>
+
+<script>
+  // Level tabs
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+
+  // Mermaid
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+
+  // Back to top
+  const btt = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('visible', window.scrollY > 400);
+  });
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

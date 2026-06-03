@@ -159,3 +159,125 @@ Every page uses this company:
 - 00-roadmap.html uses `assets/style.css` (not `../assets/`) and `assets/app.js` — it lives at portal root level
 - Run pages in parallel batches using sub-agents for speed
 - Do NOT regenerate style.css or app.js
+
+---
+
+# System Design Academy Portal
+
+## What this is
+Second portal — concept-driven system design learning. Static HTML, no build step.
+Path: `system-design-academy-portal/`
+
+## Structure
+```
+system-design-academy-portal/
+  index.html              — landing page (inline script, no app.js)
+  assets/
+    style.css             — all CSS (extends DevArchitect base + new components)
+    app.js                — sidebar, theme, search, level tabs, TOC, nav, etc.
+  concepts/
+    load-balancer.html    ✅ Done
+    caching.html          ✅ Done
+    [others pending]
+```
+
+## New CSS components (academy-specific, in assets/style.css)
+- `.level-tabs` → `.level-tab-buttons` → `.level-tab-btn[data-level]` + `.level-tab-panel[data-level]`
+- `.enterprise-card` + `.enterprise-card-label` + `.enterprise-card-company`
+- `.tradeoff-table` (striped, `.good` / `.bad` cells)
+- `.story-section` + `.story-label` + `.story-scenario/problem/solution/outcome`
+- `.interview-prep` → `.interview-one-liner`, `.interview-structured`, `.interview-followups`, `.interview-mistakes`
+- `.concept-meta-bar` → `.concept-meta-item` → `.meta-label` + `.meta-value`
+- `.diagram-card` + `.diagram-title`
+- `.analogy-box` + `.analogy-label`
+- `.badge-all-levels`
+
+## Concept page template (mandatory structure — 9 sections)
+1. Page header with `.concept-meta-bar` + `.page-title` + `.page-subtitle` + badges
+2. `<h2 id="definition">` — `.analogy-box` + why-it-matters paragraph
+3. `<h2 id="story">` — `.story-section` with 4 sub-divs
+4. `<h2 id="learn">` — `.level-tabs` with 4 panels (beginner/intermediate/advanced/expert)
+5. `<h2 id="enterprise">` — `.enterprise-card`
+6. `<h2 id="mistakes">` — 3× `.common-mistake`
+7. `<h2 id="interview">` — `.interview-prep`
+8. `<h2 id="tradeoffs">` — `.decision-table`
+9. Related concepts flex card row
+
+## Concept page HEAD
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CONCEPT NAME — System Design Academy</title>
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark');</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class'}</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page-id="CONCEPT-ID" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+```
+
+## Concept page script (at bottom, before app.js)
+```html
+<script>
+  document.querySelectorAll('.level-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      const tabs = btn.closest('.level-tabs');
+      tabs.querySelectorAll('.level-tab-btn').forEach(b => b.classList.remove('active'));
+      tabs.querySelectorAll('.level-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      tabs.querySelector(`.level-tab-panel[data-level="${level}"]`).classList.add('active');
+    });
+  });
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+</script>
+<script src="../assets/app.js" defer></script>
+```
+
+## Concept filename map (app.js NAV_ITEMS — must match exactly)
+| Concept | File |
+|---|---|
+| Load Balancer | load-balancer.html |
+| API Gateway | api-gateway.html |
+| CDN | cdn.html |
+| REST | rest.html |
+| GraphQL | graphql.html |
+| gRPC | grpc.html |
+| Caching | caching.html |
+| Databases | databases.html |
+| SQL vs NoSQL | sql-vs-nosql.html |
+| Indexing | indexing.html |
+| Sharding | sharding.html |
+| Replication | replication.html |
+| Authentication | authentication.html |
+| Authorization | authorization.html |
+| OAuth | oauth.html |
+| JWT | jwt.html |
+| Message Queues | message-queues.html |
+| Pub/Sub | pub-sub.html |
+| Event-Driven Architecture | event-driven-architecture.html |
+| Kafka Streaming | kafka-streaming.html |
+| Circuit Breaker | circuit-breaker.html |
+| Rate Limiting | rate-limiting.html |
+| Retry & Idempotency | retry-idempotency.html |
+| CAP Theorem | cap-theorem.html |
+| Microservices | microservices.html |
+| Monolith | monolith.html |
+| CQRS | cqrs.html |
+| Saga Pattern | saga.html |
+
+## Skills (slash commands)
+- `/build-academy` — orchestrator: auto-detect pending concepts → build all → validate
+- `/new-concept <name>` — generate one concept page
+
+## Notes
+- Do NOT regenerate assets/style.css or assets/app.js
+- index.html uses inline script (not app.js) — sidebar is hardcoded HTML
+- Concept pages use `../assets/app.js` defer + inline level-tab script above it
+- All 28 filenames in NAV_ITEMS must match exactly — see table above
